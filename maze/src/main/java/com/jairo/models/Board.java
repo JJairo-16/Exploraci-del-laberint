@@ -249,7 +249,7 @@ public class Board {
         int newY = playerY + dy;
 
         // * Comprova límits i obstacles
-        if (newX < 0 || newX >= BOARD_WIDTH - 1 || newY < 0 || newY >= BOARD_HEIGHT - 1) {
+        if (newX < 0 || newX >= BOARD_WIDTH || newY < 0 || newY >= BOARD_HEIGHT) {
             return false;
         }
 

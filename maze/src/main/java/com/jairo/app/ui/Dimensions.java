@@ -18,14 +18,13 @@ import org.slf4j.LoggerFactory;
 public final class Dimensions {
     private static final Logger log = LoggerFactory.getLogger(Dimensions.class);
 
-    private final double rightPanelWidthRatio;
-    private final double mainPanelWidthRatio;
+    // * Ràtios fixes
+    private static final double LEFT_RATIO = 0.65;
+    private static final double RIGHT_RATIO = 0.35;
 
     private double tileSize = 0;
 
-    public Dimensions(double rightPanelWidthRatio, double mainPanelWidthRatio) {
-        this.rightPanelWidthRatio = rightPanelWidthRatio;
-        this.mainPanelWidthRatio = mainPanelWidthRatio;
+    public Dimensions() {
     }
 
     /**
@@ -33,17 +32,19 @@ public final class Dimensions {
      * basant-se en el HBox arrel (root).
      */
     public void bindPanels(HBox root, VBox rightPanel, StackPane leftPane) {
-        // * Amplada disponible real: amplada del root menys l’espaiat entre columnes
-        // (hi ha 2 fills)
-        var availableWidth = root.widthProperty().subtract(root.spacingProperty());
+        // * Amplada disponible real (tenint en compte l’spacing)
+        var availableWidth = root.widthProperty()
+                .subtract(root.spacingProperty());
 
-        // * Panell dret
-        rightPanel.prefWidthProperty().bind(availableWidth.multiply(rightPanelWidthRatio));
+        // * Panell esquerre (60%)
+        leftPane.prefWidthProperty().bind(availableWidth.multiply(LEFT_RATIO));
+        leftPane.minWidthProperty().bind(leftPane.prefWidthProperty());
+        leftPane.maxWidthProperty().bind(leftPane.prefWidthProperty());
+
+        // * Panell dret (40%)
+        rightPanel.prefWidthProperty().bind(availableWidth.multiply(RIGHT_RATIO));
         rightPanel.minWidthProperty().bind(rightPanel.prefWidthProperty());
         rightPanel.maxWidthProperty().bind(rightPanel.prefWidthProperty());
-
-        // * Panell esquerre
-        leftPane.prefWidthProperty().bind(availableWidth.multiply(mainPanelWidthRatio));
     }
 
     /**
@@ -55,13 +56,15 @@ public final class Dimensions {
             int boardWidth,
             int boardHeight,
             Canvas... canvases) {
-        ChangeListener<Number> listener = (obs, oldV, newV) -> recalcAndResize(leftPane, boardWidth, boardHeight,
-                canvases);
+
+        ChangeListener<Number> listener =
+                (obs, oldV, newV) -> recalcAndResize(
+                        leftPane, boardWidth, boardHeight, canvases);
 
         leftPane.widthProperty().addListener(listener);
         leftPane.heightProperty().addListener(listener);
 
-        // * Primer càlcul (per si ja té mida)
+        // * Primer càlcul
         recalcAndResize(leftPane, boardWidth, boardHeight, canvases);
     }
 
@@ -74,10 +77,11 @@ public final class Dimensions {
             int boardWidth,
             int boardHeight,
             Canvas... canvases) {
+
         double paneW = leftPane.getWidth();
         double paneH = leftPane.getHeight();
 
-        // ? En JavaFX, a l’inici pot retornar 0/1 mentre es munta el layout
+        // ? Durant el layout inicial
         if (paneW <= 1 || paneH <= 1) {
             log.debug(
                     "LeftPane has no valid size yet (width={}, height={})",
@@ -89,10 +93,8 @@ public final class Dimensions {
         double tileY = paneH / boardHeight;
 
         double tile = Math.min(tileX, tileY);
-        if (tile <= 0)
-            return;
+        if (tile <= 0) return;
 
-        // * Ajustar a múltiples sencers del tile per evitar "restes" / buits
         double newWidth = paneW - (paneW % tile);
         double newHeight = paneH - (paneH % tile);
 
@@ -102,8 +104,10 @@ public final class Dimensions {
         }
 
         this.tileSize = tile;
-        
-        log.trace("Canvas resized to {}x{} (pane size: {}x{})", newWidth, newHeight, paneW, paneH);
+
+        log.trace(
+                "Canvas resized to {}x{} (pane size: {}x{})",
+                newWidth, newHeight, paneW, paneH);
     }
 
     public double getTileSize() {

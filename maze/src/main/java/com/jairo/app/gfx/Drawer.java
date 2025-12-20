@@ -9,7 +9,6 @@ import static com.jairo.utils.map_generator.Cells.UNKNOWN;
 import com.jairo.models.Board;
 import com.jairo.services.Simulator;
 
-
 import java.util.List;
 
 import org.slf4j.Logger;
@@ -18,8 +17,10 @@ import org.slf4j.LoggerFactory;
 public class Drawer {
     private static final Logger log = LoggerFactory.getLogger(Drawer.class);
 
-    @FXML private Canvas map;
-    @FXML private Canvas entities;
+    @FXML
+    private Canvas map;
+    @FXML
+    private Canvas entities;
 
     private final ImageStore images;
     private final GraphicsContext mapGC;
@@ -186,7 +187,8 @@ public class Drawer {
         double minY;
         double maxY;
 
-        // * Si el tauler és més petit que el visible, el centrem (evita “buits” estranys)
+        // * Si el tauler és més petit que el visible, el centrem (evita “buits”
+        // estranys)
         if (boardW <= tilesInWidth) {
             minX = maxX = (boardW - tilesInWidth) / 2.0;
         } else {
@@ -214,8 +216,7 @@ public class Drawer {
             log.debug(
                     "Camera CLAMPED cam=({}, {}) limitsX=[{}, {}] limitsY=[{}, {}] tilesIn=({},{}) board=({},{}) zoom={}",
                     cameraX, cameraY, minX, maxX, minY, maxY,
-                    tilesInWidth, tilesInHeight, boardW, boardH, zoom
-            );
+                    tilesInWidth, tilesInHeight, boardW, boardH, zoom);
         } else if (moved) {
             log.trace("Camera moved to ({}, {}) zoom={}", cameraX, cameraY, zoom);
         }
@@ -256,7 +257,8 @@ public class Drawer {
         for (int y = startY; y <= endY; y++) {
             for (int x = startX; x <= endX; x++) {
                 int type = visibility.get(y).get(x);
-                if (!isDiscovered(type)) continue;
+                if (!isDiscovered(type))
+                    continue;
 
                 Sprite sprite = parseType(type);
                 renderCell(images.get(sprite), x, y);
@@ -288,4 +290,20 @@ public class Drawer {
             default -> Sprite.PATH;
         };
     }
+
+    public record CameraState(double cameraX, double cameraY, double zoom) {
+    }
+
+    public CameraState getCameraState() {
+        return new CameraState(cameraX, cameraY, zoom);
+    }
+
+    public void setCameraState(CameraState state) {
+        if (state == null)
+            return;
+        this.cameraX = state.cameraX();
+        this.cameraY = state.cameraY();
+        this.zoom = state.zoom();
+    }
+
 }

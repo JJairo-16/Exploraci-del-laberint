@@ -4,6 +4,7 @@ import javafx.animation.AnimationTimer;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.scene.canvas.Canvas;
+import javafx.scene.control.ChoiceBox;
 import javafx.scene.control.Label;
 import javafx.scene.input.KeyCode;
 import javafx.scene.layout.HBox;
@@ -12,11 +13,14 @@ import javafx.scene.layout.VBox;
 
 import com.jairo.models.Board;
 import com.jairo.services.Simulator;
+import com.jairo.SimulatorLoader;
 import com.jairo.app.gfx.Drawer;
 import com.jairo.app.ui.Dimensions;
 import com.jairo.app.gfx.ImageStore;
 import com.jairo.app.input.InputHandler;
 import com.jairo.utils.KeyBind;
+
+import com.jairo.app.i18n.LanguageManager;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,14 +32,7 @@ public class Controller {
     private static final Logger log = LoggerFactory.getLogger(Controller.class);
 
     private boolean readKeys = true;
-    private static Simulator simulator;
-
-    public static void load(Simulator simulatorInput) {
-        if (simulatorInput == null) {
-            log.error("Controller.load() received null Simulator");
-        }
-        simulator = simulatorInput;
-    }
+    private Simulator simulator;
 
     @FXML
     private HBox root;
@@ -51,11 +48,21 @@ public class Controller {
     @FXML
     private Label bottomText;
 
-    private final Dimensions dims = new Dimensions(0.40, 0.60);
+    @FXML
+    private ChoiceBox<String> languageSelector;
+
+    private final Dimensions dims = new Dimensions();
     private final ImageStore images = ImageStore.getInstance();
 
     private InputHandler input;
     private Drawer drawer;
+
+    private Drawer.CameraState pendingCameraState;
+
+    public void initState(Simulator simulator, Drawer.CameraState cameraState) {
+        this.simulator = simulator;
+        this.pendingCameraState = cameraState;
+    }
 
     // ! --- Tecles mantingudes (estable) ---
     private final Set<KeyCode> pressed = EnumSet.noneOf(KeyCode.class);
@@ -68,9 +75,11 @@ public class Controller {
     private static final long REPEAT_EVERY_NS = 240_000_000L; // ? 0.24s
 
     private boolean isActionHeld(KeyBind.Action action) {
-        if (action == null) return false;
+        if (action == null)
+            return false;
         for (KeyCode k : pressed) {
-            if (KeyBind.getAction(k) == action) return true;
+            if (KeyBind.getAction(k) == action)
+                return true;
         }
         return false;
     }
@@ -78,7 +87,8 @@ public class Controller {
     private KeyBind.Action findAnyHeldMaintainableAction() {
         for (KeyCode k : pressed) {
             KeyBind.Action a = KeyBind.getAction(k);
-            if (KeyBind.actionCanMaintains(a)) return a;
+            if (KeyBind.actionCanMaintains(a))
+                return a;
         }
         return null;
     }
@@ -87,6 +97,9 @@ public class Controller {
     private void initialize() {
         Platform.runLater(() -> {
             log.debug("Controller initialized");
+            if (simulator == null) {
+                simulator = SimulatorLoader.load();
+            }
 
             images.preloadAll();
             log.info("Images preloaded");
@@ -102,14 +115,45 @@ public class Controller {
                     leftPane.getWidth(), leftPane.getHeight(),
                     mapCanvas.getWidth(), mapCanvas.getHeight(),
                     entitiesCanvas.getWidth(), entitiesCanvas.getHeight(),
-                    dims.getTileSize()
-            );
+                    dims.getTileSize());
 
-            input = new InputHandler(simulator, bottomText, () ->
-                readKeys = simulator.getContinue()
-            );
+            if (languageSelector != null) {
+                languageSelector.getItems().setAll(LanguageManager.getDisplayNames());
+                languageSelector.setValue(LanguageManager.getCurrentDisplayName());
+
+                languageSelector.setOnAction(e -> {
+                    String selected = languageSelector.getValue();
+                    String code = LanguageManager.getCodeFromDisplayName(selected);
+
+                    if (code != null
+                            && languageSelector.getScene() != null
+                            && drawer != null
+                            && simulator != null) {
+
+                        Drawer.CameraState cameraState = drawer.getCameraState();
+
+                        LanguageManager.changeLanguageAndReloadMain(
+                                languageSelector.getScene(),
+                                code,
+                                simulator,
+                                cameraState);
+                    }
+                });
+            }
+
+            input = new InputHandler(simulator, bottomText, () -> {
+                readKeys = simulator.getContinue();
+                if (!readKeys && root.getScene() != null) {
+                    shutdownControllerLogic();
+                    LanguageManager.switchToEndView(root.getScene());
+                }
+            });
 
             drawer = new Drawer(mapCanvas, entitiesCanvas, simulator, dims.getTileSize());
+            if (pendingCameraState != null) {
+                drawer.setCameraState(pendingCameraState);
+                pendingCameraState = null;
+            }
             drawer.update();
             simulator.loadDrawer(drawer);
 
@@ -117,14 +161,19 @@ public class Controller {
             moveTimer = new AnimationTimer() {
                 @Override
                 public void handle(long now) {
-                    if (!readKeys) return;
+                    if (!readKeys)
+                        return;
 
-                    if (activeMoveAction == null) return;
-                    if (!isActionHeld(activeMoveAction)) return;
+                    if (activeMoveAction == null)
+                        return;
+                    if (!isActionHeld(activeMoveAction))
+                        return;
 
-                    if (now < nextRepeatNs) return;
+                    if (now < nextRepeatNs)
+                        return;
 
-                    if (!KeyBind.actionCanMaintains(activeMoveAction)) return;
+                    if (!KeyBind.actionCanMaintains(activeMoveAction))
+                        return;
 
                     input.runAction(activeMoveAction);
                     drawer.update();
@@ -149,16 +198,14 @@ public class Controller {
                 // * Mantenibles: es gestionen amb el temporitzador
                 if (KeyBind.actionCanMaintains(action)) {
                     // ! Només al primer press real
-                    if (!wasDown) {
-                        if (activeMoveAction != action) {
-                            activeMoveAction = action;
+                    if (!wasDown && activeMoveAction != action) {
+                        activeMoveAction = action;
 
-                            input.runAction(action);
-                            drawer.update();
+                        input.runAction(action);
+                        drawer.update();
 
-                            long now = System.nanoTime();
-                            nextRepeatNs = now + INITIAL_DELAY_NS;
-                        }
+                        long now = System.nanoTime();
+                        nextRepeatNs = now + INITIAL_DELAY_NS;
                     }
                     return;
                 }
@@ -175,13 +222,14 @@ public class Controller {
 
                 pressed.remove(key);
 
-                // * Si has deixat anar la tecla activa, busca una altra mantenible que continuï premuda
+                // * Si has deixat anar la tecla activa, busca una altra mantenible que continuï
+                // premuda
                 if (action == activeMoveAction && !isActionHeld(activeMoveAction)) {
                     activeMoveAction = findAnyHeldMaintainableAction();
                     nextRepeatNs = System.nanoTime() + INITIAL_DELAY_NS;
                 }
 
-                // *  Mantenibles
+                // * Mantenibles
                 if (KeyBind.actionCanMaintains(action)) {
                     return;
                 }
@@ -192,4 +240,18 @@ public class Controller {
             });
         });
     }
+
+    private void shutdownControllerLogic() {
+        readKeys = false;
+
+        if (moveTimer != null) {
+            moveTimer.stop();
+        }
+
+        if (root != null) {
+            root.setOnKeyPressed(null);
+            root.setOnKeyReleased(null);
+        }
+    }
+
 }

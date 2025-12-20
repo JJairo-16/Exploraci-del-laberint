@@ -16,14 +16,6 @@ public class App {
         Cleaner cls = new Cleaner();
         cls.clear();
 
-        Board board = new Board();
-
-        Player player = new Player(board);
-
-        // System.out.println(board);
-
-        Simulator simulator = new Simulator(player, board);
-        com.jairo.app.Controller.load(simulator);
         com.jairo.app.Main.launchGui();
     }
 }

@@ -5,6 +5,10 @@ import javafx.fxml.FXMLLoader;
 import javafx.scene.Scene;
 import javafx.scene.image.Image;
 import javafx.stage.Stage;
+
+import java.util.Locale;
+import java.util.ResourceBundle;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -15,16 +19,27 @@ public class Main extends Application {
     private static final int WIDTH = 1200;
     private static final int HEIGHT = 590;
 
-    private static final String TITLE = "Exploració del laberint";
     private static final String ICON_ROOT = "/com/jairo/app/img/icon.png";
+    private static final String FXML_TO_LOAD = "end-view.fxml";
 
     @Override
     public void start(Stage stage) throws Exception {
         log.info("Application starting");
 
         try {
-            log.debug("Loading FXML: main-view.fxml");
-            FXMLLoader fxmlLoader = new FXMLLoader(Main.class.getResource("main-view.fxml"));
+
+            log.debug("Loading FXML: {}", FXML_TO_LOAD);
+
+            Locale locale = Locale.getDefault();
+            Locale.setDefault(locale);
+
+            ResourceBundle bundle = ResourceBundle.getBundle("i18n.messages", locale);
+
+            FXMLLoader fxmlLoader = new FXMLLoader(
+                    Main.class.getResource(FXML_TO_LOAD),
+                    bundle
+            );
+
             Scene scene = new Scene(fxmlLoader.load(), WIDTH, HEIGHT);
 
             scene.getStylesheets()
@@ -32,7 +47,7 @@ public class Main extends Application {
             log.debug("Stylesheet loaded: style.css");
 
             stage.setScene(scene);
-            stage.setTitle(TITLE);
+            stage.setTitle(bundle.getString("app.title"));
             stage.setResizable(false);
 
             var iconUrl = Main.class.getResource(ICON_ROOT);
