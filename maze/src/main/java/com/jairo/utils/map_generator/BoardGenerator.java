@@ -1,4 +1,4 @@
-package utils.map_generator;
+package com.jairo.utils.map_generator;
 
 // * Llistes
 import java.util.List;
@@ -6,18 +6,26 @@ import java.util.ArrayList;
 import java.util.ArrayDeque;
 import java.util.Random;
 
-import static utils.map_generator.Cells.*;
+import static com.jairo.utils.map_generator.Cells.*;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Utilitat estàtica per a la generació i inicialització de mapes de joc.
  *
- * <p>Aquesta classe s'encarrega de transformar mapes plans en estructures
+ * <p>
+ * Aquesta classe s'encarrega de transformar mapes plans en estructures
  * bidimensionals, inicialitzar la visibilitat del tauler i calcular
- * posicions vàlides per a la col·locació del jugador.</p>
+ * posicions vàlides per a la col·locació del jugador.
+ * </p>
  *
- * <p>No es permet la creació d'instàncies d'aquesta classe.</p>
+ * <p>
+ * No es permet la creació d'instàncies d'aquesta classe.
+ * </p>
  */
 public class BoardGenerator {
+    private static final Logger log = LoggerFactory.getLogger(BoardGenerator.class);
 
     /**
      * Constructor privat per evitar la instanciació de la classe.
@@ -34,36 +42,48 @@ public class BoardGenerator {
      * Estructura immutable que encapsula els mapes del tauler.
      *
      * @param cells
-     *     Mapa de cel·les reals del tauler.
+     *                   Mapa de cel·les reals del tauler.
      *
      * @param visibility
-     *     Mapa de visibilitat associat al tauler.
+     *                   Mapa de visibilitat associat al tauler.
      */
-    public static record Maps(List<List<Integer>> cells,
-                              List<List<Integer>> visibility) {
+    public static record Maps(List<List<Integer>> cells, List<List<Integer>> visibility) {
     }
 
     /**
      * Genera els mapes bidimensionals del tauler a partir d'un mapa pla.
      *
-     * <p>El mapa pla es recorre seqüencialment i es transforma en una
+     * <p>
+     * El mapa pla es recorre seqüencialment i es transforma en una
      * estructura de cel·les 2D. Paral·lelament, es crea un mapa de
      * visibilitat inicial, on els límits del tauler són visibles i la resta
-     * de cel·les queden ocultes.</p>
+     * de cel·les queden ocultes.
+     * </p>
      *
      * @param flat
-     *     Representació plana del mapa en format de codi numèric.
+     *               Representació plana del mapa en format de codi numèric.
      *
      * @param width
-     *     Amplada del tauler.
+     *               Amplada del tauler.
      *
      * @param height
-     *     Alçada del tauler.
+     *               Alçada del tauler.
      *
      * @return
-     *     Conjunt de mapes generats encapsulats dins {@link Maps}.
+     *         Conjunt de mapes generats encapsulats dins {@link Maps}.
      */
     public static Maps generateEmptyBoard(String flat, int width, int height) {
+        // * Validacions inicials
+        if (flat == null) {
+            log.error("generateEmptyBoard received null flat map");
+            throw new IllegalArgumentException("El mapa està en blanc");
+        }
+
+        int expected = width * height;
+        if (flat.length() != expected) {
+            log.error("Invalid flat map length: expected {}, got {}", expected, flat.length());
+            throw new IllegalArgumentException("La mida del mapa no coincideix amb la esperada");
+        }
 
         // * Inicialitzar mapes
         List<List<Integer>> cells = new ArrayList<>(height);
@@ -99,10 +119,10 @@ public class BoardGenerator {
      * Estructura immutable que representa una posició dins del tauler.
      *
      * @param x
-     *     Coordenada horitzontal.
+     *          Coordenada horitzontal.
      *
      * @param y
-     *     Coordenada vertical.
+     *          Coordenada vertical.
      */
     public static record PlayerPosition(int x, int y) {
     }
@@ -110,28 +130,35 @@ public class BoardGenerator {
     /**
      * Determina una posició inicial vàlida i aleatòria per al jugador.
      *
-     * <p>La posició seleccionada garanteix una distància mínima respecte
+     * <p>
+     * La posició seleccionada garanteix una distància mínima respecte
      * a qualsevol sortida del mapa. Per aconseguir-ho, es realitza una
      * cerca en amplada (BFS) a partir de totes les cel·les de sortida,
-     * calculant la distància mínima a cada cel·la transitable.</p>
+     * calculant la distància mínima a cada cel·la transitable.
+     * </p>
      *
-     * <p>Si no existeix cap cel·la que compleixi la distància mínima
+     * <p>
+     * Si no existeix cap cel·la que compleixi la distància mínima
      * requerida, es selecciona una posició aleatòria entre totes les
-     * cel·les transitables com a mecanisme de seguretat.</p>
+     * cel·les transitables com a mecanisme de seguretat.
+     * </p>
      *
      * @param cells
-     *     Mapa de cel·les del tauler. Cada valor indica el tipus de cel·la
-     *     (per exemple {@code PATH}, {@code WALL} o {@code EXIT_CONNECTOR}).
+     *                            Mapa de cel·les del tauler. Cada valor indica el
+     *                            tipus de cel·la
+     *                            (per exemple {@code PATH}, {@code WALL} o
+     *                            {@code EXIT_CONNECTOR}).
      *
      * @param minDistanceFromExit
-     *     Distància mínima (en passos ortogonals) entre el jugador i la
-     *     sortida més propera.
+     *                            Distància mínima (en passos ortogonals) entre el
+     *                            jugador i la
+     *                            sortida més propera.
      *
      * @return
-     *     Posició inicial del jugador encapsulada dins {@link PlayerPosition}.
+     *         Posició inicial del jugador encapsulada dins {@link PlayerPosition}.
      */
     public static PlayerPosition placePlayer(List<List<Integer>> cells,
-                                             int minDistanceFromExit) {
+            int minDistanceFromExit) {
 
         // * Obtenir dimensions del mapa
         final int WIDTH = cells.get(0).size();
@@ -199,6 +226,10 @@ public class BoardGenerator {
 
         // * Cas de seguretat: cap posició prou llunyana
         if (candidates.isEmpty()) {
+            log.warn(
+                    "No valid start position found with minDistanceFromExit={}; falling back to any PATH cell",
+                    minDistanceFromExit);
+
             for (int y = 0; y < HEIGHT; y++) {
                 List<Integer> row = cells.get(y);
                 for (int x = 0; x < WIDTH; x++) {

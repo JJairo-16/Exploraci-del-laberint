@@ -1,8 +1,7 @@
-package models;
+package com.jairo.models;
 
 import java.util.List;
-
-import utils.map_generator.BoardGenerator;
+import com.jairo.utils.map_generator.BoardGenerator;
 
 /**
  * Representa el jugador dins del joc.
@@ -80,5 +79,13 @@ public class Player {
         }
 
         return false;
+    }
+
+    public int getX() {
+        return x;
+    }
+
+    public int getY() {
+        return y;
     }
 }

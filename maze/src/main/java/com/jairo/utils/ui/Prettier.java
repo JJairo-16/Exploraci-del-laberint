@@ -1,6 +1,6 @@
-package utils.ui;
+package com.jairo.utils.ui;
 
-import static utils.ui.Ansi.*;
+import static com.jairo.utils.ui.Ansi.*;
 
 public class Prettier {
     private Prettier() {}

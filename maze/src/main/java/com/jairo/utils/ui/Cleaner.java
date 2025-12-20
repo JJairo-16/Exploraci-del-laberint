@@ -1,4 +1,4 @@
-package utils.ui;
+package com.jairo.utils.ui;
 
 public class Cleaner {
     private ProcessBuilder cls;

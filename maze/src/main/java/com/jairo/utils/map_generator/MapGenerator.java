@@ -1,13 +1,17 @@
-package utils.map_generator;
+package com.jairo.utils.map_generator;
 
 import java.security.SecureRandom;
 import java.util.ArrayDeque;
 import java.util.Deque;
 
-public final class MapGenerator {
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-    public static final int BOARD_WIDTH = 60;
-    public static final int BOARD_HEIGHT = 20;
+public final class MapGenerator {
+    private static final Logger log = LoggerFactory.getLogger(MapGenerator.class);
+
+    public static final int BOARD_WIDTH = 40;
+    public static final int BOARD_HEIGHT = 25;
 
     // Tipos de celda
     private static final int PATH = 0;
@@ -23,6 +27,7 @@ public final class MapGenerator {
      * Genera un laberinto válido y devuelve el mapa como String (0/1/2)
      */
     public static String generateMap() {
+        log.debug("Generating maze (width={}, height={})", BOARD_WIDTH, BOARD_HEIGHT);
         int[][] g = new int[BOARD_HEIGHT][BOARD_WIDTH];
 
         for (int y = 0; y < BOARD_HEIGHT; y++) {
@@ -34,6 +39,7 @@ public final class MapGenerator {
         int cellW = (BOARD_WIDTH - 1) / 2;
         int cellH = (BOARD_HEIGHT - 1) / 2;
         if (cellW <= 0 || cellH <= 0) {
+            log.warn("Maze generation skipped: invalid cell grid (cellW={}, cellH={})", cellW, cellH);
             return toMapDataString(g);
         }
 
@@ -84,7 +90,8 @@ public final class MapGenerator {
             stack.push(new int[] { nx, ny });
         }
 
-        carveSingleExit(g, rnd);
+        int[] exit = carveSingleExit(g, rnd);
+        log.debug("Exit carved at (x={}, y={})", exit[0], exit[1]);
         ensureSingleConnectedComponent(g);
         braidMaze(g, rnd, 0.08);
 
@@ -118,7 +125,7 @@ public final class MapGenerator {
         }
     }
 
-    private static void carveSingleExit(int[][] g, SecureRandom rnd) {
+    private static int[] carveSingleExit(int[][] g, SecureRandom rnd) {
         int side = rnd.nextInt(4);
 
         switch (side) {
@@ -126,21 +133,25 @@ public final class MapGenerator {
                 int x = randomOdd(rnd, 1, BOARD_WIDTH - 2);
                 g[0][x] = PATH;
                 g[1][x] = EXIT_CONNECTOR;
+                return new int[]{0, x};
             }
             case 1 -> {
                 int x = randomOdd(rnd, 1, BOARD_WIDTH - 2);
                 g[BOARD_HEIGHT - 1][x] = PATH;
                 g[BOARD_HEIGHT - 2][x] = EXIT_CONNECTOR;
+                return new int[]{BOARD_HEIGHT - 1, x};
             }
             case 2 -> {
                 int y = randomOdd(rnd, 1, BOARD_HEIGHT - 2);
                 g[y][0] = PATH;
                 g[y][1] = EXIT_CONNECTOR;
+                return new int[]{y, 0};
             }
             default -> {
                 int y = randomOdd(rnd, 1, BOARD_HEIGHT - 2);
                 g[y][BOARD_WIDTH - 1] = PATH;
                 g[y][BOARD_WIDTH - 2] = EXIT_CONNECTOR;
+                return new int[]{y, BOARD_HEIGHT - 1};
             }
         }
     }
@@ -212,6 +223,9 @@ public final class MapGenerator {
     }
 
     private static void braidMaze(int[][] g, SecureRandom rnd, double p) {
+        log.debug("Braiding maze (p={})", p);
+        int opened = 0;
+
         for (int y = 1; y < BOARD_HEIGHT - 1; y++) {
             for (int x = 1; x < BOARD_WIDTH - 1; x++) {
                 if (g[y][x] != WALL || rnd.nextDouble() > p) {
@@ -223,10 +237,14 @@ public final class MapGenerator {
 
                 if (horizontal || vertical) {
                     g[y][x] = PATH;
+                    opened++;
+                    log.debug("Ensured single connected component");
                 }
 
             }
         }
+        log.debug("Braiding opened {} walls", opened);
+
     }
 
     private static boolean inBounds(int x, int y) {

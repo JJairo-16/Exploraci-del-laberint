@@ -1,4 +1,4 @@
-package utils.map_generator;
+package com.jairo.utils.map_generator;
 
 import java.util.List;
 

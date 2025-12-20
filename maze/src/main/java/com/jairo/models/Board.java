@@ -1,12 +1,15 @@
-package models;
+package com.jairo.models;
 
 import java.util.List;
 import java.util.ArrayList;
 
 // * Generadors
-import utils.map_generator.MapGenerator;
-import utils.map_generator.BoardGenerator;
-import static utils.map_generator.Cells.*;
+import com.jairo.utils.map_generator.MapGenerator;
+import com.jairo.utils.map_generator.BoardGenerator;
+import static com.jairo.utils.map_generator.Cells.*;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Representa el tauler de joc.
@@ -25,9 +28,11 @@ import static utils.map_generator.Cells.*;
  * </p>
  */
 public class Board {
+    private static final Logger log = LoggerFactory.getLogger(Board.class);
+
     // #region Regles
-    private static final int BOARD_WIDTH = 60;
-    private static final int BOARD_HEIGHT = 20;
+    public static final int BOARD_WIDTH = MapGenerator.BOARD_WIDTH;
+    public static final int BOARD_HEIGHT = MapGenerator.BOARD_HEIGHT;
 
     // #endregion
 
@@ -50,15 +55,39 @@ public class Board {
      */
 
     public Board() {
-        // * Genera mapa
-        String flat = MapGenerator.generateMap(); // ? Genera mapa pla
-        BoardGenerator.Maps maps = BoardGenerator.generateEmptyBoard(
-                flat,
-                BOARD_WIDTH,
-                BOARD_HEIGHT); // ? Genera mapa 2D i visibilitat inicial
+        try {
+            // * Genera mapa
+            String flat = MapGenerator.generateMap(); // ? Genera mapa pla
+            BoardGenerator.Maps maps = BoardGenerator.generateEmptyBoard(flat, BOARD_WIDTH, BOARD_HEIGHT); // ? Genera
+                                                                                                           // mapa 2D i
+                                                                                                           // visibilitat
+                                                                                                           // inicial
+            this.cells = maps.cells();
+            this.visibility = maps.visibility();
+        } catch (Exception e) {
+            log.error("Failed to generate board", e);
+            throw e;
+        }
+    }
 
-        this.cells = maps.cells();
-        this.visibility = maps.visibility();
+    /**
+     * Retorna una còpia immutable del mapa de cel·les.
+     *
+     * <p>
+     * La còpia és profunda a nivell de files, de manera que no es pot
+     * modificar l'estat intern del tauler des de l'exterior.
+     * </p>
+     *
+     * @return Còpia immutable del mapa de cel·les.
+     */
+    public List<List<Integer>> getCells(boolean playerPOV) {
+        List<List<Integer>> cellsToRender = playerPOV ? visibility : cells;
+
+        List<List<Integer>> copy = new ArrayList<>(cellsToRender.size());
+        for (List<Integer> row : cellsToRender) {
+            copy.add(List.copyOf(row));
+        }
+        return List.copyOf(copy);
     }
 
     /**
@@ -72,14 +101,10 @@ public class Board {
      * @return Còpia immutable del mapa de cel·les.
      */
     public List<List<Integer>> getCells() {
-        List<List<Integer>> copy = new ArrayList<>(cells.size());
-        for (List<Integer> row : cells) {
-            copy.add(List.copyOf(row));
-        }
-        return List.copyOf(copy);
+        return getCells(false);
     }
 
-    // #region ToString
+    // #region toString
     /**
      * Retorna una representació textual del tauler.
      *
@@ -109,7 +134,7 @@ public class Board {
             List<Integer> row = renderCells.get(y);
 
             for (int x = 0; x < BOARD_WIDTH; x++) {
-                int cell = (playerX == x && playerY == y) ? PLAYER : row.get(x); // ? Marca posició del jugador
+                int cell = needToLoadPlayer(x, y) ? PLAYER : row.get(x); // ? Marca posició del jugador
                 sb.append(SYMBOLS.get(cell));
             }
 
@@ -133,6 +158,20 @@ public class Board {
     public String toString() {
         return toString(true);
     }
+
+    private boolean needToLoadPlayer(int x, int y) {
+        if (y == 0 || y == BOARD_HEIGHT - 1) {
+            return false;
+        }
+
+        if (x == 0 || x == BOARD_WIDTH - 1) {
+            return false;
+        }
+
+        return (playerX == x && playerY == y);
+    }
+
+    // #endregion
 
     // #endregion
 
@@ -163,16 +202,19 @@ public class Board {
     public boolean movePlayer(int x, int y) {
         // * Validacions bàsiques
         if (x < 0 || x >= BOARD_WIDTH || y < 0 || y >= BOARD_HEIGHT) {
+            log.trace("Move rejected: out of bounds (x={}, y={})", x, y);
             return false;
         }
 
         if (cells.get(y).get(x) == WALL) {
+            log.trace("Move rejected: hit wall (x={}, y={})", x, y);
             return false;
         }
 
         // * Mou el jugador
         this.playerX = x;
         this.playerY = y;
+        log.trace("Player moved to (x={}, y={})", x, y);
 
         discoverAroundPlayer();
         return true;

@@ -1,1 +1,13 @@
-TicketManager.java
+# ===== Java / Maven =====
+target/
+*.class
+*.jar
+*.war
+*.ear
+
+# ===== Logs =====
+logs/
+*.log
+
+# ===== IDEs =====
+.vscode/

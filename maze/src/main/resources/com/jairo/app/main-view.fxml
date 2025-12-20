@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.canvas.Canvas?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.StackPane?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.layout.GridPane?>
+
+<HBox fx:id="root"
+    xmlns="http://javafx.com/javafx/21"
+    xmlns:fx="http://javafx.com/fxml/1"
+    fx:controller="com.jairo.app.Controller"
+    spacing="10">
+  <!-- ESQUERRA: contenidor redimensionable -->
+  <StackPane fx:id="leftPane" HBox.hgrow="ALWAYS">
+    <!-- Capa 0: Mapa -->
+    <Canvas fx:id="mapCanvas"/>
+    <!-- Capa 1: Entitats -->
+    <Canvas fx:id="entitiesCanvas"/>
+  </StackPane>
+  <!-- DRETA -->
+  <VBox fx:id="rightPanel" spacing="10">
+    <VBox fx:id="keybinds">
+      <Label fx:id="topText"
+                              text="Controls"
+                              wrapText="true"
+                              styleClass="title-text" />
+      <GridPane hgap="12" vgap="8">
+        <!-- Fila 0 -->
+        <Label text="A" styleClass="key-label" GridPane.columnIndex="0" GridPane.rowIndex="0"/>
+        <Label text="Moure a l'esquerra" GridPane.columnIndex="1" GridPane.rowIndex="0"/>
+        <Label text="D" styleClass="key-label" GridPane.columnIndex="2" GridPane.rowIndex="0"/>
+        <Label text="Moure a la dreta" GridPane.columnIndex="3" GridPane.rowIndex="0"/>
+        <!-- Fila 1 -->
+        <Label text="S" styleClass="key-label" GridPane.columnIndex="0" GridPane.rowIndex="1"/>
+        <Label text="Moure avall" GridPane.columnIndex="1" GridPane.rowIndex="1"/>
+        <Label text="W" styleClass="key-label" GridPane.columnIndex="2" GridPane.rowIndex="1"/>
+        <Label text="Moure amunt" GridPane.columnIndex="3" GridPane.rowIndex="1"/>
+        <!-- Fila 3 -->
+        <Label text="E" styleClass="key-label" GridPane.columnIndex="0" GridPane.rowIndex="2"/>
+        <Label text="Utilitzar o confirmar" GridPane.columnIndex="1" GridPane.rowIndex="2"/>
+        <Label text="R" styleClass="key-label" GridPane.columnIndex="2" GridPane.rowIndex="2"/>
+        <Label text="Alternar confirmació" GridPane.columnIndex="3" GridPane.rowIndex="2"/>
+      </GridPane>
+      <HBox spacing="6" alignment="CENTER_LEFT" fx:id="rulesBox">
+        <Label text="Confirmació:" styleClass="confirm-label"/>
+        <Label fx:id="confirmText" text="Cap" wrapText="true" styleClass="confirm-value" HBox.hgrow="ALWAYS"/>
+      </HBox>
+    </VBox>
+    <Region VBox.vgrow="ALWAYS"/>
+    <Label fx:id="bottomText"
+                text=""
+                wrapText="true"
+                styleClass="footer-text"/>
+  </VBox>
+</HBox>
