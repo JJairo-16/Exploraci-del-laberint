@@ -11,6 +11,24 @@
 
 ---
 
+## Com es juga?
+
+L’objectiu del joc és explorar un laberint fins a trobar la sortida. Al començament, el mapa és desconegut i només es revelen les zones properes al jugador a mesura que es desplaça. Això fa que el jugador hagi d’orientar-se amb la informació limitada disponible, planificar els moviments amb cura i explorar de manera estratègica per no perdre’s i arribar a la sortida.
+
+### Controls
+
+| **Tecla principal** | **Tecla secundària** | **Acció**             |
+| ------------------- | -------------------- | --------------------- |
+| W                   | Fletxa amunt         | Anar cap amunt        |
+| A                   | Fletxa esquerra      | Anar cap a l’esquerra |
+| S                   | Fletxa avall         | Anar cap avall        |
+| D                   | Fletxa dreta         | Anar cap a la dreta   |
+| E                   | Enter                | Utilitzar             |
+| Més                 |                      | Augmentar el zoom     |
+| Menys               |                      | Disminuir el zoom     |
+
+---
+
 ## Dependencies
 
 - **Apache Maven**:

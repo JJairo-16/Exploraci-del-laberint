@@ -98,13 +98,7 @@ public class BoardGenerator {
             for (int x = 0; x < width; x++) {
                 int cell = parseCell(flat.charAt(idx));
                 row.add(cell);
-
-                boolean xSide = (x == 0 || x == width - 1);
-                boolean ySide = (y == 0 || y == height - 1);
-
-                int type = (xSide || ySide) ? WALL : UNKNOWN;
-                visRow.add(type);
-
+                visRow.add(UNKNOWN);
                 idx++;
             }
 

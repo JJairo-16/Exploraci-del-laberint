@@ -89,6 +89,105 @@ h1::after {
     margin: 0.1em 0;
 }
 
+table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin: 0.75em 0 0;
+  overflow: hidden;
+  border-radius: 10px;
+  background: rgba(128,128,128,0.06);
+  border: 1px solid rgba(158, 203, 255, 0.22);
+  box-shadow: 0 10px 24px rgba(0,0,0,0.18);
+}
+
+thead th {
+  text-align: left;
+  padding: 0.85em 1em;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  color: #eaf3ff;
+  background: linear-gradient(90deg, rgba(101,173,255,0.35), rgba(158,203,255,0.18));
+  border-bottom: 1px solid rgba(158, 203, 255, 0.22);
+}
+
+tbody td {
+  padding: 0.75em 1em;
+  border-bottom: 1px solid rgba(190, 203, 220, 0.14);
+  color: #d7e3f2;
+}
+
+tbody tr:nth-child(odd) td {
+  background: rgba(128,128,128,0.05);
+}
+
+tbody tr:hover td {
+  background: rgba(101, 173, 255, 0.12);
+}
+
+tbody tr:last-child td {
+  border-bottom: none;
+}
+
+tbody td:nth-child(1),
+tbody td:nth-child(2) {
+  width: 22%;
+  text-align: center;
+  font-weight: 700;
+  color: #cfe6ff;
+}
+
+tbody td:nth-child(1),
+tbody td:nth-child(2) {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+tbody td:nth-child(1):not(:empty),
+tbody td:nth-child(2):not(:empty) {
+  background-image: linear-gradient(180deg, rgba(101,173,255,0.14), rgba(101,173,255,0.06));
+  border-left: 1px solid rgba(158,203,255,0.14);
+  border-right: 1px solid rgba(158,203,255,0.14);
+}
+
+tbody td:nth-child(3) {
+  width: 56%;
+}
+
+thead th:first-child { border-top-left-radius: 10px; }
+thead th:last-child  { border-top-right-radius: 10px; }
+tbody tr:last-child td:first-child { border-bottom-left-radius: 10px; }
+tbody tr:last-child td:last-child  { border-bottom-right-radius: 10px; }
+
+@media (max-width: 640px) {
+  table, thead, tbody, th, td, tr { display: block; }
+  thead { display: none; }
+
+  table {
+    border-radius: 12px;
+  }
+
+  tbody tr {
+    border-bottom: 1px solid rgba(190, 203, 220, 0.14);
+  }
+
+  tbody td {
+    border: none;
+    padding: 0.7em 0.9em;
+  }
+
+  tbody td:nth-child(1)::before { content: "Tecla principal"; display: block; font-size: 0.8em; color: #becbdc; margin-bottom: 0.25em; }
+  tbody td:nth-child(2)::before { content: "Tecla secundària"; display: block; font-size: 0.8em; color: #becbdc; margin-bottom: 0.25em; }
+  tbody td:nth-child(3)::before { content: "Acció"; display: block; font-size: 0.8em; color: #becbdc; margin-bottom: 0.25em; }
+
+  tbody td:nth-child(1),
+  tbody td:nth-child(2),
+  tbody td:nth-child(3) {
+    width: auto;
+    text-align: left;
+  }
+}
+
+
 </style>
 
 # Exploració del laberint - <span class="author">[Jairo Linares](https://github.com/JJairo-16)</span>
@@ -98,6 +197,62 @@ h1::after {
 ## Què és?
 
 És un joc d’exploració de laberints on el jugador es desplaça per un entorn desconegut, descobrint progressivament el mapa mentre busca la sortida. El sistema de visibilitat limita la informació disponible, fomentant l’orientació, la planificació dels moviments i l’exploració estratègica.
+
+---
+
+## Com es juga?
+
+L’objectiu del joc és explorar un laberint fins a trobar la sortida. Al començament, el mapa és desconegut i només es revelen les zones properes al jugador a mesura que es desplaça. Això fa que el jugador hagi d’orientar-se amb la informació limitada disponible, planificar els moviments amb cura i explorar de manera estratègica per no perdre’s i arribar a la sortida.
+
+### Controls
+
+<table>
+  <thead>
+    <tr>
+      <th>Tecla principal</th>
+      <th>Tecla secundària</th>
+      <th>Acció</th>
+    </tr>
+  </thead>
+
+  <tbody>
+    <tr>
+      <td >W</td>
+      <td>↑</td>
+      <td>Anar cap amunt</td>
+    </tr>
+    <tr>
+      <td>A</td>
+      <td>←</td>
+      <td>Anar cap a l’esquerra</td>
+    </tr>
+    <tr>
+      <td>S</td>
+      <td>↓</td>
+      <td>Anar cap avall</td>
+    </tr>
+    <tr>
+      <td>D</td>
+      <td>→</td>
+      <td>Anar cap a la dreta</td>
+    </tr>
+    <tr>
+      <td>E</td>
+      <td>Enter</td>
+      <td>Utilitzar</td>
+    </tr>
+    <tr>
+      <td>Més</td>
+      <td></td>
+      <td>Augmentar zoom</td>
+    </tr>
+    <tr>
+      <td>Menys</td>
+      <td></td>
+      <td>Disminuir zoom</td>
+    </tr>
+  </tbody>
+</table>
 
 ---
 

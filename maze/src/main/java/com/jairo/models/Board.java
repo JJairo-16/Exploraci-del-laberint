@@ -249,7 +249,7 @@ public class Board {
         int newY = playerY + dy;
 
         // * Comprova límits i obstacles
-        if (newX < 0 || newX >= BOARD_WIDTH || newY < 0 || newY >= BOARD_HEIGHT) {
+        if (newX < 0 || newX >= BOARD_WIDTH - 1 || newY < 0 || newY >= BOARD_HEIGHT - 1) {
             return false;
         }
 
@@ -266,25 +266,19 @@ public class Board {
      * </p>
      */
     private void discoverAroundPlayer() {
-        // * Defineix límits per evitar IndexOutOfBounds
-        // Límits en Y
-        int yStart = playerY == 0 ? 0 : -1;
-        int yEnd = playerY == BOARD_HEIGHT - 1 ? 0 : 1;
-
-        // Límits en X
-        int xStart = playerX == 0 ? 0 : -1;
-        int xEnd = playerX == BOARD_WIDTH - 1 ? 0 : 1;
-
         // * Descobreix cel·les al voltant del jugador
-        for (int dy = yStart; dy <= yEnd; dy++) {
+        for (int dy = -1; dy <= 1; dy++) {
             int ny = playerY + dy;
 
             List<Integer> visibilityRow = visibility.get(ny);
             List<Integer> cellsRow = cells.get(ny);
 
-            for (int dx = xStart; dx <= xEnd; dx++) {
+            for (int dx = -1; dx <= 1; dx++) {
                 int nx = playerX + dx;
-                visibilityRow.set(nx, cellsRow.get(nx));
+
+                if (visibilityRow.get(nx) == UNKNOWN) {
+                    visibilityRow.set(nx, cellsRow.get(nx));
+                }
             }
         }
     }

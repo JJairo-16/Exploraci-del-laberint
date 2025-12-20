@@ -8,6 +8,16 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public final class ImageStore {
+    private static ImageStore instance;
+    private ImageStore() {}
+    public static ImageStore getInstance() {
+        if (instance == null) {
+            instance = new ImageStore();
+        }
+
+        return instance;
+    }
+
     private static final Logger log = LoggerFactory.getLogger(ImageStore.class);
 
     private final EnumMap<Sprite, Image> cache = new EnumMap<>(Sprite.class);
