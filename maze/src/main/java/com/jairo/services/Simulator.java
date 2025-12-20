@@ -4,7 +4,6 @@ import com.jairo.models.Board;
 import com.jairo.models.Player;
 
 import static com.jairo.utils.KeyBind.Action;
-import static com.jairo.utils.map_generator.Cells.EXIT_CONNECTOR;
 import static com.jairo.utils.map_generator.Cells.PATH;
 
 import com.jairo.app.gfx.Drawer;

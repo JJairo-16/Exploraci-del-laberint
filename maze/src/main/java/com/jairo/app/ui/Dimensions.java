@@ -24,9 +24,6 @@ public final class Dimensions {
 
     private double tileSize = 0;
 
-    public Dimensions() {
-    }
-
     /**
      * Aplica els bindings d’amplada al rightPanel i al leftPane
      * basant-se en el HBox arrel (root).

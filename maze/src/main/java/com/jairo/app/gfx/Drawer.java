@@ -4,10 +4,13 @@ import javafx.fxml.FXML;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.image.Image;
+import javafx.scene.paint.Color;
+import javafx.scene.text.Font;
 
 import static com.jairo.utils.map_generator.Cells.UNKNOWN;
 import com.jairo.models.Board;
 import com.jairo.services.Simulator;
+import com.jairo.utils.PositionHud;
 
 import java.util.List;
 
@@ -21,10 +24,13 @@ public class Drawer {
     private Canvas map;
     @FXML
     private Canvas entities;
+    @FXML
+    private Canvas hud;
 
     private final ImageStore images;
     private final GraphicsContext mapGC;
     private final GraphicsContext entitiesGC;
+    private final GraphicsContext hudGC;
 
     private final Board board;
     private final Simulator simulator;
@@ -39,11 +45,14 @@ public class Drawer {
     private static final double ZOOM_POINT = 0.1;
     private double zoom = 1.5;
 
+    private final PositionHud ph;
     private final double tileSize;
 
-    public Drawer(Canvas map, Canvas entities, Simulator simulator, double tileSize) {
+    public Drawer(Canvas map, Canvas entities, Canvas hud, Simulator simulator, double tileSize) {
         this.map = map;
         this.entities = entities;
+        this.hud = hud;
+
         this.simulator = simulator;
         this.board = simulator.getBoardRef();
         this.tileSize = tileSize;
@@ -51,6 +60,9 @@ public class Drawer {
         images = ImageStore.getInstance();
         mapGC = map.getGraphicsContext2D();
         entitiesGC = entities.getGraphicsContext2D();
+        hudGC = hud.getGraphicsContext2D();
+
+        ph = new PositionHud(Board.BOARD_WIDTH, Board.BOARD_HEIGHT);
 
         log.info("Drawer created. canvas=({}x{}), tileSize={}, initialZoom={}",
                 map.getWidth(), map.getHeight(), tileSize, zoom);
@@ -152,6 +164,8 @@ public class Drawer {
         double tilesInWidth = map.getWidth() / scaledTileSize();
         double tilesInHeight = map.getHeight() / scaledTileSize();
 
+        double cameraPadding = Math.max(2.0, tilesInWidth * 0.1);
+
         // * Guardar per a logs
         double beforeX = cameraX;
         double beforeY = cameraY;
@@ -189,18 +203,19 @@ public class Drawer {
 
         // * Si el tauler és més petit que el visible, el centrem (evita “buits”
         // estranys)
+
         if (boardW <= tilesInWidth) {
             minX = maxX = (boardW - tilesInWidth) / 2.0;
         } else {
-            minX = 0.0;
-            maxX = boardW - tilesInWidth;
+            minX = -cameraPadding;
+            maxX = boardW - tilesInWidth + cameraPadding;
         }
 
         if (boardH <= tilesInHeight) {
             minY = maxY = (boardH - tilesInHeight) / 2.0;
         } else {
-            minY = 0.0;
-            maxY = boardH - tilesInHeight;
+            minY = -cameraPadding;
+            maxY = boardH - tilesInHeight + cameraPadding;
         }
 
         double unclampedX = cameraX;
@@ -271,6 +286,23 @@ public class Drawer {
 
         clearEntities();
         renderPlayer();
+
+        renderHud();
+    }
+
+    private void renderHud() {
+        hudGC.clearRect(0, 0, hud.getWidth(), hud.getHeight());
+
+        hudGC.setFill(Color.WHITE);
+        hudGC.setFont(Font.font("Arial", 20));
+
+        Simulator.Position pos = simulator.getPlayerPosition();
+        int x = ph.getX(pos.x());
+        int y = ph.getY(pos.y());
+
+        String position = String.format("x: %d%ny: %d", x, y);
+
+        hudGC.fillText(position, 50, 40);
     }
 
     /**

@@ -20,6 +20,8 @@
     <Canvas fx:id="mapCanvas"/>
     <!-- Capa 1: Entitats -->
     <Canvas fx:id="entitiesCanvas"/>
+    <!-- Capa 2: HUD -->
+    <Canvas fx:id="hudCanvas"/>
   </StackPane>
   <!-- DRETA -->
   <VBox fx:id="rightPanel" spacing="10">

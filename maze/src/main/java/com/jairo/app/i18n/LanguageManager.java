@@ -24,9 +24,9 @@ public final class LanguageManager {
 
     static {
         Map<String, Locale> map = new LinkedHashMap<>();
-        map.put("Català", new Locale("ca"));
-        map.put("Español", new Locale("es"));
-        map.put("English", new Locale("en"));
+        map.put("Català", Locale.of("ca"));
+        map.put("Español", Locale.of("es"));
+        map.put("English", Locale.of("en"));
         DISPLAY_TO_LOCALE = Collections.unmodifiableMap(map);
 
         Map<String, String> reverse = new HashMap<>();
@@ -58,7 +58,7 @@ public final class LanguageManager {
     public static void setLocale(String code) {
         if (code == null)
             return;
-        Locale.setDefault(new Locale(code));
+        Locale.setDefault(Locale.of(code));
     }
 
     public static void switchToStartView(Scene scene) {

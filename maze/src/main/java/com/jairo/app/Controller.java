@@ -38,10 +38,13 @@ public class Controller {
     private HBox root;
     @FXML
     private StackPane leftPane;
+    
     @FXML
     private Canvas mapCanvas;
     @FXML
     private Canvas entitiesCanvas;
+    @FXML
+    private Canvas hudCanvas;
 
     @FXML
     private VBox rightPanel;
@@ -109,12 +112,13 @@ public class Controller {
 
             dims.bindPanels(root, rightPanel, leftPane);
 
-            dims.recalcAndResize(leftPane, Board.BOARD_WIDTH, Board.BOARD_HEIGHT, mapCanvas, entitiesCanvas);
+            dims.recalcAndResize(leftPane, Board.BOARD_WIDTH, Board.BOARD_HEIGHT, mapCanvas, entitiesCanvas, hudCanvas);
             log.debug(
-                    "Layout ready: leftPane={}x{}, mapCanvas={}x{}, entitiesCanvas={}x{}, tileSize={}",
+                    "Layout ready: leftPane={}x{}, mapCanvas={}x{}, entitiesCanvas={}x{}, hudCanvas={}x{}, tileSize={}",
                     leftPane.getWidth(), leftPane.getHeight(),
                     mapCanvas.getWidth(), mapCanvas.getHeight(),
                     entitiesCanvas.getWidth(), entitiesCanvas.getHeight(),
+                    hudCanvas.getWidth(), hudCanvas.getHeight(),
                     dims.getTileSize());
 
             if (languageSelector != null) {
@@ -149,7 +153,7 @@ public class Controller {
                 }
             });
 
-            drawer = new Drawer(mapCanvas, entitiesCanvas, simulator, dims.getTileSize());
+            drawer = new Drawer(mapCanvas, entitiesCanvas, hudCanvas, simulator, dims.getTileSize());
             if (pendingCameraState != null) {
                 drawer.setCameraState(pendingCameraState);
                 pendingCameraState = null;
