@@ -8,6 +8,7 @@ import static com.jairo.utils.map_generator.Cells.EXIT;
 
 import com.jairo.app.audio.Steps;
 import com.jairo.app.gfx.Drawer;
+import com.jairo.app.gfx.player_skins.SkinManager;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,6 +21,12 @@ public class Simulator {
     private Drawer drawer;
 
     private boolean continuity = true;
+
+    private Action currentAction = Action.UP;
+
+    public Action getCurrentAction() {
+        return currentAction;
+    }
 
     public boolean getContinue() {
         return continuity;
@@ -41,6 +48,9 @@ public class Simulator {
     }
 
     public void simulate(Action action) {
+        if (action.isAMovement)
+            currentAction = action;
+
         int dx = switch (action) {
             case LEFT -> -1;
             case RIGHT -> 1;
@@ -55,17 +65,34 @@ public class Simulator {
 
         if (dx != 0 || dy != 0) {
             boolean moved = simulatePlayerMovement(dx, dy);
-            if (moved) Steps.playRandomStep();
+            if (moved)
+                Steps.playRandomStep();
             log.debug("Move dx={}, dy={} -> moved={}, pos=({}, {})",
                     dx, dy, moved, player.getX(), player.getY());
+            return;
         }
 
-        if (action == Action.ZOOM_IN) {
-            drawer.zoomIn();
-            log.info("Zoom in");
-        } else if (action == Action.ZOOM_OUT) {
-            drawer.zoomOut();
-            log.info("Zoom out");
+        switch (action) {
+            case Action.ZOOM_IN:
+                drawer.zoomIn();
+                log.info("Zoom in");
+                break;
+
+            case Action.ZOOM_OUT:
+                drawer.zoomOut();
+                log.info("Zoom out");
+                break;
+
+            case Action.NEXT_SKIN:
+                SkinManager.get().next();
+                break;
+            
+            case Action.PREVIOUS_SKIN:
+                SkinManager.get().previous();
+                break;
+
+            default:
+                break;
         }
     }
 

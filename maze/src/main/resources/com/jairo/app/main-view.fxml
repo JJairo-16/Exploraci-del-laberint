@@ -27,27 +27,36 @@
   <VBox fx:id="rightPanel" spacing="10">
     <VBox fx:id="keybinds">
       <Label fx:id="topText"
-                    text="%controls.title"
-                    wrapText="true"
-                    styleClass="title-text" />
+                          text="%controls.title"
+                          wrapText="true"
+                          styleClass="title-text" />
       <GridPane hgap="12" vgap="8">
+        <!-- Fila 1 -->
         <Label text="A" styleClass="key-label" GridPane.columnIndex="0" GridPane.rowIndex="0"/>
         <Label text="%controls.left" styleClass="key-description" GridPane.columnIndex="1" GridPane.rowIndex="0"/>
         <Label text="D" styleClass="key-label" GridPane.columnIndex="2" GridPane.rowIndex="0"/>
         <Label text="%controls.right" styleClass="key-description" GridPane.columnIndex="3" GridPane.rowIndex="0"/>
+        <!-- Fila 2 -->
         <Label text="S" styleClass="key-label" GridPane.columnIndex="0" GridPane.rowIndex="1"/>
         <Label text="%controls.down" styleClass="key-description" GridPane.columnIndex="1" GridPane.rowIndex="1"/>
         <Label text="W" styleClass="key-label" GridPane.columnIndex="2" GridPane.rowIndex="1"/>
         <Label text="%controls.up" styleClass="key-description" GridPane.columnIndex="3" GridPane.rowIndex="1"/>
+        <!-- Fila 3 -->
         <Label text="E" styleClass="key-label" GridPane.columnIndex="0" GridPane.rowIndex="2"/>
         <Label text="%controls.use" styleClass="key-description" GridPane.columnIndex="1" GridPane.rowIndex="2"/>
       </GridPane>
       <Label styleClass="separator"/>
       <GridPane hgap="12" vgap="8">
+        <!-- Fila 1 -->
         <Label text="+" styleClass="key-label" GridPane.columnIndex="0" GridPane.rowIndex="0"/>
         <Label text="%controls.zoomIn" styleClass="key-description" GridPane.columnIndex="1" GridPane.rowIndex="0"/>
         <Label text="-" styleClass="key-label" GridPane.columnIndex="2" GridPane.rowIndex="0"/>
         <Label text="%controls.zoomOut" styleClass="key-description" GridPane.columnIndex="3" GridPane.rowIndex="0"/>
+        <!-- Fila 2 -->
+        <Label text="Z" styleClass="key-label" GridPane.columnIndex="0" GridPane.rowIndex="1"/>
+        <Label text="%controls.previousSkin" styleClass="key-description" GridPane.columnIndex="1" GridPane.rowIndex="1"/>
+        <Label text="X" styleClass="key-label" GridPane.columnIndex="2" GridPane.rowIndex="1"/>
+        <Label text="%controls.nextSkin" styleClass="key-description" GridPane.columnIndex="3" GridPane.rowIndex="1"/>
       </GridPane>
     </VBox>
     <VBox fx:id="language" spacing="6">
@@ -58,8 +67,8 @@
     </VBox>
     <Region VBox.vgrow="ALWAYS"/>
     <Label fx:id="bottomText"
-              text=""
-              wrapText="true"
-              styleClass="footer-text"/>
+                  text=""
+                  wrapText="true"
+                  styleClass="footer-text"/>
   </VBox>
 </HBox>

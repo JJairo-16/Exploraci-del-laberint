@@ -19,6 +19,7 @@ import com.jairo.app.audio.SoundManager;
 import com.jairo.app.gfx.Drawer;
 import com.jairo.app.ui.Dimensions;
 import com.jairo.app.gfx.ImageStore;
+import com.jairo.app.gfx.player_skins.SkinManager;
 import com.jairo.app.input.InputHandler;
 import com.jairo.utils.KeyBind;
 
@@ -62,6 +63,10 @@ public class Controller {
     private InputHandler input;
     private Drawer drawer;
 
+    private AnimationTimer renderTimer;
+    private static final long FRAME_NS = 33_000_000L;
+    private long last = 0;
+
     private Drawer.CameraState pendingCameraState;
 
     public void initState(Simulator simulator, Drawer.CameraState cameraState) {
@@ -82,7 +87,7 @@ public class Controller {
     private long nextRepeatNs = 0L;
 
     private static final long INITIAL_DELAY_NS = 200_000_000L; // 0.20s
-    private static final long REPEAT_EVERY_NS = 240_000_000L;  // 0.24s
+    private static final long REPEAT_EVERY_NS = 240_000_000L; // 0.24s
 
     private boolean isActionHeld(KeyBind.Action action) {
         if (action == null)
@@ -97,7 +102,7 @@ public class Controller {
     private KeyBind.Action findAnyHeldMaintainableAction() {
         for (KeyCode k : pressed) {
             KeyBind.Action a = KeyBind.getAction(k);
-            if (KeyBind.actionCanMaintains(a))
+            if (a.canMaintain)
                 return a;
         }
         return null;
@@ -106,13 +111,16 @@ public class Controller {
     @FXML
     private void initialize() {
         Platform.runLater(() -> {
-            if (log.isDebugEnabled()) log.debug("Controller initialize() scheduled on FX thread");
+            if (log.isDebugEnabled())
+                log.debug("Controller initialize() scheduled on FX thread");
 
             if (simulator == null) {
                 simulator = SimulatorLoader.load();
-                if (log.isInfoEnabled()) log.info("Simulator loaded via SimulatorLoader.");
+                if (log.isInfoEnabled())
+                    log.info("Simulator loaded via SimulatorLoader.");
             } else {
-                if (log.isInfoEnabled()) log.info("Simulator injected via initState().");
+                if (log.isInfoEnabled())
+                    log.info("Simulator injected via initState().");
             }
 
             SoundManager sm = SoundManager.get();
@@ -127,7 +135,8 @@ public class Controller {
             }
 
             images.preloadAll();
-            if (log.isInfoEnabled()) log.info("Images preloaded.");
+            if (log.isInfoEnabled())
+                log.info("Images preloaded.");
 
             root.setFocusTraversable(true);
             root.requestFocus();
@@ -176,7 +185,8 @@ public class Controller {
                                 cameraState);
                     } else {
                         if (log.isDebugEnabled()) {
-                            log.debug("Language change ignored. codePresent={} scenePresent={} drawerPresent={} simulatorPresent={}",
+                            log.debug(
+                                    "Language change ignored. codePresent={} scenePresent={} drawerPresent={} simulatorPresent={}",
                                     code != null,
                                     languageSelector.getScene() != null,
                                     drawer != null,
@@ -185,13 +195,15 @@ public class Controller {
                     }
                 });
             } else {
-                if (log.isWarnEnabled()) log.warn("languageSelector is null (FXML injection failed?).");
+                if (log.isWarnEnabled())
+                    log.warn("languageSelector is null (FXML injection failed?).");
             }
 
             input = new InputHandler(simulator, bottomText, () -> {
                 readKeys = simulator.getContinue();
                 if (!readKeys && root.getScene() != null) {
-                    if (log.isInfoEnabled()) log.info("Game ended. Switching to EndView.");
+                    if (log.isInfoEnabled())
+                        log.info("Game ended. Switching to EndView.");
                     shutdownControllerLogic();
                     sm.setMuted(true);
                     sm.stopBgm();
@@ -201,13 +213,29 @@ public class Controller {
 
             drawer = new Drawer(mapCanvas, entitiesCanvas, hudCanvas, simulator, dims.getTileSize());
             if (pendingCameraState != null) {
-                if (log.isDebugEnabled()) log.debug("Applying pending camera state: {}", pendingCameraState);
+                if (log.isDebugEnabled())
+                    log.debug("Applying pending camera state: {}", pendingCameraState);
                 drawer.setCameraState(pendingCameraState);
                 pendingCameraState = null;
             }
 
             drawer.update();
             simulator.loadDrawer(drawer);
+
+            renderTimer = new AnimationTimer() {
+                @Override
+                public void handle(long now) {
+                    if (!readKeys || !SkinManager.get().current().needArrow())
+                        return;
+
+                    if (now - last < FRAME_NS)
+                        return;
+                    
+                    last = now;
+                    drawer.renderArrow(now);
+                }
+            };
+            renderTimer.start();
 
             // Temporitzador que fa el repeat CONTROLAT (no el del SO)
             moveTimer = new AnimationTimer() {
@@ -218,13 +246,14 @@ public class Controller {
 
                     if (activeMoveAction == null)
                         return;
+
                     if (!isActionHeld(activeMoveAction))
                         return;
 
                     if (now < nextRepeatNs)
                         return;
 
-                    if (!KeyBind.actionCanMaintains(activeMoveAction))
+                    if (!activeMoveAction.canMaintain)
                         return;
 
                     input.runAction(activeMoveAction);
@@ -237,7 +266,8 @@ public class Controller {
 
             root.setOnKeyPressed(event -> {
                 if (!readKeys) {
-                    if (log.isTraceEnabled()) log.trace("KeyPressed ignored (readKeys=false)");
+                    if (log.isTraceEnabled())
+                        log.trace("KeyPressed ignored (readKeys=false)");
                     return;
                 }
 
@@ -248,12 +278,13 @@ public class Controller {
                 pressed.add(key);
 
                 // Mantenibles: es gestionen amb el temporitzador
-                if (KeyBind.actionCanMaintains(action)) {
+                if (action.canMaintain) {
                     // Només al primer press real
                     if (!wasDown && activeMoveAction != action) {
                         activeMoveAction = action;
 
-                        if (log.isTraceEnabled()) log.trace("Move start. key={} action={}", key, action);
+                        if (log.isTraceEnabled())
+                            log.trace("Move start. key={} action={}", key, action);
 
                         input.runAction(action);
                         drawer.update();
@@ -267,7 +298,8 @@ public class Controller {
 
             root.setOnKeyReleased(event -> {
                 if (!readKeys) {
-                    if (log.isTraceEnabled()) log.trace("KeyReleased ignored (readKeys=false)");
+                    if (log.isTraceEnabled())
+                        log.trace("KeyReleased ignored (readKeys=false)");
                     return;
                 }
 
@@ -276,19 +308,21 @@ public class Controller {
 
                 pressed.remove(key);
 
-                // Si has deixat anar la tecla activa, busca una altra mantenible que continuï premuda
+                // Si has deixat anar la tecla activa, busca una altra mantenible que continuï
+                // premuda
                 if (action == activeMoveAction && !isActionHeld(activeMoveAction)) {
                     KeyBind.Action prev = activeMoveAction;
                     activeMoveAction = findAnyHeldMaintainableAction();
-                    nextRepeatNs = System.nanoTime() + INITIAL_DELAY_NS;
+                    nextRepeatNs = System.nanoTime() + INITIAL_DELAY_NS * (long) action.cooldownMultiplier;
 
                     if (log.isTraceEnabled()) {
-                        log.trace("Move stop/switch. releasedKey={} prevAction={} newAction={}", key, prev, activeMoveAction);
+                        log.trace("Move stop/switch. releasedKey={} prevAction={} newAction={}", key, prev,
+                                activeMoveAction);
                     }
                 }
 
                 // Mantenibles
-                if (KeyBind.actionCanMaintains(action)) {
+                if (action.canMaintain) {
                     return;
                 }
 
@@ -297,7 +331,8 @@ public class Controller {
                 drawer.update();
             });
 
-            if (log.isInfoEnabled()) log.info("Controller ready.");
+            if (log.isInfoEnabled())
+                log.info("Controller ready.");
         });
     }
 
@@ -306,13 +341,20 @@ public class Controller {
 
         if (moveTimer != null) {
             moveTimer.stop();
-            if (log.isDebugEnabled()) log.debug("moveTimer stopped.");
+            if (log.isDebugEnabled())
+                log.debug("moveTimer stopped.");
         }
 
         if (root != null) {
             root.setOnKeyPressed(null);
             root.setOnKeyReleased(null);
-            if (log.isDebugEnabled()) log.debug("Key handlers detached.");
+            if (log.isDebugEnabled())
+                log.debug("Key handlers detached.");
         }
+
+        if (renderTimer != null) {
+            renderTimer.stop();
+        }
+
     }
 }

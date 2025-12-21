@@ -42,14 +42,15 @@ public class Drawer {
     // Zoom
     private final double baseZoom = (Board.BOARD_HEIGHT * Board.BOARD_WIDTH) * 1.5 / 1000.0;
 
-    private final double minZoom = baseZoom - 0.5;
-    private final double maxZoom = baseZoom + 0.5;
+    private final double minZoom = baseZoom - 0.6;
+    private final double maxZoom = baseZoom + 0.8;
 
     private double zoom = baseZoom;
 
     private static final double ZOOM_POINT = 0.1;
 
     private final PositionHud ph;
+    private final PlayerRenderer playerRenderer;
     private final double tileSize;
 
     public Drawer(Canvas map, Canvas entities, Canvas hud, Simulator simulator, double tileSize) {
@@ -65,6 +66,8 @@ public class Drawer {
         mapGC = map.getGraphicsContext2D();
         entitiesGC = entities.getGraphicsContext2D();
         hudGC = hud.getGraphicsContext2D();
+
+        this.playerRenderer = new PlayerRenderer(simulator, entitiesGC, hudGC, images);
 
         ph = new PositionHud(Board.BOARD_WIDTH, Board.BOARD_HEIGHT);
 
@@ -84,9 +87,11 @@ public class Drawer {
 
         if (zoom != oldZoom) {
             keepPlayerScreenPositionAfterZoom(oldZoom, zoom);
-            if (log.isDebugEnabled()) log.debug("Zoom in: {} -> {}", oldZoom, zoom);
+            if (log.isDebugEnabled())
+                log.debug("Zoom in: {} -> {}", oldZoom, zoom);
         } else {
-            if (log.isDebugEnabled()) log.debug("Zoom in ignored (at MAX_ZOOM={})", maxZoom);
+            if (log.isDebugEnabled())
+                log.debug("Zoom in ignored (at MAX_ZOOM={})", maxZoom);
         }
 
         update();
@@ -101,9 +106,11 @@ public class Drawer {
 
         if (zoom != oldZoom) {
             keepPlayerScreenPositionAfterZoom(oldZoom, zoom);
-            if (log.isDebugEnabled()) log.debug("Zoom out: {} -> {}", oldZoom, zoom);
+            if (log.isDebugEnabled())
+                log.debug("Zoom out: {} -> {}", oldZoom, zoom);
         } else {
-            if (log.isDebugEnabled()) log.debug("Zoom out ignored (at MIN_ZOOM={})", minZoom);
+            if (log.isDebugEnabled())
+                log.debug("Zoom out ignored (at MIN_ZOOM={})", minZoom);
         }
 
         update();
@@ -153,13 +160,12 @@ public class Drawer {
     }
 
     private void renderPlayer() {
-        Simulator.Position pos = simulator.getPlayerPosition();
         double size = scaledTileSize();
+        playerRenderer.renderPlayer(size, cameraX, cameraY);
+    }
 
-        double screenX = (pos.x() - cameraX) * size;
-        double screenY = (pos.y() - cameraY) * size;
-
-        entitiesGC.drawImage(images.get(Sprite.PLAYER), screenX, screenY, size, size);
+    public void renderArrow(long now) {
+        playerRenderer.renderArrow(now);
     }
 
     // ---------- Càmera ----------
@@ -238,8 +244,8 @@ public class Drawer {
                         cameraX, cameraY, minX, maxX, minY, maxY,
                         tilesInWidth, tilesInHeight, boardW, boardH, zoom);
             }
-        } else if (moved) {
-            if (log.isTraceEnabled()) log.trace("Camera moved to ({}, {}) zoom={}", cameraX, cameraY, zoom);
+        } else if (moved && log.isTraceEnabled()) {
+            log.trace("Camera moved to ({}, {}) zoom={}", cameraX, cameraY, zoom);
         }
     }
 
@@ -299,7 +305,7 @@ public class Drawer {
     }
 
     private void renderHud() {
-        hudGC.clearRect(0, 0, hud.getWidth(), hud.getHeight());
+        hudGC.clearRect(0, 0, 300, 120);
 
         hudGC.setFill(Color.WHITE);
         hudGC.setFont(Font.font("Arial", 20));
@@ -332,7 +338,8 @@ public class Drawer {
         };
     }
 
-    public record CameraState(double cameraX, double cameraY, double zoom) {}
+    public record CameraState(double cameraX, double cameraY, double zoom) {
+    }
 
     public CameraState getCameraState() {
         return new CameraState(cameraX, cameraY, zoom);

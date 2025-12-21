@@ -251,6 +251,16 @@ L’objectiu del joc és explorar un laberint fins a trobar la sortida. Al comen
       <td></td>
       <td>Disminuir zoom</td>
     </tr>
+    <tr>
+      <td>Z</td>
+      <td></td>
+      <td>Skin anterior</td>
+    </tr>
+    <tr>
+      <td>X</td>
+      <td></td>
+      <td>Següent skin</td>
+    </tr>
   </tbody>
 </table>
 

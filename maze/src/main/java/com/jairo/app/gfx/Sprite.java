@@ -1,15 +1,21 @@
 package com.jairo.app.gfx;
 
 public enum Sprite {
-    WALL("/com/jairo/app/img/game/wall.png"),
-    PATH("/com/jairo/app/img/game/path.png"),
+    WALL(getRoot("game/wall.png")),
+    PATH(getRoot("game/path.png")),
 
-    EXIT("/com/jairo/app/img/game/exit.png"),
-    EXIT_CONNECTOR("/com/jairo/app/img/game/exit.png"),
+    EXIT(getRoot("game/exit.png")),
+    EXIT_CONNECTOR(getRoot("game/exit.png")),
     
-    PLAYER("/com/jairo/app/img/game/player.png");
+    ARROW(getRoot("arrow.png")),
+    PLAYER(getRoot("game/playerSkins/default.png"));
+
+    private static final String BASE_ROOT = "/com/jairo/app/img/";
+    private static String getRoot(String path) {
+        return BASE_ROOT + path;
+    }
     
-    private final String resourcePath;
+    private String resourcePath;
 
     Sprite(String resourcePath) {
         this.resourcePath = resourcePath;
@@ -17,5 +23,9 @@ public enum Sprite {
 
     public String path() {
         return resourcePath;
+    }
+
+    public void reload(String newPath) {
+        this.resourcePath = newPath;
     }
 }

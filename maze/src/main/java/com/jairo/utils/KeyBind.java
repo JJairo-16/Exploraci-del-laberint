@@ -2,14 +2,14 @@
 package com.jairo.utils;
 
 import java.util.EnumMap;
-import java.util.List;
 import java.util.Map;
 
 import javafx.scene.input.KeyCode;
 
 public final class KeyBind {
 
-    private KeyBind() {}
+    private KeyBind() {
+    }
 
     private static final Map<KeyCode, Action> KEY_BINDS = new EnumMap<>(KeyCode.class);
 
@@ -29,10 +29,11 @@ public final class KeyBind {
         KEY_BINDS.put(KeyCode.E, Action.USE);
         KEY_BINDS.put(KeyCode.ENTER, Action.USE);
 
-        KEY_BINDS.put(KeyCode.R, Action.SWITCH_CONFIRM);
-
         KEY_BINDS.put(KeyCode.PLUS, Action.ZOOM_IN);
         KEY_BINDS.put(KeyCode.MINUS, Action.ZOOM_OUT);
+
+        KEY_BINDS.put(KeyCode.Z, Action.PREVIOUS_SKIN);
+        KEY_BINDS.put(KeyCode.X, Action.NEXT_SKIN);
     }
 
     public static Action getAction(KeyCode key) {
@@ -40,25 +41,31 @@ public final class KeyBind {
     }
 
     public enum Action {
-        LEFT,
-        RIGHT,
-        UP,
-        DOWN,
-        USE,
-        SWITCH_CONFIRM,
-        ZOOM_IN,
-        ZOOM_OUT,
-        NONE
-    }
+        LEFT(true, true, 1.0),
+        RIGHT(true, true, 1.0),
+        UP(true, true, 1.0),
+        DOWN(true, true, 1.0),
+        USE(),
+        ZOOM_IN(),
+        ZOOM_OUT(),
+        NEXT_SKIN(true, false, 1.5),
+        PREVIOUS_SKIN(true, false, 1.5),
+        NONE();
 
-    private static final List<Action> canMaintain = List.of(
-            Action.RIGHT,
-            Action.LEFT,
-            Action.UP,
-            Action.DOWN
-    );
+        public final boolean canMaintain; 
+        public final boolean isAMovement;
+        public final double cooldownMultiplier;
 
-    public static boolean actionCanMaintains(Action action) {
-        return canMaintain.contains(action);
+        Action(boolean canMaintain, boolean isAMovement, double cooldownMultiplier) {
+            this.canMaintain = canMaintain;
+            this.isAMovement = isAMovement;
+            this.cooldownMultiplier = cooldownMultiplier;
+        }
+
+        Action() {
+            this.canMaintain = false;
+            this.isAMovement = false;
+            this.cooldownMultiplier = 1.0;
+        }
     }
 }
