@@ -17,7 +17,7 @@ import com.jairo.utils.map_generator.BoardGenerator;
 public class Player {
 
     // * Regles
-    private static final int MIN_DISTANCE_FROM_EXIT = 15;
+    private static final int MIN_DISTANCE_FROM_EXIT = 20;
 
     // * Propietats
     int x;

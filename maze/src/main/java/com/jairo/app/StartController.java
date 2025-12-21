@@ -5,7 +5,6 @@ import com.jairo.app.i18n.LanguageManager;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.scene.control.ChoiceBox;
-import javafx.scene.input.KeyCode;
 import javafx.scene.layout.VBox;
 
 public class StartController {

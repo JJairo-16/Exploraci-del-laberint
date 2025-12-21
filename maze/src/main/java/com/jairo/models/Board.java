@@ -45,6 +45,9 @@ public class Board {
     private int playerX;
     private int playerY;
 
+    private static final int X_POWER = 1;
+    private static final int Y_POWER = 1;
+
     /**
      * Crea un nou tauler de joc generat de manera aleatòria.
      *
@@ -267,13 +270,13 @@ public class Board {
      */
     private void discoverAroundPlayer() {
         // * Descobreix cel·les al voltant del jugador
-        for (int dy = -1; dy <= 1; dy++) {
+        for (int dy = -Y_POWER; dy <= Y_POWER; dy++) {
             int ny = playerY + dy;
 
             List<Integer> visibilityRow = visibility.get(ny);
             List<Integer> cellsRow = cells.get(ny);
 
-            for (int dx = -1; dx <= 1; dx++) {
+            for (int dx = -X_POWER; dx <= X_POWER; dx++) {
                 int nx = playerX + dx;
 
                 if (visibilityRow.get(nx) == UNKNOWN) {

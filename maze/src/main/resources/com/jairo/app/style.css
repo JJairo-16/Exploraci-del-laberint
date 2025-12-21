@@ -151,3 +151,9 @@ Label {
     -fx-padding: 8 12;
 }
 
+.final-title-text {
+    -fx-font-size: 36px;
+    -fx-font-weight: bold;
+    -fx-text-fill: white;
+    -fx-padding: 0 0 -15px 0;
+}

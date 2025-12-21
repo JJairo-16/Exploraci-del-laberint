@@ -4,8 +4,9 @@ import com.jairo.models.Board;
 import com.jairo.models.Player;
 
 import static com.jairo.utils.KeyBind.Action;
-import static com.jairo.utils.map_generator.Cells.PATH;
+import static com.jairo.utils.map_generator.Cells.EXIT;
 
+import com.jairo.app.audio.Steps;
 import com.jairo.app.gfx.Drawer;
 
 import org.slf4j.Logger;
@@ -54,6 +55,7 @@ public class Simulator {
 
         if (dx != 0 || dy != 0) {
             boolean moved = simulatePlayerMovement(dx, dy);
+            if (moved) Steps.playRandomStep();
             log.debug("Move dx={}, dy={} -> moved={}, pos=({}, {})",
                     dx, dy, moved, player.getX(), player.getY());
         }
@@ -77,7 +79,7 @@ public class Simulator {
             boolean sideX = (x == 0 || x == Board.BOARD_WIDTH - 1);
             boolean sideY = (y == 0 || y == Board.BOARD_HEIGHT - 1);
 
-            if (board.getCells().get(y).get(x) == PATH && (sideX || sideY)) {
+            if (board.getCells().get(y).get(x) == EXIT && (sideX || sideY)) {
                 log.info("Player wins the game.");
                 continuity = false;
             }

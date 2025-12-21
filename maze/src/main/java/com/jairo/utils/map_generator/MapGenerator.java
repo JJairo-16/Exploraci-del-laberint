@@ -10,13 +10,14 @@ import org.slf4j.LoggerFactory;
 public final class MapGenerator {
     private static final Logger log = LoggerFactory.getLogger(MapGenerator.class);
 
-    public static final int BOARD_WIDTH = 40;
-    public static final int BOARD_HEIGHT = 25;
+    public static final int BOARD_WIDTH = 60; // 60
+    public static final int BOARD_HEIGHT = 45; // 45
 
     // Tipos de celda
     private static final int PATH = 0;
     private static final int WALL = 1;
     private static final int EXIT_CONNECTOR = 2;
+    private static final int EXIT = 3;
 
     // Impide instanciación
     private MapGenerator() {
@@ -131,25 +132,25 @@ public final class MapGenerator {
         switch (side) {
             case 0 -> {
                 int x = randomOdd(rnd, 1, BOARD_WIDTH - 2);
-                g[0][x] = PATH;
+                g[0][x] = EXIT;
                 g[1][x] = EXIT_CONNECTOR;
                 return new int[]{0, x};
             }
             case 1 -> {
                 int x = randomOdd(rnd, 1, BOARD_WIDTH - 2);
-                g[BOARD_HEIGHT - 1][x] = PATH;
+                g[BOARD_HEIGHT - 1][x] = EXIT;
                 g[BOARD_HEIGHT - 2][x] = EXIT_CONNECTOR;
                 return new int[]{BOARD_HEIGHT - 1, x};
             }
             case 2 -> {
                 int y = randomOdd(rnd, 1, BOARD_HEIGHT - 2);
-                g[y][0] = PATH;
+                g[y][0] = EXIT;
                 g[y][1] = EXIT_CONNECTOR;
                 return new int[]{y, 0};
             }
             default -> {
                 int y = randomOdd(rnd, 1, BOARD_HEIGHT - 2);
-                g[y][BOARD_WIDTH - 1] = PATH;
+                g[y][BOARD_WIDTH - 1] = EXIT;
                 g[y][BOARD_WIDTH - 2] = EXIT_CONNECTOR;
                 return new int[]{y, BOARD_HEIGHT - 1};
             }
@@ -258,6 +259,7 @@ public final class MapGenerator {
                 String cell = switch (g[y][x]) {
                     case WALL -> "1";
                     case EXIT_CONNECTOR -> "2";
+                    case EXIT -> "3";
                     default -> "0";
                 };
                 sb.append(cell);

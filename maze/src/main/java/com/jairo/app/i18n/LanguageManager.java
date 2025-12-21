@@ -12,7 +12,12 @@ import com.jairo.services.Simulator;
 import java.io.IOException;
 import java.util.*;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 public final class LanguageManager {
+
+    private static final Logger log = LoggerFactory.getLogger(LanguageManager.class);
 
     private static final String BUNDLE_BASE = "i18n.messages";
     private static final String START_FXML = "/com/jairo/app/start-view.fxml";
@@ -34,6 +39,10 @@ public final class LanguageManager {
             reverse.put(e.getValue().getLanguage(), e.getKey());
         }
         CODE_TO_DISPLAY = Collections.unmodifiableMap(reverse);
+
+        if (log.isDebugEnabled()) {
+            log.debug("Available languages: {}", DISPLAY_TO_LOCALE.keySet());
+        }
     }
 
     private LanguageManager() {
@@ -58,7 +67,12 @@ public final class LanguageManager {
     public static void setLocale(String code) {
         if (code == null)
             return;
+
         Locale.setDefault(Locale.of(code));
+
+        if (log.isInfoEnabled()) {
+            log.info("Locale set to '{}'", code);
+        }
     }
 
     public static void switchToStartView(Scene scene) {
@@ -76,6 +90,7 @@ public final class LanguageManager {
     public static void changeLanguageAndReloadStart(Scene scene, String code) {
         if (scene == null || code == null)
             return;
+
         setLocale(code);
         switchToStartView(scene);
     }
@@ -91,6 +106,10 @@ public final class LanguageManager {
         ResourceBundle bundle = ResourceBundle.getBundle(BUNDLE_BASE, locale);
 
         try {
+            if (log.isDebugEnabled()) {
+                log.debug("Reloading MAIN view for locale '{}'", locale.getLanguage());
+            }
+
             FXMLLoader loader = new FXMLLoader(LanguageManager.class.getResource(MAIN_FXML), bundle);
             Parent root = loader.load();
 
@@ -105,7 +124,9 @@ public final class LanguageManager {
             if (stage != null) {
                 stage.setTitle(bundle.getString("app.title"));
             }
+
         } catch (IOException e) {
+            log.error("Failed to load view: {}", MAIN_FXML, e);
             throw new RuntimeException("Failed to load view: " + MAIN_FXML, e);
         }
     }
@@ -118,6 +139,10 @@ public final class LanguageManager {
         ResourceBundle bundle = ResourceBundle.getBundle(BUNDLE_BASE, locale);
 
         try {
+            if (log.isDebugEnabled()) {
+                log.debug("Switching view to '{}' for locale '{}'", fxmlAbsolutePath, locale.getLanguage());
+            }
+
             FXMLLoader loader = new FXMLLoader(LanguageManager.class.getResource(fxmlAbsolutePath), bundle);
             Parent root = loader.load();
             scene.setRoot(root);
@@ -126,7 +151,9 @@ public final class LanguageManager {
             if (stage != null) {
                 stage.setTitle(bundle.getString("app.title"));
             }
+
         } catch (IOException e) {
+            log.error("Failed to load view: {}", fxmlAbsolutePath, e);
             throw new RuntimeException("Failed to load view: " + fxmlAbsolutePath, e);
         }
     }

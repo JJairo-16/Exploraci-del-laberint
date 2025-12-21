@@ -13,11 +13,13 @@ public class Cells {
     public static final int EXIT_CONNECTOR = 2;
     public static final int UNKNOWN = 3;
     public static final int PLAYER = 4;
+    public static final int EXIT = 5;
 
     public static int parseCell(char c) {
         return switch (c) {
             case '1' -> WALL;
             case '2' -> EXIT_CONNECTOR;
+            case '3' -> EXIT;
             default -> PATH;
         };
     }

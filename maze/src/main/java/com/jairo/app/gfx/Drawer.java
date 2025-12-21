@@ -35,15 +35,19 @@ public class Drawer {
     private final Board board;
     private final Simulator simulator;
 
-    // * Càmera en coordenades de tiles
+    // Càmera en coordenades de tiles
     private double cameraX = 0.0;
     private double cameraY = 0.0;
 
-    // * Zoom
-    private static final double MAX_ZOOM = 2.0;
-    private static final double MIN_ZOOM = 1.5;
+    // Zoom
+    private final double baseZoom = (Board.BOARD_HEIGHT * Board.BOARD_WIDTH) * 1.5 / 1000.0;
+
+    private final double minZoom = baseZoom - 0.5;
+    private final double maxZoom = baseZoom + 0.5;
+
+    private double zoom = baseZoom;
+
     private static final double ZOOM_POINT = 0.1;
-    private double zoom = 1.5;
 
     private final PositionHud ph;
     private final double tileSize;
@@ -64,23 +68,25 @@ public class Drawer {
 
         ph = new PositionHud(Board.BOARD_WIDTH, Board.BOARD_HEIGHT);
 
-        log.info("Drawer created. canvas=({}x{}), tileSize={}, initialZoom={}",
-                map.getWidth(), map.getHeight(), tileSize, zoom);
+        if (log.isInfoEnabled()) {
+            log.info("Drawer created. canvas=({}x{}), tileSize={}, initialZoom={}, minZoom={}, maxZoom={}",
+                    map.getWidth(), map.getHeight(), tileSize, zoom, minZoom, maxZoom);
+        }
     }
 
-    // ! ---------- API de Zoom ----------
+    // ---------- API de zoom ----------
     public void zoomIn() {
         double oldZoom = zoom;
 
-        if (zoom < MAX_ZOOM) {
+        if (zoom < maxZoom) {
             zoom = round1(zoom + ZOOM_POINT);
         }
 
         if (zoom != oldZoom) {
             keepPlayerScreenPositionAfterZoom(oldZoom, zoom);
-            log.debug("Zoom IN: {} -> {}", oldZoom, zoom);
+            if (log.isDebugEnabled()) log.debug("Zoom in: {} -> {}", oldZoom, zoom);
         } else {
-            log.debug("Zoom IN ignorat (a MAX_ZOOM={})", MAX_ZOOM);
+            if (log.isDebugEnabled()) log.debug("Zoom in ignored (at MAX_ZOOM={})", maxZoom);
         }
 
         update();
@@ -89,15 +95,15 @@ public class Drawer {
     public void zoomOut() {
         double oldZoom = zoom;
 
-        if (zoom > MIN_ZOOM) {
+        if (zoom > minZoom) {
             zoom = round1(zoom - ZOOM_POINT);
         }
 
         if (zoom != oldZoom) {
             keepPlayerScreenPositionAfterZoom(oldZoom, zoom);
-            log.debug("Zoom OUT: {} -> {}", oldZoom, zoom);
+            if (log.isDebugEnabled()) log.debug("Zoom out: {} -> {}", oldZoom, zoom);
         } else {
-            log.debug("Zoom OUT ignorat (a MIN_ZOOM={})", MIN_ZOOM);
+            if (log.isDebugEnabled()) log.debug("Zoom out ignored (at MIN_ZOOM={})", minZoom);
         }
 
         update();
@@ -130,7 +136,7 @@ public class Drawer {
         cameraY = p.y() - (py / newSize);
     }
 
-    // ! ---------- Helpers de renderitzat ----------
+    // ---------- Helpers de renderitzat ----------
     private void renderCell(Image sprite, int x, int y) {
         double size = scaledTileSize();
         double screenX = (x - cameraX) * size;
@@ -156,21 +162,21 @@ public class Drawer {
         entitiesGC.drawImage(images.get(Sprite.PLAYER), screenX, screenY, size, size);
     }
 
-    // ! ---------- Càmera ----------
+    // ---------- Càmera ----------
     private void updateCamera() {
         Simulator.Position pos = simulator.getPlayerPosition();
 
-        // * Tiles visibles segons el zoom i el canvas
+        // Tiles visibles segons el zoom i el canvas
         double tilesInWidth = map.getWidth() / scaledTileSize();
         double tilesInHeight = map.getHeight() / scaledTileSize();
 
         double cameraPadding = Math.max(2.0, tilesInWidth * 0.1);
 
-        // * Guardar per a logs
+        // Guardar per als logs
         double beforeX = cameraX;
         double beforeY = cameraY;
 
-        // * Dead zone
+        // Dead zone
         double marginX = tilesInWidth * 0.25;
         double marginY = tilesInHeight * 0.25;
 
@@ -191,7 +197,7 @@ public class Drawer {
             cameraY = pos.y() - (tilesInHeight - marginY);
         }
 
-        // ! --- límits adaptatius segons el board i el zoom ---
+        // Límits adaptatius segons el board i el zoom
         List<List<Integer>> visibility = board.getCells(true);
         int boardH = visibility.size();
         int boardW = (boardH > 0) ? visibility.get(0).size() : 0;
@@ -201,9 +207,7 @@ public class Drawer {
         double minY;
         double maxY;
 
-        // * Si el tauler és més petit que el visible, el centrem (evita “buits”
-        // estranys)
-
+        // Si el tauler és més petit que el visible, el centrem (evita “buits” estranys)
         if (boardW <= tilesInWidth) {
             minX = maxX = (boardW - tilesInWidth) / 2.0;
         } else {
@@ -228,12 +232,14 @@ public class Drawer {
         boolean clamped = (cameraX != unclampedX) || (cameraY != unclampedY);
 
         if (clamped) {
-            log.debug(
-                    "Camera CLAMPED cam=({}, {}) limitsX=[{}, {}] limitsY=[{}, {}] tilesIn=({},{}) board=({},{}) zoom={}",
-                    cameraX, cameraY, minX, maxX, minY, maxY,
-                    tilesInWidth, tilesInHeight, boardW, boardH, zoom);
+            if (log.isDebugEnabled()) {
+                log.debug(
+                        "Camera clamped. cam=({}, {}) limitsX=[{}, {}] limitsY=[{}, {}] tilesIn=({},{}) board=({},{}) zoom={}",
+                        cameraX, cameraY, minX, maxX, minY, maxY,
+                        tilesInWidth, tilesInHeight, boardW, boardH, zoom);
+            }
         } else if (moved) {
-            log.trace("Camera moved to ({}, {}) zoom={}", cameraX, cameraY, zoom);
+            if (log.isTraceEnabled()) log.trace("Camera moved to ({}, {}) zoom={}", cameraX, cameraY, zoom);
         }
     }
 
@@ -252,7 +258,7 @@ public class Drawer {
         double tilesInWidth = map.getWidth() / scaledTileSize();
         double tilesInHeight = map.getHeight() / scaledTileSize();
 
-        // * Rang visible en tiles (amb marge per evitar talls)
+        // Rang visible en tiles (amb marge per evitar talls)
         int startX = (int) Math.floor(cameraX) - 1;
         int startY = (int) Math.floor(cameraY) - 1;
         int endX = (int) Math.ceil(cameraX + tilesInWidth) + 1;
@@ -261,7 +267,7 @@ public class Drawer {
         int h = visibility.size();
         int w = (h > 0) ? visibility.get(0).size() : 0;
 
-        // * Clamp al tauler
+        // Clamp al tauler
         startX = Math.max(0, startX);
         startY = Math.max(0, startY);
         endX = Math.min(w - 1, endX);
@@ -281,8 +287,10 @@ public class Drawer {
             }
         }
 
-        log.trace("Rendered {} tiles. Cam=({}, {}) zoom={} rangeX=[{},{}] rangeY=[{},{}]",
-                rendered, cameraX, cameraY, zoom, startX, endX, startY, endY);
+        if (log.isTraceEnabled()) {
+            log.trace("Rendered {} tiles. cam=({}, {}) zoom={} rangeX=[{},{}] rangeY=[{},{}]",
+                    rendered, cameraX, cameraY, zoom, startX, endX, startY, endY);
+        }
 
         clearEntities();
         renderPlayer();
@@ -317,14 +325,14 @@ public class Drawer {
         return switch (type) {
             case 0 -> Sprite.PATH;
             case 1 -> Sprite.WALL;
-            case 2 -> Sprite.PATH;
+            case 2 -> Sprite.EXIT_CONNECTOR;
             case 4 -> Sprite.PLAYER;
+            case 5 -> Sprite.EXIT;
             default -> Sprite.PATH;
         };
     }
 
-    public record CameraState(double cameraX, double cameraY, double zoom) {
-    }
+    public record CameraState(double cameraX, double cameraY, double zoom) {}
 
     public CameraState getCameraState() {
         return new CameraState(cameraX, cameraY, zoom);
@@ -337,5 +345,4 @@ public class Drawer {
         this.cameraY = state.cameraY();
         this.zoom = state.zoom();
     }
-
 }
