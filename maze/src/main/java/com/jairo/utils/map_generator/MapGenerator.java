@@ -2,13 +2,16 @@ package com.jairo.utils.map_generator;
 
 import java.security.SecureRandom;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Deque;
+import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public final class MapGenerator {
     private static final Logger log = LoggerFactory.getLogger(MapGenerator.class);
+    private static boolean debugSingleConnection = false;
 
     public static final int BOARD_WIDTH = 60; // 60
     public static final int BOARD_HEIGHT = 45; // 45
@@ -18,6 +21,39 @@ public final class MapGenerator {
     private static final int WALL = 1;
     private static final int EXIT_CONNECTOR = 2;
     private static final int EXIT = 3;
+
+    private static final double ROOM_DENSITY = 0.08;
+    private static final int ROOM_ATTEMPTS = 450;
+
+    private static final int ROOM_MIN_W = 3;
+    private static final int ROOM_MAX_W = 7;
+    private static final int ROOM_MIN_H = 3;
+    private static final int ROOM_MAX_H = 7;
+
+    private static final int ROOM_PADDING = 5;
+
+    private static final class Room {
+        final int x1, y1, x2, y2;
+
+        Room(int x1, int y1, int x2, int y2) {
+            this.x1 = x1;
+            this.y1 = y1;
+            this.x2 = x2;
+            this.y2 = y2;
+        }
+
+        int area() {
+            return (x2 - x1 + 1) * (y2 - y1 + 1);
+        }
+
+        int cx() {
+            return (x1 + x2) / 2;
+        }
+
+        int cy() {
+            return (y1 + y2) / 2;
+        }
+    }
 
     // Impide instanciación
     private MapGenerator() {
@@ -47,8 +83,16 @@ public final class MapGenerator {
         SecureRandom rnd = new SecureRandom();
         boolean[][] visited = new boolean[cellH][cellW];
 
+        List<Room> rooms = carveRooms(g, visited, rnd);
+
         int sx = rnd.nextInt(cellW);
         int sy = rnd.nextInt(cellH);
+
+        int guard = 0;
+        while (visited[sy][sx] && guard++ < 2000) {
+            sx = rnd.nextInt(cellW);
+            sy = rnd.nextInt(cellH);
+        }
 
         Deque<int[]> stack = new ArrayDeque<>();
         stack.push(new int[] { sx, sy });
@@ -91,6 +135,8 @@ public final class MapGenerator {
             stack.push(new int[] { nx, ny });
         }
 
+        connectRooms(g, rooms, rnd);
+
         int[] exit = carveSingleExit(g, rnd);
         log.debug("Exit carved at (x={}, y={})", exit[0], exit[1]);
         ensureSingleConnectedComponent(g);
@@ -126,6 +172,177 @@ public final class MapGenerator {
         }
     }
 
+    private static List<Room> carveRooms(int[][] g, boolean[][] visited, SecureRandom rnd) {
+        List<Room> rooms = new ArrayList<>(32);
+        int target = (int) Math.round(BOARD_WIDTH * BOARD_HEIGHT * ROOM_DENSITY);
+        int carved = 0;
+
+        for (int a = 0; a < ROOM_ATTEMPTS && carved < target; a++) {
+            int rw = randomOddBounded(rnd, ROOM_MIN_W, ROOM_MAX_W);
+            int rh = randomOddBounded(rnd, ROOM_MIN_H, ROOM_MAX_H);
+
+            int x1 = randomOdd(rnd, 1, BOARD_WIDTH - 2 - (rw - 1));
+            int y1 = randomOdd(rnd, 1, BOARD_HEIGHT - 2 - (rh - 1));
+            int x2 = x1 + rw - 1;
+            int y2 = y1 + rh - 1;
+
+            if (x2 >= BOARD_WIDTH - 1 || y2 >= BOARD_HEIGHT - 1) {
+                continue;
+            }
+
+            Room candidate = new Room(x1, y1, x2, y2);
+            if (tooClose(candidate, rooms, ROOM_PADDING)) {
+                continue;
+            }
+
+            for (int y = y1; y <= y2; y++) {
+                for (int x = x1; x <= x2; x++) {
+                    g[y][x] = PATH;
+                }
+            }
+
+            int cellW = visited[0].length;
+            int cellH = visited.length;
+
+            int cx1 = (x1 - 1) / 2;
+            int cy1 = (y1 - 1) / 2;
+            int cx2 = (x2 - 1) / 2;
+            int cy2 = (y2 - 1) / 2;
+
+            for (int cy = cy1; cy <= cy2; cy++) {
+                if (cy < 0 || cy >= cellH)
+                    continue;
+                for (int cx = cx1; cx <= cx2; cx++) {
+                    if (cx < 0 || cx >= cellW)
+                        continue;
+                    visited[cy][cx] = true;
+                }
+            }
+
+            rooms.add(candidate);
+            carved += candidate.area();
+        }
+
+        return rooms;
+    }
+
+    private static boolean tooClose(Room c, List<Room> rooms, int pad) {
+        int ax1 = c.x1 - pad;
+        int ay1 = c.y1 - pad;
+        int ax2 = c.x2 + pad;
+        int ay2 = c.y2 + pad;
+
+        for (Room r : rooms) {
+            if (ax1 <= r.x2 && ax2 >= r.x1 && ay1 <= r.y2 && ay2 >= r.y1) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static void connectRooms(int[][] g, List<Room> rooms, SecureRandom rnd) {
+        for (Room r : rooms) {
+            connectRoom(g, r, rnd);
+        }
+    }
+
+    private static void connectRoom(int[][] g, Room r, SecureRandom rnd) {
+        int[] door = pickDoor(r, rnd);
+        int dx = door[2];
+        int dy = door[3];
+
+        int x = door[0];
+        int y = door[1];
+
+        int steps = 0;
+        while (inBounds(x, y) && steps++ < (BOARD_WIDTH + BOARD_HEIGHT) * 2) {
+            if (g[y][x] == WALL) {
+                g[y][x] = PATH;
+            }
+
+            int nx = x + dx;
+            int ny = y + dy;
+
+            if (!inBounds(nx, ny)) {
+                break;
+            }
+
+            if (isWalkable(g[ny][nx]) || g[ny][nx] == EXIT_CONNECTOR || g[ny][nx] == EXIT) {
+                g[ny][nx] = (g[ny][nx] == EXIT) ? EXIT : PATH;
+                return;
+            }
+
+            x = nx;
+            y = ny;
+        }
+
+        int tx = clamp(r.cx(), 1, BOARD_WIDTH - 2);
+        int ty = clamp(r.cy(), 1, BOARD_HEIGHT - 2);
+
+        int bestX = -1, bestY = -1, bestD = Integer.MAX_VALUE;
+        for (int yy = 1; yy < BOARD_HEIGHT - 1; yy++) {
+            for (int xx = 1; xx < BOARD_WIDTH - 1; xx++) {
+                if (isWalkable(g[yy][xx])) {
+                    int d = Math.abs(xx - tx) + Math.abs(yy - ty);
+                    if (d < bestD) {
+                        bestD = d;
+                        bestX = xx;
+                        bestY = yy;
+                    }
+                }
+            }
+        }
+
+        if (bestX >= 0) {
+            int cx = tx;
+            int cy = ty;
+            while (cx != bestX) {
+                g[cy][cx] = PATH;
+                cx += (bestX > cx) ? 1 : -1;
+            }
+            while (cy != bestY) {
+                g[cy][cx] = PATH;
+                cy += (bestY > cy) ? 1 : -1;
+            }
+            g[cy][cx] = PATH;
+        }
+    }
+
+    private static int[] pickDoor(Room r, SecureRandom rnd) {
+        int side = rnd.nextInt(4);
+        if (side == 0) {
+            int x = randomOdd(rnd, r.x1, r.x2);
+            return new int[] { x, r.y1 - 1, 0, -1 };
+        } else if (side == 1) {
+            int x = randomOdd(rnd, r.x1, r.x2);
+            return new int[] { x, r.y2 + 1, 0, 1 };
+        } else if (side == 2) {
+            int y = randomOdd(rnd, r.y1, r.y2);
+            return new int[] { r.x1 - 1, y, -1, 0 };
+        } else {
+            int y = randomOdd(rnd, r.y1, r.y2);
+            return new int[] { r.x2 + 1, y, 1, 0 };
+        }
+    }
+
+    private static int randomOddBounded(SecureRandom rnd, int min, int max) {
+        int a = Math.min(min, max);
+        int b = Math.max(min, max);
+        if ((a & 1) == 0)
+            a++;
+        if ((b & 1) == 0)
+            b--;
+        if (a > b) {
+            return 3;
+        }
+        int count = ((b - a) / 2) + 1;
+        return a + 2 * rnd.nextInt(count);
+    }
+
+    private static int clamp(int v, int lo, int hi) {
+        return Math.max(lo, Math.min(hi, v));
+    }
+
     private static int[] carveSingleExit(int[][] g, SecureRandom rnd) {
         int side = rnd.nextInt(4);
 
@@ -134,25 +351,25 @@ public final class MapGenerator {
                 int x = randomOdd(rnd, 1, BOARD_WIDTH - 2);
                 g[0][x] = EXIT;
                 g[1][x] = EXIT_CONNECTOR;
-                return new int[]{0, x};
+                return new int[] { 0, x };
             }
             case 1 -> {
                 int x = randomOdd(rnd, 1, BOARD_WIDTH - 2);
                 g[BOARD_HEIGHT - 1][x] = EXIT;
                 g[BOARD_HEIGHT - 2][x] = EXIT_CONNECTOR;
-                return new int[]{BOARD_HEIGHT - 1, x};
+                return new int[] { BOARD_HEIGHT - 1, x };
             }
             case 2 -> {
                 int y = randomOdd(rnd, 1, BOARD_HEIGHT - 2);
                 g[y][0] = EXIT;
                 g[y][1] = EXIT_CONNECTOR;
-                return new int[]{y, 0};
+                return new int[] { y, 0 };
             }
             default -> {
                 int y = randomOdd(rnd, 1, BOARD_HEIGHT - 2);
                 g[y][BOARD_WIDTH - 1] = EXIT;
                 g[y][BOARD_WIDTH - 2] = EXIT_CONNECTOR;
-                return new int[]{y, BOARD_HEIGHT - 1};
+                return new int[] { y, BOARD_HEIGHT - 1 };
             }
         }
     }
@@ -239,7 +456,7 @@ public final class MapGenerator {
                 if (horizontal || vertical) {
                     g[y][x] = PATH;
                     opened++;
-                    log.debug("Ensured single connected component");
+                    if (debugSingleConnection) log.debug("Ensured single connected component");
                 }
 
             }

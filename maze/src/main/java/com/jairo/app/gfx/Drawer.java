@@ -5,9 +5,15 @@ import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.image.Image;
 import javafx.scene.paint.Color;
+import javafx.scene.paint.CycleMethod;
+import javafx.scene.paint.Paint;
+import javafx.scene.paint.RadialGradient;
+import javafx.scene.paint.Stop;
 import javafx.scene.text.Font;
 
 import static com.jairo.utils.map_generator.Cells.UNKNOWN;
+import static com.jairo.app.gfx.DrawerParser.parse;
+
 import com.jairo.models.Board;
 import com.jairo.services.Simulator;
 import com.jairo.utils.PositionHud;
@@ -25,11 +31,15 @@ public class Drawer {
     @FXML
     private Canvas entities;
     @FXML
+    private Canvas postFx;
+    @FXML
     private Canvas hud;
 
     private final ImageStore images;
+
     private final GraphicsContext mapGC;
     private final GraphicsContext entitiesGC;
+    private final GraphicsContext postFxGC;
     private final GraphicsContext hudGC;
 
     private final Board board;
@@ -53,9 +63,14 @@ public class Drawer {
     private final PlayerRenderer playerRenderer;
     private final double tileSize;
 
-    public Drawer(Canvas map, Canvas entities, Canvas hud, Simulator simulator, double tileSize) {
+    private Font hudFont = Font.loadFont(
+            getClass().getResourceAsStream("/fonts/Roboto-Regular.ttf"),
+            20);
+
+    public Drawer(Canvas map, Canvas entities, Canvas postFx, Canvas hud, Simulator simulator, double tileSize) {
         this.map = map;
         this.entities = entities;
+        this.postFx = postFx;
         this.hud = hud;
 
         this.simulator = simulator;
@@ -63,8 +78,10 @@ public class Drawer {
         this.tileSize = tileSize;
 
         images = ImageStore.getInstance();
+
         mapGC = map.getGraphicsContext2D();
         entitiesGC = entities.getGraphicsContext2D();
+        postFxGC = postFx.getGraphicsContext2D();
         hudGC = hud.getGraphicsContext2D();
 
         this.playerRenderer = new PlayerRenderer(simulator, entitiesGC, hudGC, images);
@@ -144,11 +161,30 @@ public class Drawer {
     }
 
     // ---------- Helpers de renderitzat ----------
-    private void renderCell(Image sprite, int x, int y) {
+    private void renderCell(Image sprite, int x, int y, double rotation, boolean filled) {
         double size = scaledTileSize();
         double screenX = (x - cameraX) * size;
         double screenY = (y - cameraY) * size;
-        mapGC.drawImage(sprite, screenX, screenY, size, size);
+
+        if (!filled) {
+            mapGC.drawImage(images.get(Sprite.PATH), screenX, screenY, size, size);
+        }
+
+        if (rotation == 0) {
+            mapGC.drawImage(sprite, screenX, screenY, size, size);
+            return;
+        }
+
+        mapGC.save();
+
+        double cx = screenX + size / 2.0;
+        double cy = screenY + size / 2.0;
+
+        mapGC.translate(cx, cy);
+        mapGC.rotate(rotation);
+        mapGC.drawImage(sprite, -size / 2.0, -size / 2.0, size, size);
+
+        mapGC.restore();
     }
 
     private void clearEntities() {
@@ -157,6 +193,10 @@ public class Drawer {
 
     private void clearMap() {
         mapGC.clearRect(0, 0, map.getWidth(), map.getHeight());
+    }
+
+    private void clearPostFx() {
+        postFxGC.clearRect(0, 0, postFx.getWidth(), postFx.getHeight());
     }
 
     private void renderPlayer() {
@@ -254,6 +294,27 @@ public class Drawer {
         return Math.max(min, minimum);
     }
 
+    private void renderPostFx() {
+        clearPostFx();
+
+        double w = postFx.getWidth();
+        double h = postFx.getHeight();
+
+        // 1) TINTE global (ajusta el color/alpha a tu gusto)
+        postFxGC.setFill(Color.rgb(30, 80, 120, 0.14)); // azulito atmosférico
+        postFxGC.fillRect(0, 0, w, h);
+
+        // 2) VIGNETTE (oscurece bordes)
+        Paint vignette = new RadialGradient(
+                0, 0,
+                0.5, 0.5,
+                0.85, true, CycleMethod.NO_CYCLE,
+                new Stop(0.0, Color.rgb(0, 0, 0, 0.0)),
+                new Stop(1.0, Color.rgb(0, 0, 0, 0.45)));
+        postFxGC.setFill(vignette);
+        postFxGC.fillRect(0, 0, w, h);
+    }
+
     public void update() {
         updateCamera();
 
@@ -287,8 +348,8 @@ public class Drawer {
                 if (!isDiscovered(type))
                     continue;
 
-                Sprite sprite = parseType(type);
-                renderCell(images.get(sprite), x, y);
+                Sprite sprite = parse(type);
+                renderCell(images.get(sprite), x, y, sprite.rotation, sprite.getIfIsFullTile());
                 rendered++;
             }
         }
@@ -301,6 +362,7 @@ public class Drawer {
         clearEntities();
         renderPlayer();
 
+        renderPostFx();
         renderHud();
     }
 
@@ -308,7 +370,7 @@ public class Drawer {
         hudGC.clearRect(0, 0, 300, 120);
 
         hudGC.setFill(Color.WHITE);
-        hudGC.setFont(Font.font("Arial", 20));
+        hudGC.setFont(hudFont);
 
         Simulator.Position pos = simulator.getPlayerPosition();
         int x = ph.getX(pos.x());
@@ -325,17 +387,6 @@ public class Drawer {
      */
     private boolean isDiscovered(int type) {
         return type != UNKNOWN;
-    }
-
-    private Sprite parseType(int type) {
-        return switch (type) {
-            case 0 -> Sprite.PATH;
-            case 1 -> Sprite.WALL;
-            case 2 -> Sprite.EXIT_CONNECTOR;
-            case 4 -> Sprite.PLAYER;
-            case 5 -> Sprite.EXIT;
-            default -> Sprite.PATH;
-        };
     }
 
     public record CameraState(double cameraX, double cameraY, double zoom) {

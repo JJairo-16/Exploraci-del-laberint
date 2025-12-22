@@ -1,24 +1,53 @@
 package com.jairo.app.gfx;
 
+import static com.jairo.app.gfx.SpritesRoot.*;
+
 public enum Sprite {
-    WALL(getRoot("game/wall.png")),
-    PATH(getRoot("game/path.png")),
+    NONE(GAME.get("none.png")),
 
-    EXIT(getRoot("game/exit.png")),
-    EXIT_CONNECTOR(getRoot("game/exit.png")),
+    WALL(GAME.get("wall.png")),
+    PATH(GAME.get("path.png")),
+
+    EXIT(GAME.get("exit.png")),
+    EXIT_CONNECTOR(GAME.get("exit.png")),
+
+    DOOR_OPEN_FROM_NORTH(DOORS.get("door_open_from_north.png")),
+    DOOR_OPEN_FROM_SOUTH(DOORS.get("door_open_from_south.png")),
+    DOOR_OPEN_FROM_WEST(DOORS.get("door_open_from_west.png")),
+    DOOR_OPEN_FROM_EAST(DOORS.get("door_open_from_east.png")),
+
+    DOOR_OPENED_FROM_NORTH(DOORS.get("door_opened_from_north.png")),
+    DOOR_OPENED_FROM_SOUTH(DOORS.get("door_opened_from_south.png")),
+    DOOR_OPENED_FROM_WEST(DOORS.get("door_opened_from_west.png")),
+    DOOR_OPENED_FROM_EAST(DOORS.get("door_opened_from_east.png")),
     
-    ARROW(getRoot("arrow.png")),
-    PLAYER(getRoot("game/playerSkins/default.png"));
+    ARROW(GEN.get("arrow.png")),
+    PLAYER(PL_SKINS.get("default.png"));
 
-    private static final String BASE_ROOT = "/com/jairo/app/img/";
-    private static String getRoot(String path) {
-        return BASE_ROOT + path;
+    static {
+        DOOR_OPEN_FROM_NORTH.updateFillTile();
+        DOOR_OPEN_FROM_SOUTH.updateFillTile();
+        DOOR_OPEN_FROM_WEST.updateFillTile();
+        DOOR_OPEN_FROM_EAST.updateFillTile();
+
+        DOOR_OPENED_FROM_NORTH.updateFillTile();
+        DOOR_OPENED_FROM_SOUTH.updateFillTile();
+        DOOR_OPENED_FROM_WEST.updateFillTile();
+        DOOR_OPENED_FROM_EAST.updateFillTile();
     }
     
     private String resourcePath;
+    public final double rotation;
+    private boolean fullTile = true;
+
+    Sprite(String resourcePath, double rotaion) {
+        this.resourcePath = resourcePath;
+        this.rotation = rotaion;
+    }
 
     Sprite(String resourcePath) {
         this.resourcePath = resourcePath;
+        this.rotation = 0;
     }
 
     public String path() {
@@ -27,5 +56,13 @@ public enum Sprite {
 
     public void reload(String newPath) {
         this.resourcePath = newPath;
+    }
+
+    private void updateFillTile() {
+        fullTile = false;
+    }
+
+    public boolean getIfIsFullTile() {
+        return fullTile;
     }
 }

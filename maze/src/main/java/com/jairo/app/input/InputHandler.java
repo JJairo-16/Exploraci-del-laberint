@@ -2,6 +2,9 @@ package com.jairo.app.input;
 
 import com.jairo.services.Simulator;
 import com.jairo.utils.KeyBind;
+import static com.jairo.utils.KeyBind.Action;
+
+import java.util.List;
 
 import javafx.scene.control.Label;
 import javafx.scene.input.KeyCode;
@@ -13,6 +16,12 @@ public final class InputHandler {
     private static final Logger log = LoggerFactory.getLogger(InputHandler.class);
 
     private static boolean debugInScreen = false;
+    private static boolean debugAction = true;
+
+    private static List<Action> blackListOfDebug = List.of(
+        Action.NONE,
+        Action.USE
+    );
 
     private final Simulator simulator;
     private final Label bottomText;
@@ -40,8 +49,20 @@ public final class InputHandler {
      * Normalment es crida a KeyReleased.
      */
     public void handleKeyReleased(KeyCode key) {
-        KeyBind.Action action = KeyBind.getAction(key);
-        log.debug("Key released: {} -> action {}", key, action);
+        Action action = KeyBind.getAction(key);
+        debug(key, action);
         runAction(action);
+    }
+
+    private void debug(KeyCode key, Action action) {
+        if (!debugAction) {
+            return;
+        }
+
+        if (blackListOfDebug.contains(action)) {
+            return;
+        }
+
+        log.debug("Key released: {} -> action {}", key, action);
     }
 }

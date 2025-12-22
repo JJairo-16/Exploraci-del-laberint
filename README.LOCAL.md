@@ -187,6 +187,16 @@ tbody tr:last-child td:last-child  { border-bottom-right-radius: 10px; }
   }
 }
 
+.ghost-room-container {
+  display: flex;
+  justify-content: center;
+}
+
+.ghost-room-img {
+  max-width: 70%;
+  border-radius: 8px;
+  box-shadow: 0 10px 24px rgba(0,0,0,0.25);
+}
 
 </style>
 
@@ -240,6 +250,11 @@ L’objectiu del joc és explorar un laberint fins a trobar la sortida. Al comen
       <td>E</td>
       <td>Enter</td>
       <td>Utilitzar</td>
+    </tr>
+    <tr>
+      <td>Shift</td>
+      <td></td>
+      <td>Esprintar</td>
     </tr>
     <tr>
       <td>Més</td>
@@ -310,6 +325,53 @@ L’objectiu del joc és explorar un laberint fins a trobar la sortida. Al comen
         </div>
     </li>
 </ul>
+
+---
+
+## The Ghost Room
+
+<span class="highlight">The Ghost Room</span> (o <em>Ghost Room</em>) és un
+<strong>heisenbug conegut</strong> del projecte que s’ha decidit
+<strong>no solucionar</strong>.
+
+<div class="section">
+    Única imatge capturada fins al moment:
+    <br><br>
+    <div class="ghost-room-container">
+        <img src="maze/docs/The%20Ghost%20Room/the%20ghost%20room.png" class="ghost-room-img" alt="Imatge de la Ghost Room">
+    </div>
+</div>
+
+
+### Símptomes
+
+En casos extremadament rars, el jugador, en lloc d'aparèixer dins del laberint,
+apareix en una <strong>habitació buida</strong> amb una única sortida en forma de passadís.
+
+Aquesta sortida és <span class="highlight">intransitable</span> a causa d'un
+<strong>terra amb col·lisió fantasma</strong>, que aparentment compleix les regles
+del sistema però les incompleix a nivell intern.
+
+En altres paraules, <em>The Ghost Room</em> representa un estat en què el programa
+<strong>compleix i no compleix les regles simultàniament</strong>.
+
+### Causa
+
+Aquest comportament és provocat pel sistema de <strong>generació del mapa</strong>.
+Tot i que és <em>impossible de reproduir intencionalment</em>, depèn completament
+del <strong>factor aleatori (RNG)</strong> i de condicions d'execució específiques.
+
+### Solució
+
+No existeix una solució definitiva.
+
+Per sortir de la <em>Ghost Room</em>, només cal <strong>reiniciar el programa</strong>.
+
+<div class="section">
+    Aquest fenomen <strong>no afecta la jugabilitat normal</strong> del joc
+    i s'ha decidit preservar com a <span class="highlight">comportament emergent</span>
+    i element singular del projecte.
+</div>
 
 ---
 

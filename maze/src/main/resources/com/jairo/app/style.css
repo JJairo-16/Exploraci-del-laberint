@@ -1,28 +1,46 @@
+@font-face {
+    font-family: "Cinzel";
+    src: url("/fonts/Cinzel-Regular.ttf");
+}
+
 /* Fons general */
 .root {
     -fx-background-color: #1e1e1e;
+    -fx-font-family: "Cinzel";
 }
 
 /* Panell dret */
 #rightPanel {
     -fx-background-color: #2d2d2d;
-    -fx-padding: 12;
+    -fx-padding: 14;
     -fx-border-color: #3f3f3f;
     -fx-border-width: 0 0 0 2;
+
+    -fx-min-width: 320px;
+    -fx-pref-width: 360px;
+    -fx-max-width: 420px;
 }
 
 /* Text superior */
 .title-text {
-    -fx-font-size: 18px;
+    -fx-font-size: 30px;
     -fx-font-weight: bold;
     -fx-text-fill: white;
-    -fx-padding: 0 0 15px 0;
+    -fx-padding: 0 0 6px 0;
+}
+
+/* Títol de secció */
+.section-title {
+    -fx-font-size: 14px;
+    -fx-text-fill: #dfe7f2;
+    -fx-font-weight: 700;
 }
 
 /* Text inferior */
 .footer-text {
     -fx-font-size: 12px;
     -fx-text-fill: #bbbbbb;
+    -fx-padding: 6 0 0 0;
 }
 
 /* Estil general per a totes les etiquetes */
@@ -30,10 +48,21 @@ Label {
     -fx-text-fill: white;
 }
 
-.separator {
-    -fx-padding: 2px;
+/* Separadors reals */
+.ui-separator {
+    -fx-opacity: 0.9;
+}
+.ui-separator .line {
+    -fx-border-color: rgba(255,255,255,0.12);
+    -fx-border-width: 1 0 0 0;
 }
 
+/* Grid de tecles */
+.key-grid {
+    -fx-padding: 2 0 2 0;
+}
+
+/* Tecles */
 .key-label {
     -fx-background-color: linear-gradient(#444, #2a2a2a);
     -fx-text-fill: white;
@@ -41,6 +70,8 @@ Label {
     -fx-padding: 4 8 4 8;
     -fx-font-size: 12px;
     -fx-font-weight: bold;
+
+    -fx-alignment: center;
 
     -fx-background-radius: 4;
     -fx-border-radius: 4;
@@ -50,46 +81,14 @@ Label {
     -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.6), 3, 0.3, 0, 1);
 }
 
+/* Descripcions */
 .key-description {
     -fx-text-fill: #ffffff;
     -fx-font-size: 13px;
-    -fx-font-weight: 800;
-    -fx-letter-spacing: 0.6px;
+    -fx-font-weight: 700;
 }
 
-.button {
-    -fx-background-color: linear-gradient(to bottom, #65adff, #4f97e6);
-    -fx-background-radius: 8;
-    -fx-border-radius: 8;
-    -fx-border-color: rgba(255,255,255,0.15);
-    -fx-border-width: 1;
-
-    -fx-text-fill: white;
-    -fx-font-weight: bold;
-    -fx-padding: 0.6em 1.4em;
-
-    -fx-cursor: hand;
-    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.25), 10, 0.2, 0, 2);
-}
-
-.button:hover {
-    -fx-background-color: linear-gradient(to bottom, #7bbaff, #5fa3ee);
-}
-
-.button:pressed {
-    -fx-background-color: linear-gradient(to bottom, #4f97e6, #3e7fc2);
-    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.15), 6, 0.2, 0, 1);
-}
-
-.button:focused {
-    -fx-border-color: #9ecbff;
-    -fx-border-width: 1.5;
-}
-
-.button:disabled {
-    -fx-opacity: 0.55;
-}
-
+/* ChoiceBox */
 .choice-box {
     -fx-background-color: rgba(128,128,128,0.12);
     -fx-background-radius: 8;
@@ -136,24 +135,61 @@ Label {
     -fx-background-color: rgba(101,173,255,0.25);
 }
 
+/* =======================
+   BOTONES
+   ======================= */
+
+.button {
+    -fx-background-color: linear-gradient(to bottom, #65adff, #4f97e6);
+    -fx-background-radius: 8;
+    -fx-border-radius: 8;
+
+    -fx-border-color: rgba(255,255,255,0.18);
+    -fx-border-width: 1;
+
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+    -fx-font-size: 14px;
+
+    -fx-padding: 0.6em 1.4em;
+    -fx-cursor: hand;
+
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.35), 10, 0.2, 0, 2);
+}
+
+/* Hover */
+.button:hover {
+    -fx-background-color: linear-gradient(to bottom, #7bbaff, #5fa3ee);
+}
+
+/* Presionado */
+.button:pressed {
+    -fx-background-color: linear-gradient(to bottom, #4f97e6, #3e7fc2);
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.20), 6, 0.2, 0, 1);
+}
+
+/* Focus (teclado / gamepad) */
+.button:focused {
+    -fx-border-color: #9ecbff;
+    -fx-border-width: 1.5;
+}
+
+/* Deshabilitado */
+.button:disabled {
+    -fx-opacity: 0.55;
+}
+
 .button.secondary {
-    -fx-background-color: rgba(128,128,128,0.18);
+    -fx-background-color: rgba(128,128,128,0.20);
     -fx-text-fill: #d7e3f2;
+
+    -fx-border-color: rgba(255,255,255,0.15);
 }
 
 .button.secondary:hover {
-    -fx-background-color: rgba(128,128,128,0.28);
+    -fx-background-color: rgba(128,128,128,0.30);
 }
 
-.credits-text {
-    -fx-font-size: 11px;
-    -fx-text-fill: rgba(220, 230, 245, 0.65);
-    -fx-padding: 8 12;
-}
-
-.final-title-text {
-    -fx-font-size: 36px;
-    -fx-font-weight: bold;
-    -fx-text-fill: white;
-    -fx-padding: 0 0 -15px 0;
+.button.secondary:pressed {
+    -fx-background-color: rgba(128,128,128,0.22);
 }

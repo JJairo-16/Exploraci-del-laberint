@@ -12,7 +12,7 @@
     <VBox alignment="CENTER"
           spacing="14">
 
-        <Label text="%end.title" styleClass="final-title-text"/>
+        <Label text="%end.title" styleClass="title-text"/>
         <Label text="%end.subtitle" wrapText="true"/>
 
         <Button text="%end.exit" onAction="#onExit" prefWidth="200"/>

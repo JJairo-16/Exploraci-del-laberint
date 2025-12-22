@@ -24,6 +24,7 @@ L’objectiu del joc és explorar un laberint fins a trobar la sortida. Al comen
 | S                   | Fletxa avall         | Anar cap avall        |
 | D                   | Fletxa dreta         | Anar cap a la dreta   |
 | E                   | Enter                | Utilitzar             |
+| Shift               |                      | Esprintar             |
 | Més                 |                      | Augmentar el zoom     |
 | Menys               |                      | Disminuir el zoom     |
 | Z                   |                      | Skin anterior         |
@@ -69,6 +70,40 @@ L’objectiu del joc és explorar un laberint fins a trobar la sortida. Al comen
     ```PowerShell
     setx PATH "$env:PATH;C:\ruta\al\maven\bin" /M
     ```
+
+---
+
+## The Ghost Room
+
+*The Ghost Room* (o *Ghost Room*) és un **heisenbug conegut** que **no serà solucionat**.
+
+Única imatge capturada fins al moment:  
+![Imatge de la Ghost Room](maze/docs/The%20Ghost%20Room/the%20ghost%20room.png)
+
+### Símptomes
+
+El jugador, en lloc d'aparèixer dins del laberint, apareix en una **habitació buida**
+amb una única sortida en forma de passadís.
+
+Aquesta sortida és **intransitable** a causa d'un **terra amb col·lisió fantasma**,
+que incompleix les regles de col·lisió del joc tot i, aparentment, complir-les.
+
+En altres paraules, *The Ghost Room* representa un estat en què el programa
+**compleix i no compleix les regles simultàniament**.
+
+### Causa
+
+Aquest comportament és causat pel sistema de **generació del mapa**.
+Tot i que és **impossible de reproduir intencionalment**, depèn completament
+del **factor aleatori (RNG)**.
+
+### Solució
+
+No existeix una solució definitiva.
+Per sortir de la *Ghost Room*, només cal **reiniciar el programa**.
+
+> Aquest fenomen **no afecta la jugabilitat normal** i s'ha decidit
+> preservar com a comportament emergent del sistema.
 
 ---
 

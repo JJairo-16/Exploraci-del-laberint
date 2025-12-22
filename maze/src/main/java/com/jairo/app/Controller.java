@@ -47,6 +47,8 @@ public class Controller {
     @FXML
     private Canvas entitiesCanvas;
     @FXML
+    private Canvas postFxCanvas;
+    @FXML
     private Canvas hudCanvas;
 
     @FXML
@@ -59,6 +61,7 @@ public class Controller {
 
     private final Dimensions dims = new Dimensions();
     private final ImageStore images = ImageStore.getInstance();
+    private final SoundManager sm = SoundManager.get();
 
     private InputHandler input;
     private Drawer drawer;
@@ -86,8 +89,11 @@ public class Controller {
     private AnimationTimer moveTimer;
     private long nextRepeatNs = 0L;
 
-    private static final long INITIAL_DELAY_NS = 200_000_000L; // 0.20s
+    private static final long INITIAL_DELAY_NS = 240_000_000L; // 0.24s
     private static final long REPEAT_EVERY_NS = 240_000_000L; // 0.24s
+
+    private static final Double SPRINTING_SPEED = 0.55;
+    private boolean sprinting = false;
 
     private boolean isActionHeld(KeyBind.Action action) {
         if (action == null)
@@ -102,7 +108,7 @@ public class Controller {
     private KeyBind.Action findAnyHeldMaintainableAction() {
         for (KeyCode k : pressed) {
             KeyBind.Action a = KeyBind.getAction(k);
-            if (a.canMaintain)
+            if (a != null && a.canMaintain)
                 return a;
         }
         return null;
@@ -123,7 +129,8 @@ public class Controller {
                     log.info("Simulator injected via initState().");
             }
 
-            SoundManager sm = SoundManager.get();
+            sm.preload(Sound.values());
+
             sm.playBgmLoop(Sound.THEME.path());
             sm.setMasterVolume(0.9);
             sm.setBgmVolume(0.30);
@@ -143,7 +150,8 @@ public class Controller {
 
             dims.bindPanels(root, rightPanel, leftPane);
 
-            dims.recalcAndResize(leftPane, Board.BOARD_WIDTH, Board.BOARD_HEIGHT, mapCanvas, entitiesCanvas, hudCanvas);
+            dims.recalcAndResize(leftPane, Board.BOARD_WIDTH, Board.BOARD_HEIGHT, mapCanvas, entitiesCanvas, hudCanvas,
+                    postFxCanvas);
 
             if (log.isDebugEnabled()) {
                 log.debug(
@@ -211,7 +219,7 @@ public class Controller {
                 }
             });
 
-            drawer = new Drawer(mapCanvas, entitiesCanvas, hudCanvas, simulator, dims.getTileSize());
+            drawer = new Drawer(mapCanvas, entitiesCanvas, postFxCanvas, hudCanvas, simulator, dims.getTileSize());
             if (pendingCameraState != null) {
                 if (log.isDebugEnabled())
                     log.debug("Applying pending camera state: {}", pendingCameraState);
@@ -230,7 +238,7 @@ public class Controller {
 
                     if (now - last < FRAME_NS)
                         return;
-                    
+
                     last = now;
                     drawer.renderArrow(now);
                 }
@@ -259,7 +267,9 @@ public class Controller {
                     input.runAction(activeMoveAction);
                     drawer.update();
 
-                    nextRepeatNs = now + REPEAT_EVERY_NS;
+                    long interval = (long) (REPEAT_EVERY_NS
+                            * (sprinting && simulator.getCurrentAction().isAMovement ? SPRINTING_SPEED : 1.0));
+                    nextRepeatNs = now + interval;
                 }
             };
             moveTimer.start();
@@ -272,10 +282,18 @@ public class Controller {
                 }
 
                 KeyCode key = event.getCode();
-                KeyBind.Action action = KeyBind.getAction(key);
 
                 boolean wasDown = pressed.contains(key);
                 pressed.add(key);
+
+                if (key == KeyCode.SHIFT) {
+                    sprinting = true;
+                    return;
+                }
+
+                KeyBind.Action action = KeyBind.getAction(key);
+                if (action == null)
+                    return;
 
                 // Mantenibles: es gestionen amb el temporitzador
                 if (action.canMaintain) {
@@ -290,7 +308,9 @@ public class Controller {
                         drawer.update();
 
                         long now = System.nanoTime();
-                        nextRepeatNs = now + INITIAL_DELAY_NS;
+                        long delay = (long) (INITIAL_DELAY_NS
+                                * (sprinting && simulator.getCurrentAction().isAMovement ? SPRINTING_SPEED : 1.0));
+                        nextRepeatNs = now + delay;
                     }
                     return;
                 }
@@ -304,16 +324,26 @@ public class Controller {
                 }
 
                 KeyCode key = event.getCode();
-                KeyBind.Action action = KeyBind.getAction(key);
 
                 pressed.remove(key);
+
+                if (key == KeyCode.SHIFT) {
+                    sprinting = false;
+                    return;
+                }
+
+                KeyBind.Action action = KeyBind.getAction(key);
+                if (action == null)
+                    return;
 
                 // Si has deixat anar la tecla activa, busca una altra mantenible que continuï
                 // premuda
                 if (action == activeMoveAction && !isActionHeld(activeMoveAction)) {
                     KeyBind.Action prev = activeMoveAction;
                     activeMoveAction = findAnyHeldMaintainableAction();
-                    nextRepeatNs = System.nanoTime() + INITIAL_DELAY_NS * (long) action.cooldownMultiplier;
+                    long base = (long) (INITIAL_DELAY_NS * action.cooldownMultiplier);
+                    long delay = (long) (base * (sprinting && simulator.getCurrentAction().isAMovement ? SPRINTING_SPEED : 1.0));
+                    nextRepeatNs = System.nanoTime() + delay;
 
                     if (log.isTraceEnabled()) {
                         log.trace("Move stop/switch. releasedKey={} prevAction={} newAction={}", key, prev,

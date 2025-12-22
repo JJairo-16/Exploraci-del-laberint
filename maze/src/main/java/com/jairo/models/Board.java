@@ -5,7 +5,10 @@ import java.util.ArrayList;
 
 // * Generadors
 import com.jairo.utils.map_generator.MapGenerator;
+import com.jairo.utils.map_generator.map_modifier.MapModifier;
 import com.jairo.utils.map_generator.BoardGenerator;
+import com.jairo.utils.map_generator.Cells;
+
 import static com.jairo.utils.map_generator.Cells.*;
 
 import org.slf4j.Logger;
@@ -34,6 +37,9 @@ public class Board {
     public static final int BOARD_WIDTH = MapGenerator.BOARD_WIDTH;
     public static final int BOARD_HEIGHT = MapGenerator.BOARD_HEIGHT;
 
+    private static final int X_POWER = 1;
+    private static final int Y_POWER = 1;
+
     // #endregion
 
     // * Propietats
@@ -44,9 +50,6 @@ public class Board {
     // Jugador
     private int playerX;
     private int playerY;
-
-    private static final int X_POWER = 1;
-    private static final int Y_POWER = 1;
 
     /**
      * Crea un nou tauler de joc generat de manera aleatòria.
@@ -60,7 +63,8 @@ public class Board {
     public Board() {
         try {
             // * Genera mapa
-            String flat = MapGenerator.generateMap(); // ? Genera mapa pla
+            String base = MapGenerator.generateMap(); // ? Genera mapa pla
+            String flat = MapModifier.modify(base, BOARD_WIDTH, BOARD_HEIGHT);
             BoardGenerator.Maps maps = BoardGenerator.generateEmptyBoard(flat, BOARD_WIDTH, BOARD_HEIGHT); // ? Genera
                                                                                                            // mapa 2D i
                                                                                                            // visibilitat
@@ -209,7 +213,7 @@ public class Board {
             return false;
         }
 
-        if (cells.get(y).get(x) == WALL) {
+        if (Cells.hasCollision(cells.get(y).get(x))) {
             log.trace("Move rejected: hit wall (x={}, y={})", x, y);
             return false;
         }
@@ -257,7 +261,8 @@ public class Board {
         }
 
         // * Comprova si la cel·la és transitable
-        return cells.get(newY).get(newX) != WALL;
+        int cell = cells.get(newY).get(newX);
+        return !Cells.hasCollision(cell);
     }
 
     /**
@@ -287,4 +292,21 @@ public class Board {
     }
 
     // #endregion
+
+    public void updateTile(int x, int y, int tile) {
+        if (x < 0 || x >= BOARD_WIDTH || y < 0 || y >= BOARD_HEIGHT) {
+            return;
+        }
+
+        cells.get(y).set(x, tile);
+        visibility.get(y).set(x, tile);
+    }
+
+    public int getTile(int x, int y) {
+        if (x < 0 || y < 0 || y >= BOARD_HEIGHT || x >= BOARD_WIDTH) {
+            return Cells.WALL;
+        }
+        return cells.get(y).get(x);
+    }
+
 }

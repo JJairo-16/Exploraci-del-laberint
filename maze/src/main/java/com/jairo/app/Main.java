@@ -20,7 +20,7 @@ public class Main extends Application {
     private static final int HEIGHT = 590;
 
     private static final String ICON_ROOT = "/com/jairo/app/img/icon.png";
-    private static final String FXML_TO_LOAD = "main-view.fxml";
+    private static final String FXML_TO_LOAD = "start-view.fxml";
 
     @Override
     public void start(Stage stage) throws Exception {

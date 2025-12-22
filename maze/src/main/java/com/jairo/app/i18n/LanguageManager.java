@@ -157,4 +157,9 @@ public final class LanguageManager {
             throw new RuntimeException("Failed to load view: " + fxmlAbsolutePath, e);
         }
     }
+
+    public static String getCurrentLanguageCode() {
+        return Locale.getDefault().getLanguage();
+    }
+
 }

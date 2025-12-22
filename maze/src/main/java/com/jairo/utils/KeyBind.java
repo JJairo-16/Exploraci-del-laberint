@@ -29,6 +29,8 @@ public final class KeyBind {
         KEY_BINDS.put(KeyCode.E, Action.USE);
         KEY_BINDS.put(KeyCode.ENTER, Action.USE);
 
+        KEY_BINDS.put(KeyCode.SHIFT, Action.SPRINT);
+
         KEY_BINDS.put(KeyCode.PLUS, Action.ZOOM_IN);
         KEY_BINDS.put(KeyCode.MINUS, Action.ZOOM_OUT);
 
@@ -46,6 +48,7 @@ public final class KeyBind {
         UP(true, true, 1.0),
         DOWN(true, true, 1.0),
         USE(),
+        SPRINT(),
         ZOOM_IN(),
         ZOOM_OUT(),
         NEXT_SKIN(true, false, 1.5),
