@@ -276,6 +276,11 @@ L’objectiu del joc és explorar un laberint fins a trobar la sortida. Al comen
       <td></td>
       <td>Següent skin</td>
     </tr>
+    <tr>
+      <td>Q</td>
+      <td></td>
+      <td>Següent objecte</td>
+    </tr>
   </tbody>
 </table>
 
@@ -332,15 +337,18 @@ L’objectiu del joc és explorar un laberint fins a trobar la sortida. Al comen
 
 <span class="highlight">The Ghost Room</span> (o <em>Ghost Room</em>) és un
 <strong>heisenbug conegut</strong> del projecte que s’ha decidit
-<strong>no solucionar</strong>.
+<strong>no solucionar completament, només desactivar.</strong>.
 
 <div class="section">
-    Única imatge capturada fins al moment:
+    Primera imatge capturada:
     <br><br>
     <div class="ghost-room-container">
-        <img src="maze/docs/The%20Ghost%20Room/the%20ghost%20room.png" class="ghost-room-img" alt="Imatge de la Ghost Room">
+        <img src="maze/docs/The%20Ghost%20Room/img/the%20ghost%20room.png" class="ghost-room-img" alt="Imatge de la Ghost Room">
     </div>
+    Més informació a <a href="maze/docs/The%20Ghost%20Room/docs.md">The Ghost Room</a>
+
 </div>
+
 
 
 ### Símptomes
@@ -363,14 +371,14 @@ del <strong>factor aleatori (RNG)</strong> i de condicions d'execució específi
 
 ### Solució
 
-No existeix una solució definitiva.
+tot i existir una solució definitiva, es pot activar novament la possibilitat d'aparèixer en una Ghost Room.
 
 Per sortir de la <em>Ghost Room</em>, només cal <strong>reiniciar el programa</strong>.
 
 <div class="section">
     Aquest fenomen <strong>no afecta la jugabilitat normal</strong> del joc
     i s'ha decidit preservar com a <span class="highlight">comportament emergent</span>
-    i element singular del projecte.
+    i element singular del projecte tot i que desactivat de forma nativa.
 </div>
 
 ---

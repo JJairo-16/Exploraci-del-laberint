@@ -2,6 +2,7 @@ package com.jairo.app.input;
 
 import com.jairo.services.Simulator;
 import com.jairo.utils.KeyBind;
+
 import static com.jairo.utils.KeyBind.Action;
 
 import java.util.List;

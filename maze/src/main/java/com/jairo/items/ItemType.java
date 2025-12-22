@@ -43,4 +43,8 @@ public interface ItemType {
     default String getPickupSoundPath() {
         return null;
     }
+
+    default boolean isAPower() {
+        return false;
+    }
 }

@@ -3,7 +3,8 @@ package com.jairo.app.audio;
 public enum SoundsRoot {
     GEN("/sfx/"),
     STEPS("/sfx/steps/"),
-    DOORS("/sfx/doors/");
+    DOORS("/sfx/doors/"),
+    ITEMS("/sfx/items/");
 
     private final String baseRoot;
 

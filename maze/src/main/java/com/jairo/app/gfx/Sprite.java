@@ -7,6 +7,7 @@ public enum Sprite {
 
     WALL(GAME.get("wall.png")),
     PATH(GAME.get("path.png")),
+    DESTROYED_PATH(GAME.get("destroyed-path.png")),
 
     EXIT(GAME.get("exit.png")),
     EXIT_CONNECTOR(GAME.get("exit.png")),
@@ -24,7 +25,8 @@ public enum Sprite {
     ARROW(GEN.get("arrow.png")),
     PLAYER(PL_SKINS.get("default.png")),
     
-    COIN(ITEMS.get("coin.png"));
+    COIN(ITEMS.get("coin.png")),
+    PICKAXE(ITEMS.get("pickaxe.png"));
 
     static {
         DOOR_OPEN_FROM_NORTH.updateFillTile();

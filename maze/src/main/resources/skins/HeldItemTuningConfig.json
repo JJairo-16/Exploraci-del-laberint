@@ -1,0 +1,29 @@
+[
+	{
+		"id": "default",
+		"baseScale": 0.8,
+		"noCursorScaleMul": 1.1,
+		"cursorOffsetMulX": 1.6,
+		"cursorOffsetMulY": 0.6,
+		"noCursorOffsetMulX": 1.6,
+		"noCursorOffsetMulY": 0.0
+	},
+	{
+		"id": "blai",
+		"baseScale": 0.95,
+		"noCursorScaleMul": 1.1,
+		"cursorOffsetMulX": 2.7,
+		"cursorOffsetMulY": 1.1,
+		"noCursorOffsetMulX": 1.3,
+		"noCursorOffsetMulY": 0.0
+	},
+	{
+		"id": "cristian",
+		"baseScale": 0.95,
+		"noCursorScaleMul": 1.1,
+		"cursorOffsetMulX": 3.1,
+		"cursorOffsetMulY": 1.5,
+		"noCursorOffsetMulX": 1.3,
+		"noCursorOffsetMulY": 0.0
+	}
+]

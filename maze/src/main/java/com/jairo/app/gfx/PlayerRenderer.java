@@ -1,6 +1,9 @@
 package com.jairo.app.gfx;
 
+import com.jairo.app.gfx.player_skins.HeldItemTuning;
 import com.jairo.app.gfx.player_skins.SkinManager;
+import com.jairo.items.ItemType;
+import com.jairo.models.Inventory;
 import com.jairo.services.Simulator;
 import com.jairo.utils.KeyBind.Action;
 
@@ -15,7 +18,7 @@ public class PlayerRenderer {
     private final ImageStore images;
 
     private static final double SIZE_MULTIPLIER = 0.9;
-    private static final double OFFSET_MULTIPLIER = -0.05;
+    private static final double OFFSET_MULTIPLIER = 0.1;
 
     private double screenX;
     private double screenY;
@@ -39,15 +42,67 @@ public class PlayerRenderer {
         screenY = (pos.y() - cameraY) * size;
         this.size = size;
 
+        // Player
         entitiesGC.drawImage(images.get(Sprite.PLAYER), screenX, screenY, size, size);
 
-        if (!SkinManager.get().current().needArrow())
+        boolean hasCursor = SkinManager.get().current().needArrow();
+
+        if (hasCursor) {
+            direction = simulator.getCurrentAction();
+        }
+
+        Inventory inv = simulator.getInventory();
+        ItemType item = inv.getSelectedPower();
+        if (item == null || !inv.has(item))
             return;
 
-        direction = simulator.getCurrentAction();
-        // renderArrow(now);
-    }
+        // ---- TUNING (por skin) ----
+        HeldItemTuning helItemTuning = SkinManager.get().heldItemTuning();
 
+        // Tamaño
+        double baseItemSize = size * helItemTuning.baseScale();
+        double itemSize = hasCursor ? baseItemSize : (baseItemSize * helItemTuning.noCursorScaleMul());
+
+        // Centro del jugador
+        double cx = screenX + size / 2.0;
+        double cy = screenY + size / 2.0;
+
+        // Offset base (puedes tunear esto también si quieres; de momento fijo)
+        double offset = size * 0.16;
+
+        // Base: centrado por tamaño REAL
+        double ox = cx - itemSize / 2.0;
+        double oy = cy - itemSize / 2.0;
+
+        // Offset según modo
+        if (hasCursor) {
+            ox += offset * helItemTuning.cursorOffsetMulX();
+            oy += offset * helItemTuning.cursorOffsetMulY();
+        } else {
+            ox += offset * helItemTuning.noCursorOffsetMulX();
+            oy += offset * helItemTuning.noCursorOffsetMulY();
+        }
+
+        Image itemImg = images.get(item.getSprite());
+
+        // tiempo (igual que el resto del render)
+        double t = System.nanoTime() / 1_000_000_000.0;
+        double phase = item.hashCode() * 0.001;
+
+        // --- BORDE PÚRPURA CUANDO ESTÁ EN LA MANO ---
+        drawHeldItemBorder(
+                entitiesGC,
+                itemImg,
+                ox,
+                oy,
+                itemSize,
+                t,
+                phase);
+
+        // Sprite normal encima
+        entitiesGC.drawImage(itemImg, ox, oy, itemSize, itemSize);
+
+    }
     // #endregion
 
     // #region Arrow
@@ -130,4 +185,33 @@ public class PlayerRenderer {
     }
 
     // #endregion
+
+    private void drawHeldItemBorder(
+            GraphicsContext gc,
+            Image img,
+            double x,
+            double y,
+            double size,
+            double t,
+            double phase) {
+        gc.save();
+
+        double pulse = 0.5 + 0.5 * Math.sin(t * 3.5 + phase);
+        double radius = Math.max(1.0, size * 0.06); // un poco más fino que en suelo
+
+        javafx.scene.effect.DropShadow ds = new javafx.scene.effect.DropShadow();
+        ds.setRadius(radius);
+        ds.setSpread(0.65);
+        ds.setOffsetX(0);
+        ds.setOffsetY(0);
+        ds.setColor(javafx.scene.paint.Color.rgb(
+                175, 95, 255, // púrpura
+                Math.min(1.0, 0.55 + pulse * 0.20)));
+
+        gc.setEffect(ds);
+        gc.drawImage(img, x, y, size, size);
+
+        gc.restore();
+    }
+
 }

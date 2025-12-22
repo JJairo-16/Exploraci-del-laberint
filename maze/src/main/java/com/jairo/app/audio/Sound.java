@@ -3,7 +3,6 @@ package com.jairo.app.audio;
 import static com.jairo.app.audio.SoundsRoot.*;
 
 public enum Sound {
-
     THEME("/music/theme.mp3"),
     VICTORY(GEN.get("victory.mp3")),
 
@@ -23,7 +22,10 @@ public enum Sound {
     JIJI_ES(DOORS.get("jiji_es.mp3")),
     JIJI_EN(DOORS.get("jiji_en.mp3")),
     
-    COIN(GEN.get("coin.mp3"));
+    COIN(ITEMS.get("coin.mp3")),
+    POWERUP(ITEMS.get("power-pick-up.mp3")),
+    PICKAXE_DOOR(ITEMS.get("pickaxe-door.mp3")),
+    PICKAXE_WALL(ITEMS.get("pickaxe-wall.mp3"));
 
     private final String resourcePath;
 

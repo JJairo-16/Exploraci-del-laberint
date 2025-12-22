@@ -29,6 +29,7 @@ L’objectiu del joc és explorar un laberint fins a trobar la sortida. Al comen
 | Menys               |                      | Disminuir el zoom     |
 | Z                   |                      | Skin anterior         |
 | X                   |                      | Següent skin          |
+| Q                   |                      | Següent objecte       |
 
 ---
 
@@ -75,10 +76,12 @@ L’objectiu del joc és explorar un laberint fins a trobar la sortida. Al comen
 
 ## The Ghost Room
 
-*The Ghost Room* (o *Ghost Room*) és un **heisenbug conegut** que **no serà solucionat**.
+*The Ghost Room* (o *Ghost Room*) és un **heisenbug conegut** que **no serà solucionat** completament, només desactivar.
 
-Única imatge capturada fins al moment:  
-![Imatge de la Ghost Room](maze/docs/The%20Ghost%20Room/the%20ghost%20room.png)
+Primera imatge capturada:  
+![Imatge de la Ghost Room](maze/docs/The%20Ghost%20Room/img/the%20ghost%20room.png)
+
+ > Més informació a [The Ghost Room](maze/docs/The%20Ghost%20Room/docs.md).
 
 ### Símptomes
 
@@ -101,9 +104,6 @@ del **factor aleatori (RNG)**.
 
 No existeix una solució definitiva.
 Per sortir de la *Ghost Room*, només cal **reiniciar el programa**.
-
-> Aquest fenomen **no afecta la jugabilitat normal** i s'ha decidit
-> preservar com a comportament emergent del sistema.
 
 ---
 

@@ -12,6 +12,7 @@ import com.jairo.app.gfx.player_skins.SkinManager;
 import com.jairo.items.BasicItemType;
 import com.jairo.items.ItemType;
 import com.jairo.items.PlacedItem;
+import com.jairo.items.PowerType;
 import com.jairo.models.Board;
 import com.jairo.services.ItemPlacer;
 import com.jairo.services.Simulator;
@@ -77,7 +78,7 @@ public class Drawer {
     // ---------- Zoom ----------
     private final double baseZoom = (Board.BOARD_HEIGHT * Board.BOARD_WIDTH) * 1.5 / 1000.0;
     private final double minZoom = baseZoom - 0.6;
-    private final double maxZoom = baseZoom + 0.8;
+    private final double maxZoom = baseZoom + 1.2;
     private double zoom = baseZoom;
 
     // ---------- HUD / Renderers ----------
@@ -115,6 +116,8 @@ public class Drawer {
         entitiesGC = entities.getGraphicsContext2D();
         postFxGC = postFx.getGraphicsContext2D();
         hudGC = hud.getGraphicsContext2D();
+
+        entitiesGC.setImageSmoothing(false);
 
         this.playerRenderer = new PlayerRenderer(simulator, entitiesGC, hudGC, images);
 
@@ -413,10 +416,11 @@ public class Drawer {
     }
 
     // ---------- HUD ----------
-    private void renderHud() {
+    public void renderHud() {
         hudGC.clearRect(0, 0, hud.getWidth(), hud.getHeight());
 
         renderPosition();
+        renderCoins();
         renderInventory();
     }
 
@@ -432,7 +436,7 @@ public class Drawer {
         hudGC.fillText("y: " + y, HUD_LEFT_X, HUD_TOP_Y + 24);
     }
 
-    private void renderInventory() {
+    private void renderCoins() {
         hudGC.setFill(Color.WHITE);
         hudGC.setFont(hudFont);
 
@@ -452,6 +456,153 @@ public class Drawer {
                 "x" + coins,
                 COIN_X + COIN_TEXT_OFFSET_X,
                 COIN_BASELINE_Y);
+    }
+
+    private final List<ItemType> powers = List.of(PowerType.values());
+
+    private void renderInventory() {
+        if (powers == null || powers.isEmpty())
+            return;
+
+        // --- Layout (arriba derecha) ---
+        final double padding = 25;
+        final double slotSize = 40;
+        final double gap = 8;
+        final double iconPadding = 6;
+
+        // --- Selección ---
+        int selectedIndex = simulator.getInventory().getSelectedPowerIndex(); // 0..N
+        int selectedI = selectedIndex - 1;
+
+        final double selectedGrow = 4;
+        final double baseRadius = 8;
+        final double selectedRadius = 10;
+        final double iconGrow = 10;
+
+        double canvasW = hud.getWidth();
+
+        double totalW = powers.size() * slotSize + (powers.size() - 1) * gap;
+        double startX = canvasW - padding - totalW;
+        double startY = padding;
+
+        hudGC.setLineWidth(2);
+
+        for (int i = 0; i < powers.size(); i++) {
+            ItemType power = powers.get(i);
+            int count = simulator.getInventory().getCount(power);
+
+            double x = startX + i * (slotSize + gap);
+            double y = startY;
+
+            boolean isSelected = (i == selectedI);
+
+            double s = isSelected ? (slotSize + selectedGrow) : slotSize;
+            double offset = isSelected ? (selectedGrow / 2.0) : 0.0;
+            double sx = x - offset;
+            double sy = y - offset;
+
+            // Fondo
+            hudGC.setFill(isSelected ? Color.rgb(0, 0, 0, 0.45) : Color.rgb(0, 0, 0, 0.35));
+            hudGC.fillRoundRect(
+                    sx, sy, s, s,
+                    isSelected ? selectedRadius : baseRadius,
+                    isSelected ? selectedRadius : baseRadius);
+
+            // Borde
+            if (isSelected) {
+                hudGC.setStroke(Color.rgb(90, 200, 255, 0.95));
+                hudGC.setLineWidth(3);
+            } else {
+                hudGC.setStroke(Color.rgb(255, 255, 255, 0.55));
+                hudGC.setLineWidth(2);
+            }
+            hudGC.strokeRoundRect(
+                    sx, sy, s, s,
+                    isSelected ? selectedRadius : baseRadius,
+                    isSelected ? selectedRadius : baseRadius);
+
+            // Icono
+            if (power != null && power.getSprite() != null) {
+                Image img = images.get(power.getSprite());
+                if (img != null) {
+                    double iconSize = s - iconPadding * 2;
+
+                    double iconDrawSize = iconSize + iconGrow;
+
+                    double ix = sx + (s - iconDrawSize) / 2.0 + (0.5 / (isSelected ? 2.0 : 1.0));
+                    double iy = sy + (s - iconDrawSize) / 2.0 + (isSelected ? 0.5 : 0);
+
+                    // --- borde púrpura como en el suelo (solo si quieres para powers, o solo
+                    // seleccionado, etc.) ---
+                    double t = lastNow / 1_000_000_000.0; // igual que en renderObjects
+                    double phase = i * 0.9; // fase simple para que no pulsen igual
+
+                    // Ejemplo: aplicar púrpura a TODOS los powers del inventario
+                    drawHudBorder(
+                            iconDrawSize, t, ix, phase, img, iy,
+                            175, 95, 255, // púrpura
+                            0.65, 0.30,
+                            3.5,
+                            0.10, // un pelín más que en suelo porque icono es más pequeño
+                            0.75);
+
+                    // Sprite normal encima
+                    hudGC.drawImage(img, ix, iy, iconDrawSize, iconDrawSize);
+                }
+            }
+
+            // --- Cantidad (abajo derecha, visible + micro-placa) ---
+            if (count > -1) {
+                String txt = String.valueOf(count);
+
+                Font countFont = Font.font(hudFont.getFamily(), javafx.scene.text.FontWeight.BOLD, 16);
+                hudGC.setFont(countFont);
+
+                // Medidas aproximadas (suficiente para 1-2 dígitos)
+                double tw = txt.length() * 9.0;
+                double th = 16.0;
+
+                double margin = 3;
+
+                // Posición del texto (abajo derecha)
+                double tx = sx + s - margin - tw;
+                double ty = sy + s - margin;
+
+                // Micro-placa detrás del texto (muy pequeña, no invade el icono)
+                double padX = 4;
+                double padY = 2;
+
+                double bx = tx - padX;
+                double by = ty - th + padY; // sube la placa al baseline del texto
+                double bw = tw + padX * 2;
+                double bh = th + padY;
+
+                hudGC.setFill(Color.rgb(0, 0, 0, 0.35));
+                hudGC.fillRoundRect(bx, by, bw, bh, 6, 6);
+
+                // Borde sutil (hereda el color si está seleccionado)
+                hudGC.setStroke(isSelected ? Color.rgb(90, 200, 255, 0.55) : Color.rgb(255, 255, 255, 0.18));
+                hudGC.setLineWidth(1);
+                hudGC.strokeRoundRect(bx, by, bw, bh, 6, 6);
+
+                // Stroke falso del texto (negro)
+                hudGC.setFill(Color.rgb(0, 0, 0, 0.95));
+                hudGC.fillText(txt, tx - 1, ty);
+                hudGC.fillText(txt, tx + 1, ty);
+                hudGC.fillText(txt, tx, ty - 1);
+                hudGC.fillText(txt, tx, ty + 1);
+
+                // Texto principal (blanco)
+                hudGC.setFill(Color.WHITE);
+                hudGC.fillText(txt, tx, ty);
+
+                // Restore
+                hudGC.setFont(hudFont);
+                hudGC.setLineWidth(2); // por si venías de 1
+            }
+        }
+
+        hudGC.setLineWidth(2);
     }
 
     // ---------- Helpers / Estado ----------
@@ -495,8 +646,11 @@ public class Drawer {
         // Amplitud en píxeles (escala con el zoom)
         double ampPx = size * FLOAT_AMPLITUDE_TILES;
 
-        // Cache de celdas visibles (evita llamar muchas veces a getCells)
+        // Cache de celdas visibles
         List<List<Integer>> cells = board.getCells(true);
+
+        // Recomendado para pixel art (si tu versión de JavaFX lo soporta)
+        entitiesGC.setImageSmoothing(false);
 
         for (PlacedItem it : items) {
             int x = it.getX();
@@ -516,8 +670,8 @@ public class Drawer {
             double screenX = (x - cameraX) * size;
             double screenY = (y - cameraY) * size;
 
-            // Desfase por item (para que no estén sincronizados)
-            int seed = (x * 73856093) ^ (y * 19349663) ^ (it.getType() != null ? it.getType().hashCode() : 0);
+            int seed = (x * 73856093) ^ (y * 19349663)
+                    ^ (it.getType() != null ? it.getType().hashCode() : 0);
             double phase = (seed & 0xFFFF) / 65535.0 * (2.0 * Math.PI);
 
             double yOffset = 0.0;
@@ -525,8 +679,76 @@ public class Drawer {
                 yOffset = Math.sin(t * omega + phase) * ampPx;
             }
 
-            entitiesGC.drawImage(images.get(sprite), screenX, screenY + yOffset, size, size);
+            Image img = images.get(sprite);
+            double drawY = screenY + yOffset;
+
+            // Outline/glow SOLO para powerups (silueta real)
+            if (it.isAPower()) {
+                drawPowerupBorder(size, t, screenX, phase, img, drawY);
+            } else {
+                drawCoinBorder(size, t, screenX, phase, img, drawY);
+
+            }
+
+            // Sprite normal encima (sin efecto)
+            entitiesGC.drawImage(img, screenX, drawY, size, size);
         }
+    }
+
+    private void drawPowerupBorder(double size, double t, double screenX, double phase, Image img, double drawY) {
+        drawBorder(
+                size, t, screenX, phase, img, drawY,
+                175, 95, 255, // púrpura
+                0.55, 0.20, // alpha base / pulso
+                3.5, // velocidad pulso
+                0.075, // radius scale
+                0.75 // spread
+        );
+    }
+
+    private void drawCoinBorder(double size, double t, double screenX, double phase, Image img, double drawY) {
+        drawBorder(
+                size, t, screenX, phase, img, drawY,
+                120, 200, 255, // azul clarito
+                0.50, 0.28, // un poco más vivo que powerup
+                5.0, // pulso más rápido (moneda = brillo)
+                0.070, // un pelín más fino
+                0.78 // más definido
+        );
+    }
+
+    private void drawBorder(
+            double size,
+            double t,
+            double screenX,
+            double phase,
+            Image img,
+            double drawY,
+            int red, int green, int blue,
+            double baseAlpha, // opacidad base
+            double pulseAlpha, // cuánto suma el pulso
+            double pulseSpeed, // velocidad del pulso
+            double radiusScale, // tamaño del borde (relativo al tile)
+            double spread // “borde” vs “blur”
+    ) {
+        entitiesGC.save();
+
+        double pulse = 0.5 + 0.5 * Math.sin(t * pulseSpeed + phase);
+        double radius = Math.max(1.0, size * radiusScale);
+
+        javafx.scene.effect.DropShadow ds = new javafx.scene.effect.DropShadow();
+        ds.setRadius(radius);
+        ds.setSpread(spread);
+        ds.setOffsetX(0);
+        ds.setOffsetY(0);
+        ds.setColor(javafx.scene.paint.Color.rgb(
+                red, green, blue,
+                Math.min(1.0, baseAlpha + pulse * pulseAlpha)));
+
+        entitiesGC.setEffect(ds);
+        entitiesGC.drawImage(img, screenX, drawY, size, size);
+
+        entitiesGC.restore();
     }
 
     private Sprite spriteForItemType(ItemType type) {
@@ -536,4 +758,38 @@ public class Drawer {
     private boolean shouldFloat(ItemType type) {
         return true; // o filtra por tipo
     }
+
+    private void drawHudBorder(
+            double size,
+            double t,
+            double screenX,
+            double phase,
+            Image img,
+            double screenY,
+            int red, int green, int blue,
+            double baseAlpha,
+            double pulseAlpha,
+            double pulseSpeed,
+            double radiusScale,
+            double spread) {
+        hudGC.save();
+
+        double pulse = 0.5 + 0.5 * Math.sin(t * pulseSpeed + phase);
+        double radius = Math.max(1.0, size * radiusScale);
+
+        javafx.scene.effect.DropShadow ds = new javafx.scene.effect.DropShadow();
+        ds.setRadius(radius);
+        ds.setSpread(spread);
+        ds.setOffsetX(0);
+        ds.setOffsetY(0);
+        ds.setColor(Color.rgb(
+                red, green, blue,
+                Math.min(1.0, baseAlpha + pulse * pulseAlpha)));
+
+        hudGC.setEffect(ds);
+        hudGC.drawImage(img, screenX, screenY, size, size);
+
+        hudGC.restore();
+    }
+
 }

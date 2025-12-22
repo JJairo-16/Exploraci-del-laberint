@@ -20,6 +20,7 @@ import com.jairo.app.gfx.Drawer;
 import com.jairo.app.ui.Dimensions;
 import com.jairo.app.gfx.ImageStore;
 import com.jairo.app.gfx.player_skins.SkinManager;
+import com.jairo.app.input.HeldItemTuningAdjuster;
 import com.jairo.app.input.InputHandler;
 import com.jairo.utils.KeyBind;
 
@@ -242,6 +243,7 @@ public class Controller {
 
                     // Esto hará que los items "floten" siempre
                     drawer.renderFrame(now);
+                    drawer.renderHud();
 
                     // Flecha opcional
                     if (SkinManager.get().current().needArrow()) {
@@ -330,6 +332,7 @@ public class Controller {
                 }
 
                 KeyCode key = event.getCode();
+                HeldItemTuningAdjuster.adjust(key);
 
                 pressed.remove(key);
 
@@ -350,6 +353,11 @@ public class Controller {
                     long base = (long) (INITIAL_DELAY_NS * action.cooldownMultiplier);
                     long delay = (long) (base
                             * (sprinting && simulator.getCurrentAction().isAMovement ? SPRINTING_SPEED : 1.0));
+
+                    boolean use = action == KeyBind.Action.USE;
+                    boolean power = simulator.getInventory().containsPower(simulator.getLastPower());
+                    delay *= use && power ? 1.5 : 1;
+
                     nextRepeatNs = System.nanoTime() + delay;
 
                     if (log.isTraceEnabled()) {

@@ -19,7 +19,12 @@ public class Cells {
     public static final int DOOR_OPEN_FROM_WEST = 8;
     public static final int DOOR_OPEN_FROM_EAST = 9;
 
-    public static final int COLUMN = 15;
+    public static final int DOOR_OPENED_FROM_NORTH = 10;
+    public static final int DOOR_OPENED_FROM_SOUTH = 11;
+    public static final int DOOR_OPENED_FROM_WEST = 12;
+    public static final int DOOR_OPENED_FROM_EAST = 13;
+
+    public static final int DESTROYED_PATH = 14;
 
     public static int parseCell(char c) {
         return switch (c) {
@@ -35,23 +40,14 @@ public class Cells {
     }
 
     private static final List<Integer> COLLISION = List.of(
-        WALL,
-        DOOR_OPEN_FROM_NORTH,
-        DOOR_OPEN_FROM_SOUTH,
-        DOOR_OPEN_FROM_WEST,
-        DOOR_OPEN_FROM_EAST
-    );
+            WALL,
+            DOOR_OPEN_FROM_NORTH,
+            DOOR_OPEN_FROM_SOUTH,
+            DOOR_OPEN_FROM_WEST,
+            DOOR_OPEN_FROM_EAST);
 
     public static boolean hasCollision(int tile) {
-        if (COLLISION.contains(tile)) {
-            if (tile != WALL) {
-                System.out.println("door");
-            }
-
-            return true;
-        }
-
-        return false;
+        return COLLISION.contains(tile);
     }
 
     public static final List<String> SYMBOLS = List.of(
@@ -64,6 +60,5 @@ public class Cells {
             "╥╥",
             "╨╨",
             "╞═",
-            "═╡"
-    );
+            "═╡");
 }

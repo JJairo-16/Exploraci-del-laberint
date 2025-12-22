@@ -26,4 +26,8 @@ public final class PlacedItem {
     public int getY() {
         return y;
     }
+
+    public boolean isAPower() {
+        return type.isAPower();
+    }
 }
