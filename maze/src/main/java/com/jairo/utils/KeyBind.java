@@ -55,7 +55,7 @@ public final class KeyBind {
         PREVIOUS_SKIN(true, false, 1.5),
         NONE();
 
-        public final boolean canMaintain; 
+        public final boolean canMaintain;
         public final boolean isAMovement;
         public final double cooldownMultiplier;
 

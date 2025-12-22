@@ -213,7 +213,12 @@ public class Board {
             return false;
         }
 
-        if (Cells.hasCollision(cells.get(y).get(x))) {
+        // if (Cells.hasCollision(cells.get(y).get(x))) {
+        //     log.trace("Move rejected: hit wall (x={}, y={})", x, y);
+        //     return false;
+        // }
+
+        if (Cells.hasCollision(getTile(x, y))) {
             log.trace("Move rejected: hit wall (x={}, y={})", x, y);
             return false;
         }
@@ -261,7 +266,8 @@ public class Board {
         }
 
         // * Comprova si la cel·la és transitable
-        int cell = cells.get(newY).get(newX);
+        int cell = getTile(newX, newY);
+        // int cell = cells.get(newY).get(newX);
         return !Cells.hasCollision(cell);
     }
 

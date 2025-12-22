@@ -3,6 +3,9 @@ package com.jairo.services;
 import com.jairo.models.Board;
 import com.jairo.models.Player;
 
+import com.jairo.items.PlacedItem;
+import com.jairo.models.Inventory;
+
 import static com.jairo.utils.KeyBind.Action;
 import static com.jairo.utils.map_generator.Cells.*;
 
@@ -22,6 +25,9 @@ public class Simulator {
     private static final Logger log = LoggerFactory.getLogger(Simulator.class);
 
     private Player player;
+    private ItemPlacer placer;
+    private final Inventory inventory = new Inventory();
+
     private Board board;
     private Drawer drawer;
     private static final SoundManager sm = SoundManager.get();
@@ -40,8 +46,7 @@ public class Simulator {
                 TOCTOC_SOUND,
                 JIJI_SOUND_CA,
                 JIJI_SOUND_EN,
-                JIJI_SOUND_ES
-            );
+                JIJI_SOUND_ES);
     }
 
     private boolean continuity = true;
@@ -71,7 +76,8 @@ public class Simulator {
         return board;
     }
 
-    public Simulator(Player player, Board board) {
+    public Simulator(Player player, Board board, ItemPlacer placer) {
+        this.placer = placer;
         this.player = player;
         this.board = board;
         log.info("Simulator created");
@@ -136,8 +142,10 @@ public class Simulator {
     }
 
     public boolean simulatePlayerMovement(int dx, int dy) {
+        boolean moved = false;
+
         try {
-            return player.move(dx, dy);
+            moved = player.move(dx, dy);
         } catch (Exception e) {
             int x = player.getX();
             int y = player.getY();
@@ -149,9 +157,14 @@ public class Simulator {
                 log.info("Player wins the game.");
                 continuity = false;
             }
+            // si no ha movido por excepción, moved sigue false
         }
 
-        return true;
+        if (moved) {
+            tryPickupAtPlayer();
+        }
+
+        return moved;
     }
 
     public record Position(int x, int y) {
@@ -245,11 +258,40 @@ public class Simulator {
 
     private String getJiJiPath() {
         String lang = LanguageManager.getCurrentLanguageCode();
-        return switch(lang) {
+        return switch (lang) {
             case "ca" -> JIJI_SOUND_CA;
             case "es" -> JIJI_SOUND_ES;
             case "en" -> JIJI_SOUND_EN;
             default -> JIJI_SOUND_CA;
         };
     }
+
+    public ItemPlacer getItemPlacer() {
+        return placer;
+    }
+
+    public Inventory getInventory() {
+        return inventory;
+    }
+
+    private void tryPickupAtPlayer() {
+        int x = player.getX();
+        int y = player.getY();
+
+        PlacedItem picked = placer.pickupAt(x, y);
+        if (picked == null)
+            return;
+
+        // Guardar en inventario (si lo tienes)
+        inventory.add(picked.getType());
+
+        // SONIDO de pickup (si existe)
+        String sfx = picked.getType().getPickupSoundPath();
+        if (sfx != null && !sfx.isBlank()) {
+            sm.playSfx(sfx);
+        }
+
+        log.info("Picked up {} at ({},{})", picked.getType().getId(), x, y);
+    }
+
 }

@@ -22,7 +22,9 @@ public enum Sprite {
     DOOR_OPENED_FROM_EAST(DOORS.get("door_opened_from_east.png")),
     
     ARROW(GEN.get("arrow.png")),
-    PLAYER(PL_SKINS.get("default.png"));
+    PLAYER(PL_SKINS.get("default.png")),
+    
+    COIN(ITEMS.get("coin.png"));
 
     static {
         DOOR_OPEN_FROM_NORTH.updateFillTile();

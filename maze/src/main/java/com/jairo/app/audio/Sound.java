@@ -21,7 +21,9 @@ public enum Sound {
     
     JIJI_CA(DOORS.get("jiji_ca.mp3")),
     JIJI_ES(DOORS.get("jiji_es.mp3")),
-    JIJI_EN(DOORS.get("jiji_en.mp3"));
+    JIJI_EN(DOORS.get("jiji_en.mp3")),
+    
+    COIN(GEN.get("coin.mp3"));
 
     private final String resourcePath;
 

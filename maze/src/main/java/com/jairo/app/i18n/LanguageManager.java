@@ -83,8 +83,8 @@ public final class LanguageManager {
         switchTo(scene, MAIN_FXML);
     }
 
-    public static void switchToEndView(Scene scene) {
-        switchTo(scene, END_FXML);
+    public static void switchToEndView(Scene scene, Simulator simulator) {
+        switchTo(scene, END_FXML, simulator);
     }
 
     public static void changeLanguageAndReloadStart(Scene scene, String code) {
@@ -145,6 +145,40 @@ public final class LanguageManager {
 
             FXMLLoader loader = new FXMLLoader(LanguageManager.class.getResource(fxmlAbsolutePath), bundle);
             Parent root = loader.load();
+            scene.setRoot(root);
+
+            Stage stage = (Stage) scene.getWindow();
+            if (stage != null) {
+                stage.setTitle(bundle.getString("app.title"));
+            }
+
+        } catch (IOException e) {
+            log.error("Failed to load view: {}", fxmlAbsolutePath, e);
+            throw new RuntimeException("Failed to load view: " + fxmlAbsolutePath, e);
+        }
+    }
+
+    private static void switchTo(Scene scene, String fxmlAbsolutePath, Simulator simulator) {
+        if (scene == null)
+            return;
+
+        Locale locale = Locale.getDefault();
+        ResourceBundle bundle = ResourceBundle.getBundle(BUNDLE_BASE, locale);
+
+        try {
+            if (log.isDebugEnabled()) {
+                log.debug("Switching view to '{}' for locale '{}'", fxmlAbsolutePath, locale.getLanguage());
+            }
+
+            FXMLLoader loader = new FXMLLoader(LanguageManager.class.getResource(fxmlAbsolutePath), bundle);
+            Parent root = loader.load();
+
+            // Inyección para EndController (o cualquier controller que la soporte)
+            Object controller = loader.getController();
+            if (controller instanceof com.jairo.app.EndController endController) {
+                endController.initState(simulator);
+            }
+
             scene.setRoot(root);
 
             Stage stage = (Stage) scene.getWindow();

@@ -4,7 +4,8 @@ public enum SpritesRoot {
     GEN("/com/jairo/app/img/"),
     GAME("/com/jairo/app/img/game/"),
     DOORS("/com/jairo/app/img/game/doors/"),
-    PL_SKINS("/com/jairo/app/img/game/playerSkins/");
+    PL_SKINS("/com/jairo/app/img/game/playerSkins/"),
+    ITEMS("/com/jairo/app/img/game/items/");
 
     private final String baseRoot;
     

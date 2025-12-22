@@ -215,7 +215,7 @@ public class Controller {
                     shutdownControllerLogic();
                     sm.setMuted(true);
                     sm.stopBgm();
-                    LanguageManager.switchToEndView(root.getScene());
+                    LanguageManager.switchToEndView(root.getScene(), simulator);
                 }
             });
 
@@ -233,14 +233,20 @@ public class Controller {
             renderTimer = new AnimationTimer() {
                 @Override
                 public void handle(long now) {
-                    if (!readKeys || !SkinManager.get().current().needArrow())
+                    if (!readKeys)
                         return;
 
                     if (now - last < FRAME_NS)
                         return;
-
                     last = now;
-                    drawer.renderArrow(now);
+
+                    // Esto hará que los items "floten" siempre
+                    drawer.renderFrame(now);
+
+                    // Flecha opcional
+                    if (SkinManager.get().current().needArrow()) {
+                        drawer.renderArrow(now);
+                    }
                 }
             };
             renderTimer.start();
@@ -342,7 +348,8 @@ public class Controller {
                     KeyBind.Action prev = activeMoveAction;
                     activeMoveAction = findAnyHeldMaintainableAction();
                     long base = (long) (INITIAL_DELAY_NS * action.cooldownMultiplier);
-                    long delay = (long) (base * (sprinting && simulator.getCurrentAction().isAMovement ? SPRINTING_SPEED : 1.0));
+                    long delay = (long) (base
+                            * (sprinting && simulator.getCurrentAction().isAMovement ? SPRINTING_SPEED : 1.0));
                     nextRepeatNs = System.nanoTime() + delay;
 
                     if (log.isTraceEnabled()) {
@@ -385,6 +392,5 @@ public class Controller {
         if (renderTimer != null) {
             renderTimer.stop();
         }
-
     }
 }

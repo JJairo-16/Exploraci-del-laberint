@@ -45,7 +45,7 @@ public class PlayerRenderer {
             return;
 
         direction = simulator.getCurrentAction();
-        renderArrow(now);
+        // renderArrow(now);
     }
 
     // #endregion
@@ -61,6 +61,10 @@ public class PlayerRenderer {
     private double arrowSize;
     private double arrowX;
     private double arrowY;
+
+    public void renderArrow() {
+        renderArrow(now);
+    }
 
     public void renderArrow(long now) {
         if (direction == null)

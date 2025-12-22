@@ -1,5 +1,22 @@
 package com.jairo.app.gfx;
 
+import static com.jairo.app.gfx.DrawerParser.parse;
+import static com.jairo.utils.map_generator.Cells.UNKNOWN;
+
+import java.util.List;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.jairo.app.gfx.player_skins.SkinManager;
+import com.jairo.items.BasicItemType;
+import com.jairo.items.ItemType;
+import com.jairo.items.PlacedItem;
+import com.jairo.models.Board;
+import com.jairo.services.ItemPlacer;
+import com.jairo.services.Simulator;
+import com.jairo.utils.PositionHud;
+
 import javafx.fxml.FXML;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
@@ -11,21 +28,10 @@ import javafx.scene.paint.RadialGradient;
 import javafx.scene.paint.Stop;
 import javafx.scene.text.Font;
 
-import static com.jairo.utils.map_generator.Cells.UNKNOWN;
-import static com.jairo.app.gfx.DrawerParser.parse;
-
-import com.jairo.models.Board;
-import com.jairo.services.Simulator;
-import com.jairo.utils.PositionHud;
-
-import java.util.List;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 public class Drawer {
     private static final Logger log = LoggerFactory.getLogger(Drawer.class);
 
+    // ---------- FXML ----------
     @FXML
     private Canvas map;
     @FXML
@@ -35,6 +41,7 @@ public class Drawer {
     @FXML
     private Canvas hud;
 
+    // ---------- Stores / GCs ----------
     private final ImageStore images;
 
     private final GraphicsContext mapGC;
@@ -42,23 +49,38 @@ public class Drawer {
     private final GraphicsContext postFxGC;
     private final GraphicsContext hudGC;
 
+    // ---------- Refs ----------
     private final Board board;
     private final Simulator simulator;
+    private final ItemPlacer placer;
 
+    // ---------- Constantes ----------
+    private static final double FLOAT_SPEED_HZ = 0.9;
+    private static final double FLOAT_AMPLITUDE_TILES = 0.12;
+
+    private static final double ZOOM_POINT = 0.1;
+
+    private static final double HUD_LEFT_X = 50;
+    private static final double HUD_TOP_Y = 40;
+
+    private static final double COIN_BASELINE_Y = 40; // misma línea que "x:"
+    private static final double COIN_TEXT_OFFSET_X = 28;
+
+    private static final double COIN_SIZE = 20; // tamaño visual de la moneda
+    private static final double COIN_X = 110;
+
+    // ---------- Cámara ----------
     // Càmera en coordenades de tiles
     private double cameraX = 0.0;
     private double cameraY = 0.0;
 
-    // Zoom
+    // ---------- Zoom ----------
     private final double baseZoom = (Board.BOARD_HEIGHT * Board.BOARD_WIDTH) * 1.5 / 1000.0;
-
     private final double minZoom = baseZoom - 0.6;
     private final double maxZoom = baseZoom + 0.8;
-
     private double zoom = baseZoom;
 
-    private static final double ZOOM_POINT = 0.1;
-
+    // ---------- HUD / Renderers ----------
     private final PositionHud ph;
     private final PlayerRenderer playerRenderer;
     private final double tileSize;
@@ -67,6 +89,15 @@ public class Drawer {
             getClass().getResourceAsStream("/fonts/Roboto-Regular.ttf"),
             20);
 
+    // ---------- Estado de render ----------
+    private long lastNow = System.nanoTime();
+
+    private int lastStartX;
+    private int lastStartY;
+    private int lastEndX;
+    private int lastEndY;
+
+    // ---------- Ctor ----------
     public Drawer(Canvas map, Canvas entities, Canvas postFx, Canvas hud, Simulator simulator, double tileSize) {
         this.map = map;
         this.entities = entities;
@@ -74,6 +105,7 @@ public class Drawer {
         this.hud = hud;
 
         this.simulator = simulator;
+        this.placer = simulator.getItemPlacer();
         this.board = simulator.getBoardRef();
         this.tileSize = tileSize;
 
@@ -208,6 +240,18 @@ public class Drawer {
         playerRenderer.renderArrow(now);
     }
 
+    public void renderItems(long now) {
+        lastNow = now;
+        renderObjects(lastStartX, lastStartY, lastEndX, lastEndY, now);
+    }
+
+    public void renderFrame(long now) {
+        // Solo la capa dinámica (entities): limpiar + player + items
+        clearEntities();
+        renderPlayer();
+        renderItems(now);
+    }
+
     // ---------- Càmera ----------
     private void updateCamera() {
         Simulator.Position pos = simulator.getPlayerPosition();
@@ -294,6 +338,59 @@ public class Drawer {
         return Math.max(min, minimum);
     }
 
+    // ---------- Update principal ----------
+    public void update() {
+        updateCamera();
+
+        clearMap();
+
+        List<List<Integer>> visibility = board.getCells(true);
+
+        double tilesInWidth = map.getWidth() / scaledTileSize();
+        double tilesInHeight = map.getHeight() / scaledTileSize();
+
+        int startX = (int) Math.floor(cameraX) - 1;
+        int startY = (int) Math.floor(cameraY) - 1;
+        int endX = (int) Math.ceil(cameraX + tilesInWidth) + 1;
+        int endY = (int) Math.ceil(cameraY + tilesInHeight) + 1;
+
+        int h = visibility.size();
+        int w = (h > 0) ? visibility.get(0).size() : 0;
+
+        startX = Math.max(0, startX);
+        startY = Math.max(0, startY);
+        endX = Math.min(w - 1, endX);
+        endY = Math.min(h - 1, endY);
+
+        for (int y = startY; y <= endY; y++) {
+            for (int x = startX; x <= endX; x++) {
+                int type = visibility.get(y).get(x);
+                if (!isDiscovered(type))
+                    continue;
+
+                Sprite sprite = parse(type);
+                renderCell(images.get(sprite), x, y, sprite.rotation, sprite.getIfIsFullTile());
+            }
+        }
+
+        lastStartX = startX;
+        lastStartY = startY;
+        lastEndX = endX;
+        lastEndY = endY;
+
+        clearEntities();
+        renderPlayer();
+        renderItems(lastNow);
+
+        renderPostFx();
+        renderHud();
+
+        if (SkinManager.get().current().needArrow()) {
+            playerRenderer.renderArrow();
+        }
+    }
+
+    // ---------- PostFX ----------
     private void renderPostFx() {
         clearPostFx();
 
@@ -315,60 +412,15 @@ public class Drawer {
         postFxGC.fillRect(0, 0, w, h);
     }
 
-    public void update() {
-        updateCamera();
+    // ---------- HUD ----------
+    private void renderHud() {
+        hudGC.clearRect(0, 0, hud.getWidth(), hud.getHeight());
 
-        clearMap();
-
-        List<List<Integer>> visibility = board.getCells(true);
-
-        double tilesInWidth = map.getWidth() / scaledTileSize();
-        double tilesInHeight = map.getHeight() / scaledTileSize();
-
-        // Rang visible en tiles (amb marge per evitar talls)
-        int startX = (int) Math.floor(cameraX) - 1;
-        int startY = (int) Math.floor(cameraY) - 1;
-        int endX = (int) Math.ceil(cameraX + tilesInWidth) + 1;
-        int endY = (int) Math.ceil(cameraY + tilesInHeight) + 1;
-
-        int h = visibility.size();
-        int w = (h > 0) ? visibility.get(0).size() : 0;
-
-        // Clamp al tauler
-        startX = Math.max(0, startX);
-        startY = Math.max(0, startY);
-        endX = Math.min(w - 1, endX);
-        endY = Math.min(h - 1, endY);
-
-        int rendered = 0;
-
-        for (int y = startY; y <= endY; y++) {
-            for (int x = startX; x <= endX; x++) {
-                int type = visibility.get(y).get(x);
-                if (!isDiscovered(type))
-                    continue;
-
-                Sprite sprite = parse(type);
-                renderCell(images.get(sprite), x, y, sprite.rotation, sprite.getIfIsFullTile());
-                rendered++;
-            }
-        }
-
-        if (log.isTraceEnabled()) {
-            log.trace("Rendered {} tiles. cam=({}, {}) zoom={} rangeX=[{},{}] rangeY=[{},{}]",
-                    rendered, cameraX, cameraY, zoom, startX, endX, startY, endY);
-        }
-
-        clearEntities();
-        renderPlayer();
-
-        renderPostFx();
-        renderHud();
+        renderPosition();
+        renderInventory();
     }
 
-    private void renderHud() {
-        hudGC.clearRect(0, 0, 300, 120);
-
+    private void renderPosition() {
         hudGC.setFill(Color.WHITE);
         hudGC.setFont(hudFont);
 
@@ -376,11 +428,33 @@ public class Drawer {
         int x = ph.getX(pos.x());
         int y = ph.getY(pos.y());
 
-        String position = String.format("x: %d%ny: %d", x, y);
-
-        hudGC.fillText(position, 50, 40);
+        hudGC.fillText("x: " + x, HUD_LEFT_X, HUD_TOP_Y);
+        hudGC.fillText("y: " + y, HUD_LEFT_X, HUD_TOP_Y + 24);
     }
 
+    private void renderInventory() {
+        hudGC.setFill(Color.WHITE);
+        hudGC.setFont(hudFont);
+
+        int coins = simulator.getInventory()
+                .getCount(BasicItemType.COIN);
+
+        // Icono de la moneda (alineado con baseline del texto)
+        hudGC.drawImage(
+                images.get(Sprite.COIN),
+                COIN_X,
+                COIN_BASELINE_Y - COIN_SIZE + 5, // ajuste visual fino
+                COIN_SIZE,
+                COIN_SIZE);
+
+        // Cantidad
+        hudGC.fillText(
+                "x" + coins,
+                COIN_X + COIN_TEXT_OFFSET_X,
+                COIN_BASELINE_Y);
+    }
+
+    // ---------- Helpers / Estado ----------
     /**
      * Ajusta això al valor que utilitzi el teu Board per a “no descobert”.
      * Molt habitual: -1, 3, etc.
@@ -402,5 +476,64 @@ public class Drawer {
         this.cameraX = state.cameraX();
         this.cameraY = state.cameraY();
         this.zoom = state.zoom();
+    }
+
+    // ---------- Items ----------
+    private void renderObjects(int startX, int startY, int endX, int endY, long now) {
+        double size = scaledTileSize();
+
+        List<PlacedItem> items = placer.getPlacedItems();
+        if (items == null || items.isEmpty())
+            return;
+
+        // Tiempo en segundos
+        double t = now / 1_000_000_000.0;
+
+        // Frecuencia angular (rad/s)
+        double omega = 2.0 * Math.PI * FLOAT_SPEED_HZ;
+
+        // Amplitud en píxeles (escala con el zoom)
+        double ampPx = size * FLOAT_AMPLITUDE_TILES;
+
+        // Cache de celdas visibles (evita llamar muchas veces a getCells)
+        List<List<Integer>> cells = board.getCells(true);
+
+        for (PlacedItem it : items) {
+            int x = it.getX();
+            int y = it.getY();
+
+            if (x < startX || x > endX || y < startY || y > endY)
+                continue;
+
+            int cellType = cells.get(y).get(x);
+            if (!isDiscovered(cellType))
+                continue;
+
+            Sprite sprite = spriteForItemType(it.getType());
+            if (sprite == null)
+                continue;
+
+            double screenX = (x - cameraX) * size;
+            double screenY = (y - cameraY) * size;
+
+            // Desfase por item (para que no estén sincronizados)
+            int seed = (x * 73856093) ^ (y * 19349663) ^ (it.getType() != null ? it.getType().hashCode() : 0);
+            double phase = (seed & 0xFFFF) / 65535.0 * (2.0 * Math.PI);
+
+            double yOffset = 0.0;
+            if (shouldFloat(it.getType())) {
+                yOffset = Math.sin(t * omega + phase) * ampPx;
+            }
+
+            entitiesGC.drawImage(images.get(sprite), screenX, screenY + yOffset, size, size);
+        }
+    }
+
+    private Sprite spriteForItemType(ItemType type) {
+        return (type == null) ? null : type.getSprite();
+    }
+
+    private boolean shouldFloat(ItemType type) {
+        return true; // o filtra por tipo
     }
 }
