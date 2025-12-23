@@ -1,8 +1,10 @@
 package com.jairo.app.gfx;
 
 import com.jairo.app.gfx.player_skins.HeldItemTuning;
+import com.jairo.app.gfx.player_skins.HeldItemTuningStore;
 import com.jairo.app.gfx.player_skins.SkinManager;
-import com.jairo.items.ItemType;
+import com.jairo.items.PowerType;
+import com.jairo.items.Qualities;
 import com.jairo.models.Inventory;
 import com.jairo.services.Simulator;
 import com.jairo.utils.KeyBind.Action;
@@ -52,12 +54,13 @@ public class PlayerRenderer {
         }
 
         Inventory inv = simulator.getInventory();
-        ItemType item = inv.getSelectedPower();
+        PowerType item = (PowerType) inv.getSelectedPower(); // ahora es PowerType
         if (item == null || !inv.has(item))
             return;
 
-        // ---- TUNING (por skin) ----
-        HeldItemTuning helItemTuning = SkinManager.get().heldItemTuning();
+        // ---- TUNING base (por skin+item) + override (por jugador+item) ----
+        HeldItemTuning baseTuning = SkinManager.get().heldItemTuning(item);
+        HeldItemTuning helItemTuning = HeldItemTuningStore.get().get(inv, item, baseTuning);
 
         // Tamaño
         double baseItemSize = size * helItemTuning.baseScale();
@@ -67,7 +70,7 @@ public class PlayerRenderer {
         double cx = screenX + size / 2.0;
         double cy = screenY + size / 2.0;
 
-        // Offset base (puedes tunear esto también si quieres; de momento fijo)
+        // Offset base
         double offset = size * 0.16;
 
         // Base: centrado por tamaño REAL
@@ -85,11 +88,11 @@ public class PlayerRenderer {
 
         Image itemImg = images.get(item.getSprite());
 
-        // tiempo (igual que el resto del render)
+        // tiempo
         double t = System.nanoTime() / 1_000_000_000.0;
         double phase = item.hashCode() * 0.001;
 
-        // --- BORDE PÚRPURA CUANDO ESTÁ EN LA MANO ---
+        // --- BORDE CUANDO ESTÁ EN LA MANO ---
         drawHeldItemBorder(
                 entitiesGC,
                 itemImg,
@@ -97,11 +100,11 @@ public class PlayerRenderer {
                 oy,
                 itemSize,
                 t,
-                phase);
+                phase,
+                item.getQuality());
 
         // Sprite normal encima
         entitiesGC.drawImage(itemImg, ox, oy, itemSize, itemSize);
-
     }
     // #endregion
 
@@ -193,11 +196,16 @@ public class PlayerRenderer {
             double y,
             double size,
             double t,
-            double phase) {
+            double phase,
+            Qualities q) {
+        int red = q.red;
+        int green = q.green;
+        int blue = q.blue;
+
         gc.save();
 
         double pulse = 0.5 + 0.5 * Math.sin(t * 3.5 + phase);
-        double radius = Math.max(1.0, size * 0.06); // un poco más fino que en suelo
+        double radius = Math.max(1.0, size * 0.06);
 
         javafx.scene.effect.DropShadow ds = new javafx.scene.effect.DropShadow();
         ds.setRadius(radius);
@@ -205,7 +213,7 @@ public class PlayerRenderer {
         ds.setOffsetX(0);
         ds.setOffsetY(0);
         ds.setColor(javafx.scene.paint.Color.rgb(
-                175, 95, 255, // púrpura
+                red, green, blue,
                 Math.min(1.0, 0.55 + pulse * 0.20)));
 
         gc.setEffect(ds);
@@ -213,5 +221,4 @@ public class PlayerRenderer {
 
         gc.restore();
     }
-
 }

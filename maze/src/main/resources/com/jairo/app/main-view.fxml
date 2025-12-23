@@ -96,6 +96,11 @@
 
     <Region VBox.vgrow="ALWAYS"/>
 
+    <Label fx:id="blaiGlassesPowerText"
+           text=""
+           wrapText="true"
+           styleClass="blai-glasses-power hiden"/>
+
     <Label fx:id="bottomText"
            text=""
            wrapText="true"

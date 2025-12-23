@@ -4,8 +4,7 @@ import com.jairo.app.audio.Sound;
 import com.jairo.app.gfx.Sprite;
 
 public enum BasicItemType implements ItemType {
-    COIN(Sprite.COIN, 0.06, 5, 4, Sound.COIN);
-    
+    COIN(Sprite.COIN, 0.1, 5, 4, Sound.COIN);    
     private final Sprite sprite;
     private final double density;
     private final int minPlayer;

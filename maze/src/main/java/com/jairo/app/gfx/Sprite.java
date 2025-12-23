@@ -26,7 +26,8 @@ public enum Sprite {
     PLAYER(PL_SKINS.get("default.png")),
     
     COIN(ITEMS.get("coin.png")),
-    PICKAXE(ITEMS.get("pickaxe.png"));
+    PICKAXE(ITEMS.get("pickaxe.png")),
+    BLAI_GLASSES(ITEMS.get("blai-glasses.png"));
 
     static {
         DOOR_OPEN_FROM_NORTH.updateFillTile();

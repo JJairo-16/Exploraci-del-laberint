@@ -47,4 +47,8 @@ public interface ItemType {
     default boolean isAPower() {
         return false;
     }
+
+    default Qualities getQuality() {
+        return Qualities.COMMON;
+    }
 }

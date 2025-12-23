@@ -15,6 +15,8 @@ import java.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.text.MessageFormat;
+
 public final class LanguageManager {
 
     private static final Logger log = LoggerFactory.getLogger(LanguageManager.class);
@@ -194,6 +196,34 @@ public final class LanguageManager {
 
     public static String getCurrentLanguageCode() {
         return Locale.getDefault().getLanguage();
+    }
+
+    private static ResourceBundle bundle() {
+        Locale locale = Locale.getDefault();
+        return ResourceBundle.getBundle(BUNDLE_BASE, locale);
+    }
+
+    /** Traducción simple */
+    public static String tr(String key) {
+        if (key == null)
+            return "";
+        try {
+            return bundle().getString(key);
+        } catch (MissingResourceException e) {
+            // fallback: devuelve la key para detectar rápido lo que falta
+            return key;
+        }
+    }
+
+    /** Traducción con parámetros estilo {0}, {1}... */
+    public static String tr(String key, Object... args) {
+        String pattern = tr(key);
+        try {
+            return MessageFormat.format(pattern, args);
+        } catch (IllegalArgumentException e) {
+            // si el patrón está mal, al menos devuelve algo legible
+            return pattern;
+        }
     }
 
 }

@@ -144,7 +144,7 @@ public class Simulator {
                 break;
 
             case Action.NEXT_ITEM:
-                inventory.selectNextPowerWithJump();
+                inventory.selectNextPower();
                 break;
 
             default:
@@ -198,6 +198,14 @@ public class Simulator {
         tryToOpenDoor();
     }
 
+    private void useItem(ItemType item) {
+        if (item == PowerType.PICKAXE) {
+            usePickaxe(item);
+        } else if (item == PowerType.BLAI_GLASSES) {
+            tryToActiveBlaiGlasses();
+        }
+    }
+
     /**
      * Pico:
      * - Si apunta a DOOR_OPEN_FROM_* y puede abrir -> abre (NO gasta pico).
@@ -210,7 +218,7 @@ public class Simulator {
      * permitido".
      * - Si rompe una pared -> sonido de "romper pared".
      */
-    private void useItem(ItemType item) {
+    private void usePickaxe(ItemType item) {
         if (item != PowerType.PICKAXE)
             return;
 
@@ -239,20 +247,6 @@ public class Simulator {
             playDoorHit();
             return;
         }
-
-        // Zona protegida de salida
-        // int ex = board.getExitX();
-        // int ey = board.getExitY();
-
-        // boolean isExitBorder = (ex == 0 && nx == 1 && ny == ey) ||
-        //         (ex == Board.BOARD_WIDTH - 1 && nx == Board.BOARD_WIDTH - 2 && ny == ey) ||
-        //         (ey == 0 && ny == 1 && nx == ex) ||
-        //         (ey == Board.BOARD_HEIGHT - 1 && ny == Board.BOARD_HEIGHT - 2 && nx == ex);
-
-        // if (isExitBorder) {
-        //     playDoorHit();
-        //     return;
-        // }
 
         int cell = board.getTile(nx, ny);
 
@@ -519,6 +513,10 @@ public class Simulator {
 
         inventory.add(picked.getType());
 
+        if (picked.getType().isAPower()) {
+            inventory.addPower(picked.getType());
+        }
+
         String sfx = picked.getType().getPickupSoundPath();
         if (sfx != null && !sfx.isBlank()) {
             sm.playSfx(sfx);
@@ -529,5 +527,65 @@ public class Simulator {
 
     public ItemType getLastPower() {
         return lastPower;
+    }
+
+    private static final long BLAI_GLASSES_MAX_POWER = 5_000_000_000L;
+    private boolean blaiGlassesActive = false;
+    private long blaiGlassesRemainingNs = 0L;
+
+    private void tryToActiveBlaiGlasses() {
+
+        int dx = 0;
+        int dy = 0;
+
+        switch (lastMovement) {
+            case Action.UP -> dy = -1;
+            case Action.DOWN -> dy = 1;
+            case Action.LEFT -> dx = -1;
+            case Action.RIGHT -> dx = 1;
+            default -> {
+                return;
+            }
+        }
+
+        int nx = player.getX() + dx;
+        int ny = player.getY() + dy;
+        int cell = board.getTile(nx, ny);
+
+        if (isDoorClosed(cell)) {
+            boolean opened = false;
+
+            if (isDoorClosedButOpenable(cell)) {
+                opened = tryOpenDoorAt(nx, ny, dx, dy, cell);
+            }
+
+            if (opened) return;
+        }
+
+        if (!blaiGlassesActive && inventory.has(PowerType.BLAI_GLASSES)) {
+            // consumir una vez al activar
+            inventory.consumeOne(PowerType.BLAI_GLASSES);
+
+            blaiGlassesActive = true;
+            blaiGlassesRemainingNs = BLAI_GLASSES_MAX_POWER;
+            
+            sm.playSfx(Sound.BLAI_GLASSES_POWER.path());
+        }
+    }
+
+    public boolean isBlaiGlassesPowerActive() {
+        return blaiGlassesActive;
+    }
+
+    public void offBlaiGlasses() {
+        blaiGlassesActive = false;
+    }
+
+    public long getRemainingBlaiGlassesPower() {
+        return blaiGlassesRemainingNs;
+    }
+
+    public void updateRemainingBlaiGlassesPower(long update) {
+        blaiGlassesRemainingNs = update;
     }
 }

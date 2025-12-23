@@ -13,6 +13,7 @@ import com.jairo.items.BasicItemType;
 import com.jairo.items.ItemType;
 import com.jairo.items.PlacedItem;
 import com.jairo.items.PowerType;
+import com.jairo.items.Qualities;
 import com.jairo.models.Board;
 import com.jairo.services.ItemPlacer;
 import com.jairo.services.Simulator;
@@ -538,9 +539,14 @@ public class Drawer {
                     double phase = i * 0.9; // fase simple para que no pulsen igual
 
                     // Ejemplo: aplicar púrpura a TODOS los powers del inventario
+                    Qualities q = power.getQuality();
+                    int red = q.red;
+                    int green = q.green;
+                    int blue = q.blue;
+
                     drawHudBorder(
                             iconDrawSize, t, ix, phase, img, iy,
-                            175, 95, 255, // púrpura
+                            red, green, blue,
                             0.65, 0.30,
                             3.5,
                             0.10, // un pelín más que en suelo porque icono es más pequeño
@@ -683,37 +689,25 @@ public class Drawer {
             double drawY = screenY + yOffset;
 
             // Outline/glow SOLO para powerups (silueta real)
-            if (it.isAPower()) {
-                drawPowerupBorder(size, t, screenX, phase, img, drawY);
-            } else {
-                drawCoinBorder(size, t, screenX, phase, img, drawY);
-
-            }
+            drawQualityBorder(size, t, screenX, phase, img, drawY, it.quality);
 
             // Sprite normal encima (sin efecto)
             entitiesGC.drawImage(img, screenX, drawY, size, size);
         }
     }
 
-    private void drawPowerupBorder(double size, double t, double screenX, double phase, Image img, double drawY) {
+    private void drawQualityBorder(double size, double t, double screenX, double phase, Image img, double drawY, Qualities q) {
+        int red = q.red;
+        int green = q.green;
+        int blue = q.blue;
+
         drawBorder(
                 size, t, screenX, phase, img, drawY,
-                175, 95, 255, // púrpura
+                red, green, blue,
                 0.55, 0.20, // alpha base / pulso
                 3.5, // velocidad pulso
                 0.075, // radius scale
                 0.75 // spread
-        );
-    }
-
-    private void drawCoinBorder(double size, double t, double screenX, double phase, Image img, double drawY) {
-        drawBorder(
-                size, t, screenX, phase, img, drawY,
-                120, 200, 255, // azul clarito
-                0.50, 0.28, // un poco más vivo que powerup
-                5.0, // pulso más rápido (moneda = brillo)
-                0.070, // un pelín más fino
-                0.78 // más definido
         );
     }
 

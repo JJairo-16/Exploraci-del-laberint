@@ -157,19 +157,29 @@ public class Inventory {
     }
 
     public void selectNextPowerWithJump() {
-        int start = selectedPowerIndex;
-        int max = powers.size();
-        int attempts = 0;
-
-        do {
-            selectNextPower();
-            attempts++;
-        } while (attempts < max &&
-                (selectedPowerIndex == 0 || has(getSelectedPower()) || selectedPowerIndex == start));
-        
-        if (!has(getSelectedPower())) {
-            setSelectedPowerIndex(0);
+        int n = powers.size();
+        if (n <= 0) {
+            selectedPowerIndex = 0;
+            return;
         }
+
+        int start = selectedPowerIndex;
+
+        for (int attempts = 0; attempts < n; attempts++) {
+            selectNextPower(); // avanza con wrap
+            ItemType sel = getSelectedPower();
+
+            // si llega a 0, sigue buscando
+            if (selectedPowerIndex == 0)
+                continue;
+
+            // nos quedamos en el primero que realmente tenemos
+            if (sel != null && has(sel))
+                return;
+        }
+
+        // no hay ninguno que tengas
+        selectedPowerIndex = 0;
     }
 
     /**
@@ -215,7 +225,8 @@ public class Inventory {
         int left = have - amount;
         if (left <= 0) {
             countsByTypeId.remove(id);
-            selectNextPowerWithJump();
+            if (type.isAPower())
+                selectNextPowerWithJump();
         } else
             countsByTypeId.put(id, left);
 

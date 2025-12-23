@@ -6,12 +6,14 @@ import com.jairo.items.BasicItemType;
 import com.jairo.items.ItemType;
 import com.jairo.items.PowerType;
 import com.jairo.models.Board;
+import com.jairo.models.Inventory;
 import com.jairo.models.Player;
 import com.jairo.services.ItemPlacer;
 import com.jairo.services.Simulator;
 
 public class SimulatorLoader {
-    private SimulatorLoader() {}
+    private SimulatorLoader() {
+    }
 
     // Regla (commutador)
     // Default: true
@@ -38,7 +40,7 @@ public class SimulatorLoader {
                 tries++;
 
                 board = Board.generateStandard(); // genera un board (sense filtre)
-                player = new Player(board);       // spawn aleatori
+                player = new Player(board); // spawn aleatori
 
                 if (board.isExitReachableFrom(player.getX(), player.getY())) {
                     loop = false; // OK
@@ -57,16 +59,15 @@ public class SimulatorLoader {
         ItemPlacer placer = new ItemPlacer();
 
         List<ItemType> items = List.of(
-            BasicItemType.COIN,
-            PowerType.PICKAXE
-        );
+                BasicItemType.COIN,
+                PowerType.PICKAXE,
+                PowerType.BLAI_GLASSES);
 
         placer.placeObjects(
-            board.getCells(),
-            player.getX(),
-            player.getY(),
-            items
-        );
+                board.getCells(),
+                player.getX(),
+                player.getY(),
+                items);
 
         Simulator simulator = new Simulator(player, board, placer);
         simulator.getInventory().setPowers(List.of(PowerType.PICKAXE));

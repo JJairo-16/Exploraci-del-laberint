@@ -1,5 +1,27 @@
 package com.jairo.app;
 
+import java.util.EnumSet;
+import java.util.Set;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.jairo.SimulatorLoader;
+import com.jairo.app.audio.Sound;
+import com.jairo.app.audio.SoundManager;
+import com.jairo.app.gfx.Drawer;
+import com.jairo.app.gfx.ImageStore;
+import com.jairo.app.gfx.player_skins.SkinManager;
+import com.jairo.app.i18n.LanguageManager;
+import com.jairo.app.input.HeldItemTuningAdjuster;
+import com.jairo.app.input.InputHandler;
+import com.jairo.app.ui.Dimensions;
+import com.jairo.items.PowerType;
+import com.jairo.models.Board;
+import com.jairo.models.Inventory;
+import com.jairo.services.Simulator;
+import com.jairo.utils.KeyBind;
+
 import javafx.animation.AnimationTimer;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
@@ -10,27 +32,6 @@ import javafx.scene.input.KeyCode;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
-
-import com.jairo.models.Board;
-import com.jairo.services.Simulator;
-import com.jairo.SimulatorLoader;
-import com.jairo.app.audio.Sound;
-import com.jairo.app.audio.SoundManager;
-import com.jairo.app.gfx.Drawer;
-import com.jairo.app.ui.Dimensions;
-import com.jairo.app.gfx.ImageStore;
-import com.jairo.app.gfx.player_skins.SkinManager;
-import com.jairo.app.input.HeldItemTuningAdjuster;
-import com.jairo.app.input.InputHandler;
-import com.jairo.utils.KeyBind;
-
-import com.jairo.app.i18n.LanguageManager;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.EnumSet;
-import java.util.Set;
 
 public class Controller {
     private static final Logger log = LoggerFactory.getLogger(Controller.class);
@@ -59,6 +60,10 @@ public class Controller {
 
     @FXML
     private ChoiceBox<String> languageSelector;
+
+    @FXML
+    private Label blaiGlassesPowerText;
+    private static final int BLAI_GLASSES_NERF = 20;
 
     private final Dimensions dims = new Dimensions();
     private final ImageStore images = ImageStore.getInstance();
@@ -239,6 +244,24 @@ public class Controller {
 
                     if (now - last < FRAME_NS)
                         return;
+
+                    // Update por frame del poder
+                    if (simulator.isBlaiGlassesPowerActive()) {
+                        long remainingBlaiGlassesPower = simulator.getRemainingBlaiGlassesPower();
+
+                        long dt = (last == 0) ? 0 : (now - last);
+                        simulator.updateRemainingBlaiGlassesPower(Math.max(0L, remainingBlaiGlassesPower - dt));
+
+                        activeBlaiGlassesPower(remainingBlaiGlassesPower);
+
+                        if (remainingBlaiGlassesPower == 0L) {
+                            simulator.offBlaiGlasses();
+                            deactivateBlaiGlassesPower();
+                        }
+                    } else {
+                        deactivateBlaiGlassesPower();
+                    }
+
                     last = now;
 
                     // Esto hará que los items "floten" siempre
@@ -332,7 +355,8 @@ public class Controller {
                 }
 
                 KeyCode key = event.getCode();
-                HeldItemTuningAdjuster.adjust(key);
+                Inventory inv = simulator.getInventory();
+                HeldItemTuningAdjuster.adjust(key, inv, (PowerType) inv.getSelectedPower());
 
                 pressed.remove(key);
 
@@ -401,4 +425,65 @@ public class Controller {
             renderTimer.stop();
         }
     }
+
+    private void addClass(Label n, String cls) {
+        if (n == null)
+            return;
+        if (!n.getStyleClass().contains(cls))
+            n.getStyleClass().add(cls);
+    }
+
+    private void removeClass(Label n, String cls) {
+        if (n == null)
+            return;
+        n.getStyleClass().remove(cls);
+    }
+
+    private void activeBlaiGlassesPower(long remainingNs) {
+        if (blaiGlassesPowerText == null)
+            return;
+
+        addClass(blaiGlassesPowerText, "blai-glasses-power");
+        removeClass(blaiGlassesPowerText, "hidden");
+
+        long remainingSec = (remainingNs + 999_999_999L) / 1_000_000_000L; // ceil
+
+        Simulator.Position playerPos = simulator.getPlayerPosition();
+        int playerX = playerPos.x();
+        int playerY = playerPos.y();
+
+        Board board = simulator.getBoardRef();
+        int exitX = board.getExitX();
+        int exitY = board.getExitY();
+
+        double dx = (double) exitX - playerX;
+        double dy = (double) exitY - playerY;
+
+        double dis = Math.hypot(dx, dy); // distancia en tiles
+        double dis2 = Math.round(dis * 100.0) / 100.0;
+
+        String title = LanguageManager.tr("blai.glasses.title");
+
+        String distance;
+        if (dis2 >= BLAI_GLASSES_NERF) {
+            distance = LanguageManager.tr("blai.glasses.distance", dis2);
+        } else {
+            distance = LanguageManager.tr("blai.glasses.nerf");
+        }
+
+        String time = LanguageManager.tr("blai.glasses.time", remainingSec);
+
+        String text = title + "\n" + distance + "\n" + time;
+
+        blaiGlassesPowerText.setText(text);
+    }
+
+    private void deactivateBlaiGlassesPower() {
+        if (blaiGlassesPowerText == null)
+            return;
+
+        addClass(blaiGlassesPowerText, "hidden");
+        removeClass(blaiGlassesPowerText, "blai-glasses-power");
+    }
+
 }
