@@ -51,4 +51,9 @@ public interface ItemType {
     default Qualities getQuality() {
         return Qualities.COMMON;
     }
+
+    default int getMinDistFromExit() {
+        return 0;
+    }
+
 }

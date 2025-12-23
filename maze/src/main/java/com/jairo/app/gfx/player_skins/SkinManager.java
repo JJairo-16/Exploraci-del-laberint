@@ -21,7 +21,7 @@ public final class SkinManager {
 
     private SkinManager() {
         Map<String, EnumMap<PowerType, HeldItemTuning>> loaded =
-                HeldItemTuningLoader.loadAllFromResources("skins/HeldItemTuningConfig.json");
+                HeldItemTuningLoader.loadAllFromResources("config/HeldItemTuningConfig.json");
 
         // Guardamos defaultByPower (puede estar vacío)
         EnumMap<PowerType, HeldItemTuning> def = loaded.get("default");
@@ -91,7 +91,7 @@ public final class SkinManager {
         Objects.requireNonNull(tuning);
 
         tuningBySkin.computeIfAbsent(current, k -> new EnumMap<>(PowerType.class))
-                   .put(power, tuning);
+                .put(power, tuning);
     }
 
     /** Reset del tuning del skin actual para ese PowerType (elimina override del skin). */
@@ -130,6 +130,17 @@ public final class SkinManager {
                 clamp(t.noCursorOffsetMulX() + deltaX, -5, 5),
                 clamp(t.noCursorOffsetMulY() + deltaY, -5, 5)
         ));
+    }
+
+    // --- NUEVO: ROTACIÓN ---
+    public void tweakHeldItemRotation(PowerType power, double deltaDeg) {
+        HeldItemTuning t = heldItemTuning(power);
+        setHeldItemTuning(power, t.withRotation(clamp(t.rotationDeg() + deltaDeg, -180, 180)));
+    }
+
+    public void tweakHeldItemNoCursorRotation(PowerType power, double deltaDeg) {
+        HeldItemTuning t = heldItemTuning(power);
+        setHeldItemTuning(power, t.withNoCursorRotation(clamp(t.noCursorRotationDeg() + deltaDeg, -180, 180)));
     }
 
     private double clamp(double v, double min, double max) {

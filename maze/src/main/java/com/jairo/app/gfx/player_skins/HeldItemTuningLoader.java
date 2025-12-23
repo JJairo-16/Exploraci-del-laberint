@@ -10,7 +10,8 @@ import java.util.List;
 import java.util.Map;
 
 public final class HeldItemTuningLoader {
-    private HeldItemTuningLoader() {}
+    private HeldItemTuningLoader() {
+    }
 
     /**
      * Carga el JSON genérico y devuelve:
@@ -18,8 +19,8 @@ public final class HeldItemTuningLoader {
      *
      * Formato esperado:
      * [
-     *   { "id":"default", "items": { "PICKAXE": {..}, "BLAI_GLASSES": {..} } },
-     *   { "id":"blai",    "items": { "PICKAXE": {..} } }
+     * { "id":"default", "items": { "PICKAXE": {..}, "BLAI_GLASSES": {..} } },
+     * { "id":"blai", "items": { "PICKAXE": {..} } }
      * ]
      */
     public static Map<String, EnumMap<PowerType, HeldItemTuning>> loadAllFromResources(String resourceName) {
@@ -30,20 +31,21 @@ public final class HeldItemTuningLoader {
             }
 
             ObjectMapper mapper = new ObjectMapper();
-            List<SkinItemsConfig> configs =
-                    mapper.readValue(is,
-                            mapper.getTypeFactory().constructCollectionType(List.class, SkinItemsConfig.class));
+            List<SkinItemsConfig> configs = mapper.readValue(is,
+                    mapper.getTypeFactory().constructCollectionType(List.class, SkinItemsConfig.class));
 
             Map<String, EnumMap<PowerType, HeldItemTuning>> out = new HashMap<>();
 
             for (SkinItemsConfig c : configs) {
-                if (c == null || c.id == null) continue;
+                if (c == null || c.id == null)
+                    continue;
 
                 EnumMap<PowerType, HeldItemTuning> perItem = new EnumMap<>(PowerType.class);
 
                 if (c.items != null) {
                     for (Map.Entry<String, ItemTuningConfig> e : c.items.entrySet()) {
-                        if (e.getKey() == null || e.getValue() == null) continue;
+                        if (e.getKey() == null || e.getValue() == null)
+                            continue;
 
                         // La key debe ser EXACTAMENTE el name() del enum PowerType
                         PowerType pt;
@@ -81,6 +83,8 @@ public final class HeldItemTuningLoader {
         public double cursorOffsetMulY;
         public double noCursorOffsetMulX;
         public double noCursorOffsetMulY;
+        public double rotationDeg;
+        public double noCursorRotationDeg;
 
         public HeldItemTuning toTuning() {
             return new HeldItemTuning(
@@ -89,32 +93,36 @@ public final class HeldItemTuningLoader {
                     cursorOffsetMulX,
                     cursorOffsetMulY,
                     noCursorOffsetMulX,
-                    noCursorOffsetMulY
-            );
+                    noCursorOffsetMulY,
+                    rotationDeg,
+                    noCursorRotationDeg);
         }
     }
 
     /**
      * Helper genérico:
-     * skinId + power -> tuning, con fallback a "default" y luego HeldItemTuning.defaults()
+     * skinId + power -> tuning, con fallback a "default" y luego
+     * HeldItemTuning.defaults()
      */
     public static HeldItemTuning getOrDefault(
             Map<String, EnumMap<PowerType, HeldItemTuning>> map,
             String skinId,
-            PowerType power
-    ) {
-        if (map == null || power == null) return HeldItemTuning.defaults();
+            PowerType power) {
+        if (map == null || power == null)
+            return HeldItemTuning.defaults();
 
         EnumMap<PowerType, HeldItemTuning> perSkin = map.get(skinId);
         if (perSkin != null) {
             HeldItemTuning t = perSkin.get(power);
-            if (t != null) return t;
+            if (t != null)
+                return t;
         }
 
         EnumMap<PowerType, HeldItemTuning> def = map.get("default");
         if (def != null) {
             HeldItemTuning t = def.get(power);
-            if (t != null) return t;
+            if (t != null)
+                return t;
         }
 
         return HeldItemTuning.defaults();

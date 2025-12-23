@@ -29,7 +29,8 @@ L’objectiu del joc és explorar un laberint fins a trobar la sortida. Al comen
 | Menys               |                      | Disminuir el zoom     |
 | Z                   |                      | Skin anterior         |
 | X                   |                      | Següent skin          |
-| Q                   |                      | Següent objecte       |
+| 1                   |                      | Objecte anterior      |
+| 2                   |                      | Següent objecte       |
 
 ---
 

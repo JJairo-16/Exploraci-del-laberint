@@ -14,6 +14,10 @@ public class DrawerParser {
         lib.put(lib.size(), sprite);
     }
 
+    private static void put(Sprite sprite, int i) {
+        lib.put(i, sprite);
+    }
+
     static {
         // ? < 0-5 >
         put(PATH);
@@ -35,8 +39,9 @@ public class DrawerParser {
         put(DOOR_OPENED_FROM_WEST);
         put(DOOR_OPENED_FROM_EAST);
 
-        // ? 14
+        // ? < 14-15 >
         put(DESTROYED_PATH);
+        put(LOCKED_EXIT);
     }
 
     public static Sprite parse(int tile) {

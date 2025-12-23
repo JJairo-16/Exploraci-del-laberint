@@ -37,7 +37,8 @@ public final class KeyBind {
         KEY_BINDS.put(KeyCode.Z, Action.PREVIOUS_SKIN);
         KEY_BINDS.put(KeyCode.X, Action.NEXT_SKIN);
 
-        KEY_BINDS.put(KeyCode.Q, Action.NEXT_ITEM);
+        KEY_BINDS.put(KeyCode.DIGIT1, Action.PREVIOUS_ITEM);
+        KEY_BINDS.put(KeyCode.DIGIT2, Action.NEXT_ITEM);
     }
 
     public static Action getAction(KeyCode key) {
@@ -55,6 +56,7 @@ public final class KeyBind {
         ZOOM_OUT(),
         NEXT_SKIN(true, false, 1.5),
         PREVIOUS_SKIN(true, false, 1.5),
+        PREVIOUS_ITEM(),
         NEXT_ITEM(),
         NONE();
 

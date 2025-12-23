@@ -6,10 +6,10 @@ import com.jairo.items.BasicItemType;
 import com.jairo.items.ItemType;
 import com.jairo.items.PowerType;
 import com.jairo.models.Board;
-import com.jairo.models.Inventory;
 import com.jairo.models.Player;
 import com.jairo.services.ItemPlacer;
 import com.jairo.services.Simulator;
+import com.jairo.utils.map_generator.Cells;
 
 public class SimulatorLoader {
     private SimulatorLoader() {
@@ -56,17 +56,24 @@ public class SimulatorLoader {
             }
         }
 
+        int exitX = board.getExitX();
+        int exitY = board.getExitY();
+        board.updateTile(exitX, exitY, Cells.LOCKED_EXIT, false);
+
         ItemPlacer placer = new ItemPlacer();
 
         List<ItemType> items = List.of(
                 BasicItemType.COIN,
                 PowerType.PICKAXE,
-                PowerType.BLAI_GLASSES);
+                PowerType.BLAI_GLASSES,
+                PowerType.KEY);
 
         placer.placeObjects(
                 board.getCells(),
                 player.getX(),
                 player.getY(),
+                board.getExitX(),
+                board.getExitY(),
                 items);
 
         Simulator simulator = new Simulator(player, board, placer);

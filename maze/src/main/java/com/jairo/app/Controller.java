@@ -448,29 +448,19 @@ public class Controller {
 
         long remainingSec = (remainingNs + 999_999_999L) / 1_000_000_000L; // ceil
 
-        Simulator.Position playerPos = simulator.getPlayerPosition();
-        int playerX = playerPos.x();
-        int playerY = playerPos.y();
-
-        Board board = simulator.getBoardRef();
-        int exitX = board.getExitX();
-        int exitY = board.getExitY();
-
-        double dx = (double) exitX - playerX;
-        double dy = (double) exitY - playerY;
-
-        double dis = Math.hypot(dx, dy); // distancia en tiles
-        double dis2 = Math.round(dis * 100.0) / 100.0;
-
-        String title = LanguageManager.tr("blai.glasses.title");
+        double dis = simulator.getBlaiNumber();
 
         String distance;
-        if (dis2 >= BLAI_GLASSES_NERF) {
-            distance = LanguageManager.tr("blai.glasses.distance", dis2);
+        if (dis != -1) {
+            if (simulator.getInventory().has(PowerType.KEY))
+                distance = LanguageManager.tr("blai.glasses.exitDistance", dis);
+            else
+                distance = LanguageManager.tr("blai.glasses.keyDistance", dis);
         } else {
             distance = LanguageManager.tr("blai.glasses.nerf");
         }
 
+        String title = LanguageManager.tr("blai.glasses.title");
         String time = LanguageManager.tr("blai.glasses.time", remainingSec);
 
         String text = title + "\n" + distance + "\n" + time;

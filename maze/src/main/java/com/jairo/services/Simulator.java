@@ -142,6 +142,10 @@ public class Simulator {
             case Action.USE:
                 use();
                 break;
+            
+            case PREVIOUS_ITEM:
+                inventory.selectPrevPower();
+                break;
 
             case Action.NEXT_ITEM:
                 inventory.selectNextPower();
@@ -195,14 +199,33 @@ public class Simulator {
         }
 
         lastPower = null;
+
+        DnResult dn = getDN();
+        int cell = dn.cell;
+        if (cell == LOCKED_EXIT) {
+            playLockedExit();
+            return;
+        }
+
         tryToOpenDoor();
     }
 
     private void useItem(ItemType item) {
-        if (item == PowerType.PICKAXE) {
-            usePickaxe(item);
-        } else if (item == PowerType.BLAI_GLASSES) {
-            tryToActiveBlaiGlasses();
+        switch (item) {
+            case PowerType.PICKAXE:
+                usePickaxe(item);
+                break;
+
+            case PowerType.BLAI_GLASSES:
+                tryToActiveBlaiGlasses();
+                break;
+
+            case PowerType.KEY:
+                tryToOpenExit();
+                break;
+
+            default:
+                break;
         }
     }
 
@@ -222,21 +245,15 @@ public class Simulator {
         if (item != PowerType.PICKAXE)
             return;
 
-        int dx = 0;
-        int dy = 0;
+        DnResult dn = getDN();
+        int dx = dn.dx;
+        int dy = dn.dy;
 
-        switch (lastMovement) {
-            case Action.UP -> dy = -1;
-            case Action.DOWN -> dy = 1;
-            case Action.LEFT -> dx = -1;
-            case Action.RIGHT -> dx = 1;
-            default -> {
-                return;
-            }
-        }
+        if (dx == 0 && dy == 0)
+            return;
 
-        int nx = player.getX() + dx;
-        int ny = player.getY() + dy;
+        int nx = dn.nx;
+        int ny = dn.ny;
 
         // Golpe fuera de límites / borde
         boolean outOfBounds = nx < 1 || ny < 1 ||
@@ -248,7 +265,7 @@ public class Simulator {
             return;
         }
 
-        int cell = board.getTile(nx, ny);
+        int cell = dn.cell;
 
         // Nada sólido → nada que hacer
         if (!Cells.hasCollision(cell))
@@ -277,9 +294,9 @@ public class Simulator {
             return;
 
         // Pared del borde → no se rompe
-        boolean isBorderWall = nx <= 1 || ny <= 1 ||
-                nx >= Board.BOARD_WIDTH - 2 ||
-                ny >= Board.BOARD_HEIGHT - 2;
+        boolean isBorderWall = nx <= 0 || ny <= 0 ||
+                nx >= Board.BOARD_WIDTH - 1 ||
+                ny >= Board.BOARD_HEIGHT - 1;
 
         if (isBorderWall) {
             playDoorHit();
@@ -534,23 +551,16 @@ public class Simulator {
     private long blaiGlassesRemainingNs = 0L;
 
     private void tryToActiveBlaiGlasses() {
+        DnResult dn = getDN();
+        int dx = dn.dx;
+        int dy = dn.dy;
 
-        int dx = 0;
-        int dy = 0;
+        if (dx == 0 && dy == 0)
+            return;
 
-        switch (lastMovement) {
-            case Action.UP -> dy = -1;
-            case Action.DOWN -> dy = 1;
-            case Action.LEFT -> dx = -1;
-            case Action.RIGHT -> dx = 1;
-            default -> {
-                return;
-            }
-        }
-
-        int nx = player.getX() + dx;
-        int ny = player.getY() + dy;
-        int cell = board.getTile(nx, ny);
+        int nx = dn.nx;
+        int ny = dn.ny;
+        int cell = dn.cell;
 
         if (isDoorClosed(cell)) {
             boolean opened = false;
@@ -559,7 +569,17 @@ public class Simulator {
                 opened = tryOpenDoorAt(nx, ny, dx, dy, cell);
             }
 
-            if (opened) return;
+            if (opened)
+                return;
+        }
+
+        if (cell == LOCKED_EXIT) {
+            playLockedExit();
+            return;
+        }
+
+        if (cell == EXIT) {
+            return;
         }
 
         if (!blaiGlassesActive && inventory.has(PowerType.BLAI_GLASSES)) {
@@ -568,7 +588,7 @@ public class Simulator {
 
             blaiGlassesActive = true;
             blaiGlassesRemainingNs = BLAI_GLASSES_MAX_POWER;
-            
+
             sm.playSfx(Sound.BLAI_GLASSES_POWER.path());
         }
     }
@@ -587,5 +607,91 @@ public class Simulator {
 
     public void updateRemainingBlaiGlassesPower(long update) {
         blaiGlassesRemainingNs = update;
+    }
+
+    private static final int BLAI_GLASSES_NERF_KEY = 3;
+    private static final int BLAI_GLASSES_NERF_EXIT = 20;
+
+    public double getBlaiNumber() {
+        Position playerPos = getPlayerPosition();
+        int playerX = playerPos.x();
+        int playerY = playerPos.y();
+
+        double distance;
+        if (!inventory.has(PowerType.KEY)) {
+            var keys = placer.getPositionsOf(PowerType.KEY);
+            if (keys.isEmpty())
+                return -1;
+
+            int[] pos = keys.get(0);
+            
+            int keyX = pos[0];
+            int keyY = pos[1];
+            distance = getDistance(playerX, playerY, keyX, keyY);
+            if (distance < BLAI_GLASSES_NERF_KEY)
+                distance = -1;
+        } else {
+            int exitX = board.getExitX();
+            int exitY = board.getExitY();
+            distance = getDistance(playerX, playerY, exitX, exitY);
+            if (distance < BLAI_GLASSES_NERF_EXIT)
+                distance = -1;
+        }
+
+        return distance;
+    }
+
+    private double getDistance(int x1, int y1, int x2, int y2) {
+        double dx = (double) x2 - x1;
+        double dy = (double) y2 - y1;
+        double dis = Math.hypot(dx, dy); // distancia en tiles
+        return Math.round(dis * 100.0) / 100.0;
+    }
+
+    private record DnResult(int dx, int dy, int nx, int ny, int cell) {
+    }
+
+    private DnResult getDN() {
+        int dx = 0;
+        int dy = 0;
+
+        switch (lastMovement) {
+            case Action.UP -> dy = -1;
+            case Action.DOWN -> dy = 1;
+            case Action.LEFT -> dx = -1;
+            case Action.RIGHT -> dx = 1;
+            default -> {
+            }
+        }
+
+        int nx = player.getX() + dx;
+        int ny = player.getY() + dy;
+        int cell = board.getTile(nx, ny);
+
+        return new DnResult(dx, dy, nx, ny, cell);
+    }
+
+    private void tryToOpenExit() {
+        DnResult dn = getDN();
+        int dx = dn.dx;
+        int dy = dn.dy;
+
+        if (dx == 0 && dy == 0)
+            return;
+
+        int nx = dn.nx;
+        int ny = dn.ny;
+        int cell = dn.cell;
+
+        if (cell != LOCKED_EXIT)
+            return;
+
+        inventory.consumeOne(PowerType.KEY);
+        board.updateTile(nx, ny, EXIT);
+        sm.playSfx(Sound.OPEN_LOCK.path());
+    }
+
+    private void playLockedExit() {
+        sm.playSfxWithTailDelay(Sound.EXIT_LOCK.path(), 1.5, false, 50);
     }
 }

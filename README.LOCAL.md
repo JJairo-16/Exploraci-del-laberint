@@ -277,7 +277,11 @@ L’objectiu del joc és explorar un laberint fins a trobar la sortida. Al comen
       <td>Següent skin</td>
     </tr>
     <tr>
-      <td>Q</td>
+      <td>1</td>
+      <td></td>
+      <td>Objecte anterior</td>
+    </tr>
+    <td>2</td>
       <td></td>
       <td>Següent objecte</td>
     </tr>

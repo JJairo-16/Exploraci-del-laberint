@@ -9,8 +9,9 @@ import static com.jairo.items.Qualities.*;
  * Implementa ItemType para poder reusar conteos, sprites y pickup.
  */
 public enum PowerType implements ItemType {
-    PICKAXE(Sprite.PICKAXE, 0.015, 3, 6, Sound.POWERUP, EPIC), // ? 0.01 3 6
-    BLAI_GLASSES(Sprite.BLAI_GLASSES, 0.0025, 10, 25, Sound.POWERUP, LEGENDARY); // ? 0.005 10 25
+    PICKAXE(Sprite.PICKAXE, 0.01, 3, 6, Sound.POWERUP, EPIC), // ? 0.01 3 6
+    BLAI_GLASSES(Sprite.BLAI_GLASSES, 0.005, 10, 25, Sound.POWERUP, LEGENDARY), // ? 0.005 10 25
+    KEY(Sprite.KEY, 0, 40, 1, Sound.COIN, LEGENDARY, 60); // ? 0 40 1 60
 
     private final Sprite sprite;
     private final double density;
@@ -18,6 +19,7 @@ public enum PowerType implements ItemType {
     private final int minBetween;
     private final String pickupSfx;
     private final Qualities quality;
+    private final int minExitDistance;
 
     PowerType(Sprite sprite, double density, int minPlayer, int minBetween, Sound pickupSfx, Qualities q) {
         this.sprite = sprite;
@@ -26,6 +28,17 @@ public enum PowerType implements ItemType {
         this.minBetween = minBetween;
         this.pickupSfx = pickupSfx != null ? pickupSfx.path() : null;
         this.quality = q;
+        this.minExitDistance = 0;
+    }
+
+    PowerType(Sprite sprite, double density, int minPlayer, int minBetween, Sound pickupSfx, Qualities q, int minExitDistance) {
+        this.sprite = sprite;
+        this.density = density;
+        this.minPlayer = minPlayer;
+        this.minBetween = minBetween;
+        this.pickupSfx = pickupSfx != null ? pickupSfx.path() : null;
+        this.quality = q;
+        this.minExitDistance = minExitDistance;
     }
 
     @Override public String getId() { return name(); }
@@ -36,4 +49,20 @@ public enum PowerType implements ItemType {
     @Override public String getPickupSoundPath() { return pickupSfx; }
     @Override public boolean isAPower() { return true; }
     @Override public Qualities getQuality() { return quality; }
+    @Override public int getMinDistFromExit() { return minExitDistance; }
+
+    // Opcional: limites
+    @Override public int getMaxCount() {
+        return switch (this) {
+            case KEY -> 1; // como mucho 1 llave
+            default -> Integer.MAX_VALUE;
+        };
+    }
+
+    @Override public int getMinCount() {
+        return switch (this) {
+            case KEY -> 1; // asegúrate de que exista
+            default -> 0;
+        };
+    }
 }

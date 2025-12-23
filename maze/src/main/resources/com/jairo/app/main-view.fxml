@@ -75,8 +75,10 @@
         <Label text="X" styleClass="key-label" GridPane.columnIndex="2" GridPane.rowIndex="1"/>
         <Label text="%controls.nextSkin" styleClass="key-description" GridPane.columnIndex="3" GridPane.rowIndex="1"/>
 
-        <Label text="Q" styleClass="key-label" GridPane.columnIndex="0" GridPane.rowIndex="2"/>
-        <Label text="%controls.nextItem" styleClass="key-description" GridPane.columnIndex="1" GridPane.rowIndex="2"/>
+        <Label text="1" styleClass="key-label" GridPane.columnIndex="0" GridPane.rowIndex="2"/>
+        <Label text="%controls.prevItem" styleClass="key-description" GridPane.columnIndex="1" GridPane.rowIndex="2"/>
+        <Label text="2" styleClass="key-label" GridPane.columnIndex="2" GridPane.rowIndex="2"/>
+        <Label text="%controls.nextItem" styleClass="key-description" GridPane.columnIndex="3" GridPane.rowIndex="2"/>
       </GridPane>
     </VBox>
 

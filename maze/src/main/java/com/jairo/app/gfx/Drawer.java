@@ -197,17 +197,37 @@ public class Drawer {
     }
 
     // ---------- Helpers de renderitzat ----------
-    private void renderCell(Image sprite, int x, int y, double rotation, boolean filled) {
+    private void renderCell(Sprite sprite, int x, int y, double rotation) {
+        Image img = images.get(sprite);
+
         double size = scaledTileSize();
         double screenX = (x - cameraX) * size;
         double screenY = (y - cameraY) * size;
 
-        if (!filled) {
-            mapGC.drawImage(images.get(Sprite.PATH), screenX, screenY, size, size);
+        if (!sprite.getIfIsFullTile()) {
+            mapGC.drawImage(images.get(sprite.getBack()), screenX, screenY, size, size);
+        }
+
+        if (sprite == Sprite.LOCKED_EXIT) {
+            int exitX = board.getExitX();
+            int exitY = board.getExitY();
+
+            // Abajo
+            if (exitY == Board.BOARD_HEIGHT - 1) {
+                rotation = 180;
+            }
+            // Izquierda
+            else if (exitX == 0) {
+                rotation = -90;
+            }
+            // Derecha
+            else if (exitX == Board.BOARD_WIDTH - 1) {
+                rotation = 90;
+            }
         }
 
         if (rotation == 0) {
-            mapGC.drawImage(sprite, screenX, screenY, size, size);
+            mapGC.drawImage(img, screenX, screenY, size, size);
             return;
         }
 
@@ -218,7 +238,7 @@ public class Drawer {
 
         mapGC.translate(cx, cy);
         mapGC.rotate(rotation);
-        mapGC.drawImage(sprite, -size / 2.0, -size / 2.0, size, size);
+        mapGC.drawImage(images.get(sprite), -size / 2.0, -size / 2.0, size, size);
 
         mapGC.restore();
     }
@@ -373,7 +393,7 @@ public class Drawer {
                     continue;
 
                 Sprite sprite = parse(type);
-                renderCell(images.get(sprite), x, y, sprite.rotation, sprite.getIfIsFullTile());
+                renderCell(sprite, x, y, sprite.rotation);
             }
         }
 
@@ -696,7 +716,8 @@ public class Drawer {
         }
     }
 
-    private void drawQualityBorder(double size, double t, double screenX, double phase, Image img, double drawY, Qualities q) {
+    private void drawQualityBorder(double size, double t, double screenX, double phase, Image img, double drawY,
+            Qualities q) {
         int red = q.red;
         int green = q.green;
         int blue = q.blue;

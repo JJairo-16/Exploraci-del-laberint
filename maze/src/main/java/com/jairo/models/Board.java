@@ -395,16 +395,20 @@ public class Board {
         }
     }
 
-    public void updateTile(int x, int y, int tile) {
+    public void updateTile(int x, int y, int tile, boolean updateVisibility) {
         if (x < 0 || x >= BOARD_WIDTH || y < 0 || y >= BOARD_HEIGHT)
             return;
         cells.get(y).set(x, tile);
-        visibility.get(y).set(x, tile);
+        if (updateVisibility) visibility.get(y).set(x, tile);
 
         if (tile == EXIT) {
             exitX = x;
             exitY = y;
         }
+    }
+
+    public void updateTile(int x, int y, int tile) {
+        updateTile(x, y, tile, true);
     }
 
     public int getTile(int x, int y) {

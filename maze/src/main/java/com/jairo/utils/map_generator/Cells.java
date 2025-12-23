@@ -25,6 +25,7 @@ public class Cells {
     public static final int DOOR_OPENED_FROM_EAST = 13;
 
     public static final int DESTROYED_PATH = 14;
+    public static final int LOCKED_EXIT = 15;
 
     public static int parseCell(char c) {
         return switch (c) {
@@ -44,7 +45,8 @@ public class Cells {
             DOOR_OPEN_FROM_NORTH,
             DOOR_OPEN_FROM_SOUTH,
             DOOR_OPEN_FROM_WEST,
-            DOOR_OPEN_FROM_EAST);
+            DOOR_OPEN_FROM_EAST,
+            LOCKED_EXIT);
 
     public static boolean hasCollision(int tile) {
         return COLLISION.contains(tile);

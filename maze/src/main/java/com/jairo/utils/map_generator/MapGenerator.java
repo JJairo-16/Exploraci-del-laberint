@@ -13,8 +13,15 @@ public final class MapGenerator {
     private static final Logger log = LoggerFactory.getLogger(MapGenerator.class);
     private static boolean debugSingleConnection = false;
 
-    public static final int BOARD_WIDTH = 60; // 60
-    public static final int BOARD_HEIGHT = 45; // 45
+    private static final int WIDTH = 60; // 60
+    private static final int HEIGHT = 45; // 45
+
+    public static final int BOARD_WIDTH = makeOdd(WIDTH);
+    public static final int BOARD_HEIGHT = makeOdd(HEIGHT);
+
+    private static int makeOdd(int n) {
+        return n + (n % 2 == 0 ? 1 : 0);
+    }
 
     // Tipos de celda
     private static final int PATH = 0;
@@ -369,7 +376,9 @@ public final class MapGenerator {
                 int y = randomOdd(rnd, 1, BOARD_HEIGHT - 2);
                 g[y][BOARD_WIDTH - 1] = EXIT;
                 g[y][BOARD_WIDTH - 2] = EXIT_CONNECTOR;
-                return new int[] { y, BOARD_HEIGHT - 1 };
+                // return new int[] { y, BOARD_HEIGHT - 1 };
+                return new int[] { y, BOARD_WIDTH - 1 };
+
             }
         }
     }
@@ -456,7 +465,8 @@ public final class MapGenerator {
                 if (horizontal || vertical) {
                     g[y][x] = PATH;
                     opened++;
-                    if (debugSingleConnection) log.debug("Ensured single connected component");
+                    if (debugSingleConnection)
+                        log.debug("Ensured single connected component");
                 }
 
             }

@@ -11,6 +11,7 @@ public enum Sprite {
 
     EXIT(GAME.get("exit.png")),
     EXIT_CONNECTOR(GAME.get("exit.png")),
+    LOCKED_EXIT(GAME.get("locked-exit.png")),
 
     DOOR_OPEN_FROM_NORTH(DOORS.get("door_open_from_north.png")),
     DOOR_OPEN_FROM_SOUTH(DOORS.get("door_open_from_south.png")),
@@ -27,7 +28,8 @@ public enum Sprite {
     
     COIN(ITEMS.get("coin.png")),
     PICKAXE(ITEMS.get("pickaxe.png")),
-    BLAI_GLASSES(ITEMS.get("blai-glasses.png"));
+    BLAI_GLASSES(ITEMS.get("blai-glasses.png")),
+    KEY(ITEMS.get("key.png"));
 
     static {
         DOOR_OPEN_FROM_NORTH.updateFillTile();
@@ -39,11 +41,14 @@ public enum Sprite {
         DOOR_OPENED_FROM_SOUTH.updateFillTile();
         DOOR_OPENED_FROM_WEST.updateFillTile();
         DOOR_OPENED_FROM_EAST.updateFillTile();
+
+        LOCKED_EXIT.updateFillTile(Sprite.EXIT);
     }
     
     private String resourcePath;
     public final double rotation;
     private boolean fullTile = true;
+    private Sprite back;
 
     Sprite(String resourcePath, double rotaion) {
         this.resourcePath = resourcePath;
@@ -65,9 +70,19 @@ public enum Sprite {
 
     private void updateFillTile() {
         fullTile = false;
+        back = PATH;
+    }
+
+    private void updateFillTile(Sprite back) {
+        fullTile = false;
+        this.back = back;
     }
 
     public boolean getIfIsFullTile() {
         return fullTile;
+    }
+
+    public Sprite getBack() {
+        return back;
     }
 }

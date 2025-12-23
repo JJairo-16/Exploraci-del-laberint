@@ -86,25 +86,34 @@ public class PlayerRenderer {
             oy += offset * helItemTuning.noCursorOffsetMulY();
         }
 
+        // Rotación según modo (grados)
+        double rotation = hasCursor ? helItemTuning.rotationDeg() : helItemTuning.noCursorRotationDeg();
+
         Image itemImg = images.get(item.getSprite());
 
         // tiempo
         double t = System.nanoTime() / 1_000_000_000.0;
         double phase = item.hashCode() * 0.001;
 
-        // --- BORDE CUANDO ESTÁ EN LA MANO ---
+        // --- BORDE CUANDO ESTÁ EN LA MANO (ROTADO) ---
         drawHeldItemBorder(
                 entitiesGC,
                 itemImg,
                 ox,
                 oy,
                 itemSize,
+                rotation,
                 t,
                 phase,
-                item.getQuality());
+                item.getQuality()
+        );
 
-        // Sprite normal encima
-        entitiesGC.drawImage(itemImg, ox, oy, itemSize, itemSize);
+        // --- SPRITE NORMAL ENCIMA (ROTADO) ---
+        entitiesGC.save();
+        entitiesGC.translate(ox + itemSize / 2.0, oy + itemSize / 2.0);
+        entitiesGC.rotate(rotation);
+        entitiesGC.drawImage(itemImg, -itemSize / 2.0, -itemSize / 2.0, itemSize, itemSize);
+        entitiesGC.restore();
     }
     // #endregion
 
@@ -195,9 +204,11 @@ public class PlayerRenderer {
             double x,
             double y,
             double size,
+            double rotationDeg,
             double t,
             double phase,
             Qualities q) {
+
         int red = q.red;
         int green = q.green;
         int blue = q.blue;
@@ -217,7 +228,11 @@ public class PlayerRenderer {
                 Math.min(1.0, 0.55 + pulse * 0.20)));
 
         gc.setEffect(ds);
-        gc.drawImage(img, x, y, size, size);
+
+        // Dibujo rotado del "borde"
+        gc.translate(x + size / 2.0, y + size / 2.0);
+        gc.rotate(rotationDeg);
+        gc.drawImage(img, -size / 2.0, -size / 2.0, size, size);
 
         gc.restore();
     }

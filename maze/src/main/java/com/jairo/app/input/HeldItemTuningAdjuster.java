@@ -13,7 +13,7 @@ public class HeldItemTuningAdjuster {
     private HeldItemTuningAdjuster() {
     }
 
-    private static boolean status = false;
+    private static boolean status = true;
 
     /**
      * Compatibilidad: ajusta el tuning del skin para un item "por defecto".
@@ -87,6 +87,21 @@ public class HeldItemTuningAdjuster {
                 store.set(inv, item, t);
             }
 
+            // --- ROTACIÓN ---
+            case NUMPAD1 -> { // rotar izquierda
+                t = hasCursor
+                        ? t.withRotation(t.rotationDeg() - 2)
+                        : t.withNoCursorRotation(t.noCursorRotationDeg() - 2);
+                store.set(inv, item, t);
+            }
+
+            case NUMPAD2 -> { // rotar derecha
+                t = hasCursor
+                        ? t.withRotation(t.rotationDeg() + 2)
+                        : t.withNoCursorRotation(t.noCursorRotationDeg() + 2);
+                store.set(inv, item, t);
+            }
+
             // --- RESET (solo este jugador+item) ---
             case B -> store.set(inv, item, null);
 
@@ -129,6 +144,17 @@ public class HeldItemTuningAdjuster {
             }
             case U -> sm.tweakHeldItemBaseScale(item, -0.05);
             case O -> sm.tweakHeldItemBaseScale(item, 0.05);
+
+            case NUMPAD1 -> { // rotar izquierda
+                if (hasCursor) sm.tweakHeldItemRotation(item, -2);
+                else sm.tweakHeldItemNoCursorRotation(item, -2);
+            }
+
+            case NUMPAD2 -> { // rotar derecha
+                if (hasCursor) sm.tweakHeldItemRotation(item, +2);
+                else sm.tweakHeldItemNoCursorRotation(item, +2);
+            }
+
             case B -> sm.resetHeldItemTuning(item);
             case M -> saveConfigLegacy(item);
             default -> {
@@ -138,6 +164,7 @@ public class HeldItemTuningAdjuster {
 
     // =======================
     // Helpers de copia (record)
+    // OJO: ahora también copiamos rotationDeg / noCursorRotationDeg
     // =======================
     private static HeldItemTuning withCursorOffsetDelta(HeldItemTuning t, double dx, double dy) {
         return new HeldItemTuning(
@@ -146,7 +173,10 @@ public class HeldItemTuningAdjuster {
                 t.cursorOffsetMulX() + dx,
                 t.cursorOffsetMulY() + dy,
                 t.noCursorOffsetMulX(),
-                t.noCursorOffsetMulY());
+                t.noCursorOffsetMulY(),
+                t.rotationDeg(),
+                t.noCursorRotationDeg()
+        );
     }
 
     private static HeldItemTuning withNoCursorOffsetDelta(HeldItemTuning t, double dx, double dy) {
@@ -156,7 +186,10 @@ public class HeldItemTuningAdjuster {
                 t.cursorOffsetMulX(),
                 t.cursorOffsetMulY(),
                 t.noCursorOffsetMulX() + dx,
-                t.noCursorOffsetMulY() + dy);
+                t.noCursorOffsetMulY() + dy,
+                t.rotationDeg(),
+                t.noCursorRotationDeg()
+        );
     }
 
     private static HeldItemTuning copyWithBaseScale(HeldItemTuning t, double baseScale) {
@@ -166,15 +199,14 @@ public class HeldItemTuningAdjuster {
                 t.cursorOffsetMulX(),
                 t.cursorOffsetMulY(),
                 t.noCursorOffsetMulX(),
-                t.noCursorOffsetMulY());
+                t.noCursorOffsetMulY(),
+                t.rotationDeg(),
+                t.noCursorRotationDeg()
+        );
     }
 
     // =======================
-    // Save config (override jugador+item)
-    // =======================
-    // =======================
-    // Save config (override jugador+item) -> imprime un OBJETO compatible con el
-    // JSON del loader
+    // Save config (override jugador+item) -> imprime un OBJETO compatible con el JSON del loader
     // =======================
     private static void saveConfig(Inventory inv, PowerType item, HeldItemTuning t) {
         SkinManager sm = SkinManager.get();
@@ -187,7 +219,6 @@ public class HeldItemTuningAdjuster {
         sb.append("Item: ").append(item.name()).append("\n");
         sb.append("PlayerKey(Inventory identity): ").append(System.identityHashCode(inv)).append("\n\n");
 
-        // Esto es una ENTRADA del array del JSON de skins
         sb.append("{\n");
         sb.append("  \"id\": \"").append(skin.id).append("\",\n");
         sb.append("  \"items\": {\n");
@@ -197,7 +228,9 @@ public class HeldItemTuningAdjuster {
         sb.append("      \"cursorOffsetMulX\": ").append(fmt(t.cursorOffsetMulX())).append(",\n");
         sb.append("      \"cursorOffsetMulY\": ").append(fmt(t.cursorOffsetMulY())).append(",\n");
         sb.append("      \"noCursorOffsetMulX\": ").append(fmt(t.noCursorOffsetMulX())).append(",\n");
-        sb.append("      \"noCursorOffsetMulY\": ").append(fmt(t.noCursorOffsetMulY())).append("\n");
+        sb.append("      \"noCursorOffsetMulY\": ").append(fmt(t.noCursorOffsetMulY())).append(",\n");
+        sb.append("      \"rotationDeg\": ").append(fmt(t.rotationDeg())).append(",\n");
+        sb.append("      \"noCursorRotationDeg\": ").append(fmt(t.noCursorRotationDeg())).append("\n");
         sb.append("    }\n");
         sb.append("  }\n");
         sb.append("}\n");
@@ -205,7 +238,6 @@ public class HeldItemTuningAdjuster {
         System.out.println(sb);
     }
 
-    // Save config antiguo (por skin + PowerType)
     // Save config "legacy" (por skin + PowerType) -> mismo formato del JSON
     private static void saveConfigLegacy(PowerType item) {
         SkinManager sm = SkinManager.get();
@@ -229,7 +261,9 @@ public class HeldItemTuningAdjuster {
         sb.append("      \"cursorOffsetMulX\": ").append(fmt(t.cursorOffsetMulX())).append(",\n");
         sb.append("      \"cursorOffsetMulY\": ").append(fmt(t.cursorOffsetMulY())).append(",\n");
         sb.append("      \"noCursorOffsetMulX\": ").append(fmt(t.noCursorOffsetMulX())).append(",\n");
-        sb.append("      \"noCursorOffsetMulY\": ").append(fmt(t.noCursorOffsetMulY())).append("\n");
+        sb.append("      \"noCursorOffsetMulY\": ").append(fmt(t.noCursorOffsetMulY())).append(",\n");
+        sb.append("      \"rotationDeg\": ").append(fmt(t.rotationDeg())).append(",\n");
+        sb.append("      \"noCursorRotationDeg\": ").append(fmt(t.noCursorRotationDeg())).append("\n");
         sb.append("    }\n");
         sb.append("  }\n");
         sb.append("}\n");

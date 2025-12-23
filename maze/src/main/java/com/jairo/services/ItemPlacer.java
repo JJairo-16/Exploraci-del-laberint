@@ -3,7 +3,17 @@ package com.jairo.services;
 import com.jairo.items.ItemType;
 import com.jairo.items.PlacedItem;
 
-import java.util.*;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Random;
+import java.util.Set;
 
 public class ItemPlacer {
 
@@ -17,31 +27,43 @@ public class ItemPlacer {
     /**
      * Coloca objetos usando la configuración embebida en cada ItemType:
      * - densidad => calcula cantidad según tamaño del mapa (PATH)
-     * - distancias => por tipo
+     * - distancias => por tipo (jugador / entre items / salida)
+     *
+     * Asegura colocación:
+     * - Si la salida NO está en una celda PATH, calcula distancias desde el PATH más cercano.
+     * - Si un tipo no puede colocarse por restricciones, relaja (en este orden):
+     *   1) minDistFromPlayer
+     *   2) minDistBetweenItems
+     *   3) minDistFromExit  (último recurso, para garantizar colocación)
      */
     public void placeObjects(
             List<List<Integer>> cells,
             int playerX,
             int playerY,
+            int exitX,
+            int exitY,
             List<ItemType> types
     ) {
         placedItems.clear();
         occupied.clear();
         itemsByPos.clear();
 
+        // no colocar nada en la posición del jugador
         occupied.add(pack(playerX, playerY));
 
-        // 1) calcular tamaño útil del mapa (PATH)
+        // 1) tamaño útil del mapa (PATH)
         int pathCount = countCellsOfType(cells, PATH);
 
-        // 2) BFS del jugador una vez (distancias)
-        int[][] distFromPlayer = bfsFromPlayer(cells, playerX, playerY);
+        // 2) distancias reales por caminos (BFS)
+        int[][] distFromPlayer = bfsFrom(cells, playerX, playerY);
+        int[][] distFromExit = bfsFromExit(cells, exitX, exitY);
 
         // 3) ordenar tipos más restrictivos primero
         List<ItemType> sorted = new ArrayList<>(types);
         sorted.sort(Comparator
                 .comparingInt(ItemType::getMinDistBetweenItems).reversed()
                 .thenComparingInt(ItemType::getMinDistFromPlayer).reversed()
+                .thenComparingInt(ItemType::getMinDistFromExit).reversed()
                 .thenComparingDouble(ItemType::getDensity).reversed()
         );
 
@@ -50,7 +72,7 @@ public class ItemPlacer {
             int amount = computeAmountForType(type, pathCount);
             if (amount <= 0) continue;
 
-            placeType(cells, distFromPlayer, type, amount);
+            placeTypeGuaranteeing(cells, distFromPlayer, distFromExit, type, amount);
         }
     }
 
@@ -72,87 +94,125 @@ public class ItemPlacer {
         return it;
     }
 
+    public List<int[]> getPositionsOf(ItemType type) {
+        List<int[]> res = new ArrayList<>();
+        for (PlacedItem it : placedItems) {
+            if (it.getType() == type) {
+                res.add(new int[]{it.getX(), it.getY()});
+            }
+        }
+        return res;
+    }
+
     /* ===================== Internos ===================== */
 
     private int computeAmountForType(ItemType type, int pathCount) {
-        // cantidad por densidad
         double raw = pathCount * Math.max(0.0, type.getDensity());
-
-        // redondeo: puedes cambiar a floor/ceil según estilo
         int amount = (int) Math.round(raw);
 
-        // aplicar límites
         amount = Math.max(amount, type.getMinCount());
         amount = Math.min(amount, type.getMaxCount());
         return amount;
     }
 
-    private void placeType(
+    /**
+     * Coloca "amount" items de este type. Garantiza colocación relajando restricciones:
+     * - minPlayer baja a 0
+     * - minBetween baja a 0
+     * - minExit baja a 0 (último recurso)
+     */
+    private void placeTypeGuaranteeing(
             List<List<Integer>> cells,
             int[][] distFromPlayer,
+            int[][] distFromExit,
             ItemType type,
             int amount
     ) {
-        int minPlayer = type.getMinDistFromPlayer();
-        int minBetween = type.getMinDistBetweenItems();
-
-        // intento principal
-        List<int[]> candidates = collectCandidates(cells, distFromPlayer, minPlayer, minBetween);
-        Collections.shuffle(candidates, RNG);
+        int minPlayer = Math.max(0, type.getMinDistFromPlayer());
+        int minBetween = Math.max(0, type.getMinDistBetweenItems());
+        int minExit = Math.max(0, type.getMinDistFromExit());
 
         int placed = 0;
-        for (int[] p : candidates) {
-            if (placed >= amount) break;
-            place(type, p[0], p[1]);
-            placed++;
-        }
 
-        // fallback: relajar minPlayer
+        // 1) Intento principal (todo estricto)
+        placed += placeWithConstraints(cells, distFromPlayer, distFromExit, type, amount - placed,
+                minPlayer, minExit, minBetween);
+
+        // 2) Relajar minPlayer
         int relaxedPlayer = minPlayer - 1;
         while (placed < amount && relaxedPlayer >= 0) {
-            List<int[]> more = collectCandidates(cells, distFromPlayer, relaxedPlayer, minBetween);
-            Collections.shuffle(more, RNG);
-
-            for (int[] p : more) {
-                if (placed >= amount) break;
-                if (occupied.contains(pack(p[0], p[1]))) continue;
-                if (!respectsMinDistBetween(p[0], p[1], minBetween)) continue;
-
-                place(type, p[0], p[1]);
-                placed++;
-            }
+            placed += placeWithConstraints(cells, distFromPlayer, distFromExit, type, amount - placed,
+                    relaxedPlayer, minExit, minBetween);
             relaxedPlayer--;
         }
 
-        // fallback: relajar también minBetween
+        // 3) Relajar minBetween
         int relaxedBetween = minBetween - 1;
         while (placed < amount && relaxedBetween >= 0) {
-            List<int[]> more = collectCandidates(cells, distFromPlayer, 0, relaxedBetween);
-            Collections.shuffle(more, RNG);
-
-            for (int[] p : more) {
-                if (placed >= amount) break;
-                if (occupied.contains(pack(p[0], p[1]))) continue;
-                if (!respectsMinDistBetween(p[0], p[1], relaxedBetween)) continue;
-
-                place(type, p[0], p[1]);
-                placed++;
-            }
+            placed += placeWithConstraints(cells, distFromPlayer, distFromExit, type, amount - placed,
+                    0, minExit, relaxedBetween);
             relaxedBetween--;
         }
+
+        // 4) Último recurso: relajar minExit también (para garantizar que coloque)
+        int relaxedExit = minExit - 1;
+        while (placed < amount && relaxedExit >= 0) {
+            placed += placeWithConstraints(cells, distFromPlayer, distFromExit, type, amount - placed,
+                    0, relaxedExit, 0);
+            relaxedExit--;
+        }
+    }
+
+    /**
+     * Intenta colocar "need" items con las restricciones dadas.
+     * Devuelve cuántos ha colocado realmente.
+     */
+    private int placeWithConstraints(
+            List<List<Integer>> cells,
+            int[][] distFromPlayer,
+            int[][] distFromExit,
+            ItemType type,
+            int need,
+            int minPlayer,
+            int minExit,
+            int minBetween
+    ) {
+        if (need <= 0) return 0;
+
+        List<int[]> candidates = collectCandidates(cells, distFromPlayer, distFromExit, minPlayer, minExit, minBetween);
+        if (candidates.isEmpty()) return 0;
+
+        Collections.shuffle(candidates, RNG);
+
+        int placedNow = 0;
+        for (int[] p : candidates) {
+            if (placedNow >= need) break;
+
+            long key = pack(p[0], p[1]);
+            if (occupied.contains(key)) continue;
+            if (!respectsMinDistBetween(p[0], p[1], minBetween)) continue;
+
+            place(type, p[0], p[1]);
+            placedNow++;
+        }
+
+        return placedNow;
     }
 
     private void place(ItemType type, int x, int y) {
         PlacedItem it = new PlacedItem(type, x, y);
         placedItems.add(it);
-        occupied.add(pack(x, y));
-        itemsByPos.put(pack(x, y), it);
+        long key = pack(x, y);
+        occupied.add(key);
+        itemsByPos.put(key, it);
     }
 
     private List<int[]> collectCandidates(
             List<List<Integer>> cells,
             int[][] distFromPlayer,
+            int[][] distFromExit,
             int minDistPlayer,
+            int minDistExit,
             int minDistBetween
     ) {
         int h = cells.size();
@@ -164,9 +224,13 @@ public class ItemPlacer {
                 if (cells.get(y).get(x) != PATH) continue;
                 if (occupied.contains(pack(x, y))) continue;
 
-                int d = distFromPlayer[y][x];
-                if (d == -1) continue;
-                if (d < minDistPlayer) continue;
+                int dp = distFromPlayer[y][x];
+                if (dp == -1 || dp < minDistPlayer) continue;
+
+                if (minDistExit > 0) {
+                    int de = distFromExit[y][x];
+                    if (de == -1 || de < minDistExit) continue;
+                }
 
                 if (!respectsMinDistBetween(x, y, minDistBetween)) continue;
 
@@ -182,7 +246,7 @@ public class ItemPlacer {
         for (PlacedItem it : placedItems) {
             int dx = Math.abs(it.getX() - x);
             int dy = Math.abs(it.getY() - y);
-            if (dx + dy < minDistBetween) return false;
+            if (dx + dy < minDistBetween) return false; // Manhattan
         }
         return true;
     }
@@ -197,34 +261,106 @@ public class ItemPlacer {
         return count;
     }
 
-    private int[][] bfsFromPlayer(List<List<Integer>> cells, int px, int py) {
+    /**
+     * BFS desde cualquier punto que sea PATH. Si no lo es, devuelve todo -1.
+     */
+    private int[][] bfsFrom(List<List<Integer>> cells, int sx, int sy) {
         int h = cells.size();
         int w = cells.get(0).size();
 
         int[][] dist = new int[h][w];
         for (int y = 0; y < h; y++) Arrays.fill(dist[y], -1);
 
-        ArrayDeque<int[]> q = new ArrayDeque<>();
-        dist[py][px] = 0;
-        q.add(new int[]{px, py});
+        if (sx < 0 || sy < 0 || sx >= w || sy >= h) return dist;
+        if (cells.get(sy).get(sx) != PATH) return dist;
 
-        int[][] dirs = {{1,0},{-1,0},{0,1},{0,-1}};
+        ArrayDeque<int[]> q = new ArrayDeque<>();
+        dist[sy][sx] = 0;
+        q.add(new int[]{sx, sy});
+
+        int[][] dirs = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
 
         while (!q.isEmpty()) {
             int[] p = q.poll();
+            int px = p[0], py = p[1];
+
             for (int[] d : dirs) {
-                int nx = p[0] + d[0];
-                int ny = p[1] + d[1];
+                int nx = px + d[0];
+                int ny = py + d[1];
 
                 if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
                 if (dist[ny][nx] != -1) continue;
                 if (cells.get(ny).get(nx) != PATH) continue;
 
-                dist[ny][nx] = dist[p[1]][p[0]] + 1;
+                dist[ny][nx] = dist[py][px] + 1;
                 q.add(new int[]{nx, ny});
             }
         }
+
         return dist;
+    }
+
+    /**
+     * BFS "desde la salida" robusto:
+     * - Si (exitX,exitY) es PATH => BFS directo.
+     * - Si no lo es => busca el PATH más cercano a la salida y BFS desde ahí.
+     */
+    private int[][] bfsFromExit(List<List<Integer>> cells, int exitX, int exitY) {
+        int h = cells.size();
+        int w = cells.get(0).size();
+
+        if (exitX >= 0 && exitY >= 0 && exitX < w && exitY < h && cells.get(exitY).get(exitX) == PATH) {
+            return bfsFrom(cells, exitX, exitY);
+        }
+
+        int[] start = findNearestPathCell(cells, exitX, exitY);
+        if (start == null) {
+            int[][] dist = new int[h][w];
+            for (int y = 0; y < h; y++) Arrays.fill(dist[y], -1);
+            return dist;
+        }
+
+        return bfsFrom(cells, start[0], start[1]);
+    }
+
+    /**
+     * Encuentra el PATH más cercano (por expansión ortogonal) a (sx,sy).
+     * Si no hay ninguno, devuelve null.
+     */
+    private int[] findNearestPathCell(List<List<Integer>> cells, int sx, int sy) {
+        int h = cells.size();
+        int w = cells.get(0).size();
+
+        if (h == 0 || w == 0) return null;
+
+        boolean[][] vis = new boolean[h][w];
+        ArrayDeque<int[]> q = new ArrayDeque<>();
+
+        int cx = Math.max(0, Math.min(w - 1, sx));
+        int cy = Math.max(0, Math.min(h - 1, sy));
+
+        q.add(new int[]{cx, cy});
+        vis[cy][cx] = true;
+
+        int[][] dirs = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+
+        while (!q.isEmpty()) {
+            int[] p = q.poll();
+            int x = p[0], y = p[1];
+
+            if (cells.get(y).get(x) == PATH) return new int[]{x, y};
+
+            for (int[] d : dirs) {
+                int nx = x + d[0];
+                int ny = y + d[1];
+                if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+                if (vis[ny][nx]) continue;
+                vis[ny][nx] = true;
+                q.add(new int[]{nx, ny});
+            }
+        }
+
+        return null;
     }
 
     private static long pack(int x, int y) {

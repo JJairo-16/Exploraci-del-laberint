@@ -24,9 +24,14 @@ public enum Sound {
     
     COIN(ITEMS.get("coin.mp3")),
     POWERUP(ITEMS.get("power-pick-up.mp3")),
+    
     PICKAXE_DOOR(ITEMS.get("pickaxe-door.mp3")),
     PICKAXE_WALL(ITEMS.get("pickaxe-wall.mp3")),
-    BLAI_GLASSES_POWER(ITEMS.get("blai-glasses-power.wav"));
+
+    BLAI_GLASSES_POWER(ITEMS.get("blai-glasses-power.wav")),
+
+    OPEN_LOCK(ITEMS.get("open-lock.mp3")),
+    EXIT_LOCK(ITEMS.get("no-open-lock.mp3"));
 
     private final String resourcePath;
 
