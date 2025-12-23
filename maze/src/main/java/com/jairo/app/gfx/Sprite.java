@@ -27,7 +27,7 @@ public enum Sprite {
     CHEATED_WALL(Sprite.PATH.path()),
     CHEAT_WALL_ACTIVE(Sprite.WALL.path()),
     CHEATED_WALL_SOLID(Sprite.WALL.path()),
-    RUNES(GAME.get("runes.png")),
+    SECRET_WALL(Sprite.WALL.path()),
     
     ARROW(GEN.get("arrow.png")),
     PLAYER(PL_SKINS.get("default.png")),
@@ -36,7 +36,9 @@ public enum Sprite {
     PICKAXE(ITEMS.get("pickaxe.png")),
     BLAI_GLASSES(ITEMS.get("blai-glasses.png")),
     KEY(ITEMS.get("key.png")),
-    CHEATED_BUTTON(ITEMS.get("cheated-button.png"));
+    CHEATED_BUTTON(ITEMS.get("cheated-button.png")),
+
+    ICE(GAME.get("none.png"));
 
     static {
         DOOR_OPEN_FROM_NORTH.updateFillTile();

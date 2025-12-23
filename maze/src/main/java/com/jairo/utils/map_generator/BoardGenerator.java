@@ -47,7 +47,7 @@ public class BoardGenerator {
      * @param visibility
      *                   Mapa de visibilitat associat al tauler.
      */
-    public static record Maps(List<List<Integer>> cells, List<List<Integer>> visibility) {
+    public static record Maps(List<List<Integer>> cells, List<List<Integer>> visibility, List<int[]> secretWalls) {
     }
 
     /**
@@ -88,6 +88,7 @@ public class BoardGenerator {
         // * Inicialitzar mapes
         List<List<Integer>> cells = new ArrayList<>(height);
         List<List<Integer>> visibility = new ArrayList<>(height);
+        List<int[]> secretWalls = new ArrayList<>();
 
         // * Generar mapes
         int idx = 0;
@@ -100,13 +101,18 @@ public class BoardGenerator {
                 row.add(cell);
                 visRow.add(UNKNOWN);
                 idx++;
+
+                if (cell == SECRET_WALL) {
+                    secretWalls.add(new int[] { x, y });
+                }
+
             }
 
             cells.add(row);
             visibility.add(visRow);
         }
 
-        return new Maps(cells, visibility);
+        return new Maps(cells, visibility, secretWalls);
     }
 
     /**

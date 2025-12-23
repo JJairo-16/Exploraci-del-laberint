@@ -9,7 +9,8 @@ public class MapModifier {
     private static final int MIN_DOOR_SPACING = 20;
 
     public static String modify(String flat, int boardWidth, int boardHeight) {
-        String doors = DoorConstructor.addOneWayLockedDoors(flat, boardWidth, boardHeight, DOOR_DENSITY, MIN_DOOR_SPACING, new SecureRandom());
+        String hollowed = SolidWallHollowifier.hollowLargeWallBlocks(flat, boardWidth, boardHeight);
+        String doors = DoorConstructor.addOneWayLockedDoors(hollowed, boardWidth, boardHeight, DOOR_DENSITY, MIN_DOOR_SPACING, new SecureRandom());
         return doors;
     }
 }

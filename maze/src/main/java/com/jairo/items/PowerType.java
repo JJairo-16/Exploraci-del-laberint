@@ -62,6 +62,8 @@ public enum PowerType implements ItemType {
     @Override public int getMinCount() {
         return switch (this) {
             case KEY -> 1; // asegúrate de que exista
+            case PICKAXE -> 20;
+            case BLAI_GLASSES -> 10;
             default -> 2;
         };
     }

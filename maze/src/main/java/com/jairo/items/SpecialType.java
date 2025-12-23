@@ -5,9 +5,10 @@ import com.jairo.app.gfx.Sprite;
 
 import static com.jairo.items.Qualities.*;
 
-public enum BasicItemType implements ItemType {
-    COIN(Sprite.COIN, 0.2, 5, 4, Sound.COIN);
-    
+public enum SpecialType implements ItemType {
+    CHEATED_BUTTON(Sprite.CHEATED_BUTTON, 1, 1, 5, Sound.CHEATED_BUTTON, EPIC), // ? 0 40 1
+    BOOTS(Sprite.PLAYER, 1, 1, 5, Sound.POWERUP, EPIC);
+
     private final Sprite sprite;
     private final double density;
     private final int minPlayer;
@@ -15,13 +16,16 @@ public enum BasicItemType implements ItemType {
     private final String pickupSfx;
     private final Qualities quality;
 
-    BasicItemType(Sprite sprite, double density, int minPlayer, int minBetween, Sound pickupSfx) {
+    private int minCount = 1;
+    private int maxCount = 1;
+
+    SpecialType(Sprite sprite, double density, int minPlayer, int minBetween, Sound pickupSfx, Qualities quality) {
         this.sprite = sprite;
         this.density = density;
         this.minPlayer = minPlayer;
         this.minBetween = minBetween;
         this.pickupSfx = pickupSfx.path();
-        this.quality = Qualities.COMMON;
+        this.quality = quality;
     }
 
     @Override public String getId() { return name(); }
@@ -31,18 +35,15 @@ public enum BasicItemType implements ItemType {
     @Override public int getMinDistBetweenItems() { return minBetween; }
     @Override public String getPickupSoundPath() { return pickupSfx; }
     @Override public Qualities getQuality() { return quality; }
+    @Override public int getMinCount() { return minCount; }
+    @Override public int getMaxCount() { return maxCount; }
 
-    // Opcional: limites
-    @Override public int getMaxCount() {
-        return switch (this) {
-            default -> Integer.MAX_VALUE;
-        };
+    static {
+        BOOTS.debug();
     }
 
-    @Override public int getMinCount() {
-        return switch (this) {
-            case COIN -> 50;
-            default -> 0;
-        };
+    private void debug() {
+        minCount = 100;
+        maxCount = 100;
     }
 }

@@ -5,6 +5,7 @@ import java.util.List;
 import com.jairo.items.BasicItemType;
 import com.jairo.items.ItemType;
 import com.jairo.items.PowerType;
+import com.jairo.items.SpecialType;
 import com.jairo.models.Board;
 import com.jairo.models.Player;
 import com.jairo.services.ItemPlacer;
@@ -64,10 +65,14 @@ public class SimulatorLoader {
 
         List<ItemType> items = List.of(
                 BasicItemType.COIN,
+                
+                SpecialType.CHEATED_BUTTON,
+                SpecialType.BOOTS,
+
                 PowerType.PICKAXE,
                 PowerType.BLAI_GLASSES,
-                PowerType.KEY,
-                BasicItemType.CHEATED_BUTTON);
+                PowerType.KEY
+            );
 
         placer.placeObjects(
                 board.getCells(),

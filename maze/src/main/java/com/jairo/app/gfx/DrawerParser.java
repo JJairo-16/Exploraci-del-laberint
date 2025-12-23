@@ -43,6 +43,8 @@ public class DrawerParser {
         put(CHEATED_WALL);
         put(CHEAT_WALL_ACTIVE);
         put(CHEATED_WALL_SOLID);
+        
+        put(ICE);
     }
 
     public static Sprite parse(int tile) {

@@ -5,6 +5,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
+import java.util.Collections;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,6 +13,8 @@ import org.slf4j.LoggerFactory;
 public final class MapGenerator {
     private static final Logger log = LoggerFactory.getLogger(MapGenerator.class);
     private static boolean debugSingleConnection = false;
+
+    private static volatile List<Room> LAST_ROOMS = List.of();
 
     private static final int WIDTH = 60; // 60
     private static final int HEIGHT = 45; // 45
@@ -39,7 +42,7 @@ public final class MapGenerator {
 
     private static final int ROOM_PADDING = 5;
 
-    private static final class Room {
+    public static final class Room {
         final int x1, y1, x2, y2;
 
         Room(int x1, int y1, int x2, int y2) {
@@ -66,6 +69,16 @@ public final class MapGenerator {
     private MapGenerator() {
     }
 
+    public static List<int[]> getLastRoomsAsRects() {
+        // Devuelve cada room como {x1,y1,x2,y2}
+        List<Room> snapshot = LAST_ROOMS; // snapshot rápido (por si cambia en otro hilo)
+        List<int[]> out = new ArrayList<>(snapshot.size());
+        for (Room r : snapshot) {
+            out.add(new int[] { r.x1, r.y1, r.x2, r.y2 });
+        }
+        return Collections.unmodifiableList(out);
+    }
+
     /**
      * ÚNICO MÉTODO PÚBLICO
      * Genera un laberinto válido y devuelve el mapa como String (0/1/2)
@@ -84,6 +97,7 @@ public final class MapGenerator {
         int cellH = (BOARD_HEIGHT - 1) / 2;
         if (cellW <= 0 || cellH <= 0) {
             log.warn("Maze generation skipped: invalid cell grid (cellW={}, cellH={})", cellW, cellH);
+            LAST_ROOMS = List.of();
             return toMapDataString(g);
         }
 
@@ -91,6 +105,8 @@ public final class MapGenerator {
         boolean[][] visited = new boolean[cellH][cellW];
 
         List<Room> rooms = carveRooms(g, visited, rnd);
+        
+        LAST_ROOMS = Collections.unmodifiableList(new ArrayList<>(rooms));
 
         int sx = rnd.nextInt(cellW);
         int sy = rnd.nextInt(cellH);

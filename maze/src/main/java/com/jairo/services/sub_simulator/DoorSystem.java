@@ -1,0 +1,196 @@
+package com.jairo.services.sub_simulator;
+
+import com.jairo.app.audio.Sound;
+import com.jairo.app.audio.SoundManager;
+import com.jairo.app.i18n.LanguageManager;
+import com.jairo.models.Board;
+import com.jairo.utils.KeyBind.Action;
+
+import java.util.Random;
+
+import static com.jairo.utils.map_generator.Cells.*;
+
+/**
+ * Encapsula toda la lógica de puertas:
+ * - detectar tipos (cerrada/abierta/abrible)
+ * - abrir puerta "en una coordenada" (con dx/dy)
+ * - abrir puerta "delante del jugador" (con currentAction)
+ * - sonidos de puerta bloqueada (lockedDoor group + probabilidades)
+ */
+public class DoorSystem {
+
+    private static final SoundManager sm = SoundManager.get();
+
+    private static final String LOCKED_DOOR_SOUND = Sound.LOCKED_DOOR.path();
+    private static final String TOCTOC_SOUND = Sound.TOCTOC.path();
+    private static final String OPEN_DOOR_SOUND = Sound.OPEN_DOOR.path();
+
+    private static final String JIJI_SOUND_CA = Sound.JIJI_CA.path();
+    private static final String JIJI_SOUND_ES = Sound.JIJI_ES.path();
+    private static final String JIJI_SOUND_EN = Sound.JIJI_EN.path();
+
+    private static final long DELAY_MS = 200L;
+    private static final long TOC_TOC_DELAY_MS = 100L;
+
+    private static final int TOC_TOC_PROBABLY = 10; // %
+    private static final int JI_JI_PROBABLY_RECURSIVE = 20; // %
+
+    private static final Random RANDOM = new Random();
+
+    private final Board board;
+
+    public DoorSystem(Board board) {
+        this.board = board;
+
+        // Definir grupo una vez (idempotente si tu SoundManager lo soporta; si no, mantén un flag)
+        sm.defineGroup("lockedDoor",
+                LOCKED_DOOR_SOUND,
+                TOCTOC_SOUND,
+                JIJI_SOUND_CA,
+                JIJI_SOUND_EN,
+                JIJI_SOUND_ES);
+    }
+
+    // =========================
+    // Helpers (estado puerta)
+    // =========================
+
+    public boolean isDoorClosed(int cell) {
+        return isAnyDoor(cell) && !isDoorOpened(cell);
+    }
+
+    public boolean isAnyDoor(int cell) {
+        return isDoorClosedButOpenable(cell) || isDoorOpened(cell);
+    }
+
+    public boolean isDoorClosedButOpenable(int cell) {
+        return cell == DOOR_OPEN_FROM_NORTH
+                || cell == DOOR_OPEN_FROM_SOUTH
+                || cell == DOOR_OPEN_FROM_WEST
+                || cell == DOOR_OPEN_FROM_EAST;
+    }
+
+    public boolean isDoorOpened(int cell) {
+        return cell == DOOR_OPENED_FROM_NORTH
+                || cell == DOOR_OPENED_FROM_SOUTH
+                || cell == DOOR_OPENED_FROM_WEST
+                || cell == DOOR_OPENED_FROM_EAST;
+    }
+
+    // =========================
+    // Abrir puerta en (nx,ny)
+    // =========================
+
+    public boolean tryOpenDoorAt(int nx, int ny, int dx, int dy, int cell) {
+        if (!isDoorClosedButOpenable(cell))
+            return false;
+
+        boolean canOpen = switch (cell) {
+            case DOOR_OPEN_FROM_NORTH -> dy == 1;
+            case DOOR_OPEN_FROM_SOUTH -> dy == -1;
+            case DOOR_OPEN_FROM_WEST -> dx == 1;
+            case DOOR_OPEN_FROM_EAST -> dx == -1;
+            default -> false;
+        };
+
+        if (!canOpen)
+            return false;
+
+        int opened = switch (cell) {
+            case DOOR_OPEN_FROM_NORTH -> DOOR_OPENED_FROM_NORTH;
+            case DOOR_OPEN_FROM_SOUTH -> DOOR_OPENED_FROM_SOUTH;
+            case DOOR_OPEN_FROM_WEST -> DOOR_OPENED_FROM_WEST;
+            case DOOR_OPEN_FROM_EAST -> DOOR_OPENED_FROM_EAST;
+            default -> cell;
+        };
+
+        board.updateTile(nx, ny, opened);
+        sm.playSfx(OPEN_DOOR_SOUND);
+        return true;
+    }
+
+    // =========================
+    // Abrir puerta delante
+    // =========================
+
+    public void tryToOpenDoor(Action currentAction, int playerX, int playerY) {
+        int dx = 0;
+        int dy = 0;
+
+        switch (currentAction) {
+            case UP -> dy = -1;
+            case DOWN -> dy = 1;
+            case LEFT -> dx = -1;
+            case RIGHT -> dx = 1;
+            default -> {
+            }
+        }
+
+        int nx = playerX + dx;
+        int ny = playerY + dy;
+
+        if (nx < 0 || ny < 0 || nx >= Board.BOARD_WIDTH || ny >= Board.BOARD_HEIGHT)
+            return;
+
+        int cell = board.getTile(nx, ny);
+
+        if (!isDoorClosedButOpenable(cell))
+            return;
+
+        boolean canOpen = switch (cell) {
+            case DOOR_OPEN_FROM_NORTH -> dy == 1;
+            case DOOR_OPEN_FROM_SOUTH -> dy == -1;
+            case DOOR_OPEN_FROM_WEST -> dx == 1;
+            case DOOR_OPEN_FROM_EAST -> dx == -1;
+            default -> false;
+        };
+
+        if (canOpen) {
+            int opened = switch (cell) {
+                case DOOR_OPEN_FROM_NORTH -> DOOR_OPENED_FROM_NORTH;
+                case DOOR_OPEN_FROM_SOUTH -> DOOR_OPENED_FROM_SOUTH;
+                case DOOR_OPEN_FROM_WEST -> DOOR_OPENED_FROM_WEST;
+                case DOOR_OPEN_FROM_EAST -> DOOR_OPENED_FROM_EAST;
+                default -> cell;
+            };
+
+            board.updateTile(nx, ny, opened);
+            sm.playSfx(OPEN_DOOR_SOUND);
+            return;
+        }
+
+        // No se puede abrir: reproducir sonido “locked”
+        if (sm.isGroupPlaying("lockedDoor"))
+            return;
+
+        String path = getLockedDoorPath();
+        long delay = path.equals(TOCTOC_SOUND) ? TOC_TOC_DELAY_MS : DELAY_MS;
+        sm.playSfxWithTailDelay(path, 1.0, false, delay);
+    }
+
+    private boolean randomWithProbably(int probably) {
+        return RANDOM.nextInt(100) < probably;
+    }
+
+    private String getLockedDoorPath() {
+        if (!randomWithProbably(TOC_TOC_PROBABLY)) {
+            return LOCKED_DOOR_SOUND;
+        }
+
+        if (!randomWithProbably(JI_JI_PROBABLY_RECURSIVE)) {
+            return TOCTOC_SOUND;
+        }
+
+        return getJiJiPath();
+    }
+
+    private String getJiJiPath() {
+        String lang = LanguageManager.getCurrentLanguageCode();
+        return switch (lang) {
+            case "ca" -> JIJI_SOUND_CA;
+            case "es" -> JIJI_SOUND_ES;
+            case "en" -> JIJI_SOUND_EN;
+            default -> JIJI_SOUND_CA;
+        };
+    }
+}

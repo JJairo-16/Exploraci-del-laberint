@@ -1,5 +1,7 @@
-package com.jairo.app.gfx;
+package com.jairo.app.gfx.sub_drawer;
 
+import com.jairo.app.gfx.ImageStore;
+import com.jairo.app.gfx.Sprite;
 import com.jairo.app.gfx.player_skins.HeldItemTuning;
 import com.jairo.app.gfx.player_skins.HeldItemTuningStore;
 import com.jairo.app.gfx.player_skins.SkinManager;

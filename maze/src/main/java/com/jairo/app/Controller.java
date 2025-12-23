@@ -1,8 +1,5 @@
 package com.jairo.app;
 
-import java.util.EnumSet;
-import java.util.Set;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -13,8 +10,13 @@ import com.jairo.app.gfx.Drawer;
 import com.jairo.app.gfx.ImageStore;
 import com.jairo.app.gfx.player_skins.SkinManager;
 import com.jairo.app.i18n.LanguageManager;
+import com.jairo.app.input.FocusKeeper;
 import com.jairo.app.input.HeldItemTuningAdjuster;
 import com.jairo.app.input.InputHandler;
+import com.jairo.app.input.InputRepeatController;
+import com.jairo.app.loop.GameLoop;
+import com.jairo.app.state.GameStateCoordinator;
+import com.jairo.app.time.FxTimeSource;
 import com.jairo.app.ui.Dimensions;
 import com.jairo.items.PowerType;
 import com.jairo.models.Board;
@@ -22,7 +24,6 @@ import com.jairo.models.Inventory;
 import com.jairo.services.Simulator;
 import com.jairo.utils.KeyBind;
 
-import javafx.animation.AnimationTimer;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.scene.canvas.Canvas;
@@ -37,32 +38,24 @@ public class Controller {
     private static final Logger log = LoggerFactory.getLogger(Controller.class);
 
     private boolean readKeys = true;
+    private boolean started = false;
+
     private Simulator simulator;
 
-    @FXML
-    private HBox root;
-    @FXML
-    private StackPane leftPane;
+    @FXML private HBox root;
+    @FXML private StackPane leftPane;
 
-    @FXML
-    private Canvas mapCanvas;
-    @FXML
-    private Canvas entitiesCanvas;
-    @FXML
-    private Canvas postFxCanvas;
-    @FXML
-    private Canvas hudCanvas;
+    @FXML private Canvas mapCanvas;
+    @FXML private Canvas entitiesCanvas;
+    @FXML private Canvas postFxCanvas;
+    @FXML private Canvas hudCanvas;
 
-    @FXML
-    private VBox rightPanel;
-    @FXML
-    private Label bottomText;
+    @FXML private VBox rightPanel;
+    @FXML private Label bottomText;
 
-    @FXML
-    private ChoiceBox<String> languageSelector;
+    @FXML private ChoiceBox<String> languageSelector;
 
-    @FXML
-    private Label blaiGlassesPowerText;
+    @FXML private Label blaiGlassesPowerText;
 
     private final Dimensions dims = new Dimensions();
     private final ImageStore images = ImageStore.getInstance();
@@ -71,118 +64,70 @@ public class Controller {
     private InputHandler input;
     private Drawer drawer;
 
-    private AnimationTimer renderTimer;
+    private GameLoop gameLoop;
     private static final long FRAME_NS = 33_000_000L;
-    private long last = 0;
+
+    private InputRepeatController inputRepeat;
+    private static final long INITIAL_DELAY_NS = 240_000_000L;
+    private static final long REPEAT_EVERY_NS = 240_000_000L;
+    private static final double SPRINTING_SPEED = 0.55;
+
+    private GameStateCoordinator state;
+
+    private final FxTimeSource time = new FxTimeSource();
+
+    // Punto crítico: drawer.update en un único sitio
+    private boolean drawerDirty = true;
 
     private Drawer.CameraState pendingCameraState;
 
     public void initState(Simulator simulator, Drawer.CameraState cameraState) {
         this.simulator = simulator;
         this.pendingCameraState = cameraState;
-
-        if (log.isDebugEnabled()) {
-            log.debug("initState called. simulatorPresent={}, cameraStatePresent={}",
-                    simulator != null, cameraState != null);
-        }
-    }
-
-    // --- Tecles mantingudes (estable) ---
-    private final Set<KeyCode> pressed = EnumSet.noneOf(KeyCode.class);
-    private KeyBind.Action activeMoveAction = null;
-
-    private AnimationTimer moveTimer;
-    private long nextRepeatNs = 0L;
-
-    private static final long INITIAL_DELAY_NS = 240_000_000L; // 0.24s
-    private static final long REPEAT_EVERY_NS = 240_000_000L; // 0.24s
-
-    private static final Double SPRINTING_SPEED = 0.55;
-    private boolean sprinting = false;
-
-    private boolean isActionHeld(KeyBind.Action action) {
-        if (action == null)
-            return false;
-        for (KeyCode k : pressed) {
-            if (KeyBind.getAction(k) == action)
-                return true;
-        }
-        return false;
-    }
-
-    private KeyBind.Action findAnyHeldMaintainableAction() {
-        for (KeyCode k : pressed) {
-            KeyBind.Action a = KeyBind.getAction(k);
-            if (a != null && a.canMaintain)
-                return a;
-        }
-        return null;
     }
 
     @FXML
     private void initialize() {
         Platform.runLater(() -> {
-            if (log.isDebugEnabled())
-                log.debug("Controller initialize() scheduled on FX thread");
-
-            if (simulator == null) {
-                simulator = SimulatorLoader.load();
-                if (log.isInfoEnabled())
-                    log.info("Simulator loaded via SimulatorLoader.");
-            } else {
-                if (log.isInfoEnabled())
-                    log.info("Simulator injected via initState().");
+            if (started) {
+                if (log.isWarnEnabled()) log.warn("Controller initialize() called twice; ignoring second init.");
+                return;
             }
+            started = true;
+
+            stopRuntime();
+
+            if (simulator == null) simulator = SimulatorLoader.load();
 
             sm.preload(Sound.values());
-
             sm.playBgmLoop(Sound.THEME.path());
             sm.setMasterVolume(0.9);
             sm.setBgmVolume(0.30);
             sm.setMuted(false);
 
-            if (log.isDebugEnabled()) {
-                log.debug("Audio configured. theme={}, masterVol={}, bgmVol={}, muted={}",
-                        Sound.THEME.path(), 0.9, 0.30, false);
-            }
-
             images.preloadAll();
-            if (log.isInfoEnabled())
-                log.info("Images preloaded.");
 
             root.setFocusTraversable(true);
             root.requestFocus();
 
             dims.bindPanels(root, rightPanel, leftPane);
+            dims.recalcAndResize(leftPane, Board.BOARD_WIDTH, Board.BOARD_HEIGHT,
+                    mapCanvas, entitiesCanvas, hudCanvas, postFxCanvas);
 
-            dims.recalcAndResize(leftPane, Board.BOARD_WIDTH, Board.BOARD_HEIGHT, mapCanvas, entitiesCanvas, hudCanvas,
-                    postFxCanvas);
+            // ---- foco de teclado (punto crítico #1) ----
+            // Click en área de juego => recuperar foco
+            FocusKeeper.install(root, leftPane, mapCanvas, entitiesCanvas, hudCanvas, postFxCanvas);
+            // Cuando se cierra el ChoiceBox => recuperar foco
+            FocusKeeper.bindChoiceBoxRefocus(languageSelector, root);
 
-            if (log.isDebugEnabled()) {
-                log.debug(
-                        "Layout ready: leftPane={}x{}, mapCanvas={}x{}, entitiesCanvas={}x{}, hudCanvas={}x{}, tileSize={}",
-                        leftPane.getWidth(), leftPane.getHeight(),
-                        mapCanvas.getWidth(), mapCanvas.getHeight(),
-                        entitiesCanvas.getWidth(), entitiesCanvas.getHeight(),
-                        hudCanvas.getWidth(), hudCanvas.getHeight(),
-                        dims.getTileSize());
-            }
-
+            // ---- idioma ----
             if (languageSelector != null) {
                 languageSelector.getItems().setAll(LanguageManager.getDisplayNames());
                 languageSelector.setValue(LanguageManager.getCurrentDisplayName());
 
-                if (log.isDebugEnabled()) {
-                    log.debug("Language selector initialized. current='{}'", languageSelector.getValue());
-                }
-
                 languageSelector.setOnAction(e -> {
                     String selected = languageSelector.getValue();
                     String code = LanguageManager.getCodeFromDisplayName(selected);
-
-                    if (log.isInfoEnabled()) {
-                        log.info("Language change requested. display='{}' code='{}'", selected, code);
-                    }
 
                     if (code != null
                             && languageSelector.getScene() != null
@@ -191,263 +136,188 @@ public class Controller {
 
                         Drawer.CameraState cameraState = drawer.getCameraState();
 
+                        stopRuntime();
+
                         LanguageManager.changeLanguageAndReloadMain(
                                 languageSelector.getScene(),
                                 code,
                                 simulator,
-                                cameraState);
-                    } else {
-                        if (log.isDebugEnabled()) {
-                            log.debug(
-                                    "Language change ignored. codePresent={} scenePresent={} drawerPresent={} simulatorPresent={}",
-                                    code != null,
-                                    languageSelector.getScene() != null,
-                                    drawer != null,
-                                    simulator != null);
-                        }
+                                cameraState
+                        );
                     }
+
+                    // tras cambiar idioma (o intentar), recupera foco
+                    Platform.runLater(root::requestFocus);
                 });
-            } else {
-                if (log.isWarnEnabled())
-                    log.warn("languageSelector is null (FXML injection failed?).");
             }
 
-            input = new InputHandler(simulator, bottomText, () -> {
-                readKeys = simulator.getContinue();
-                if (!readKeys && root.getScene() != null) {
-                    if (log.isInfoEnabled())
-                        log.info("Game ended. Switching to EndView.");
-                    shutdownControllerLogic();
-                    sm.setMuted(true);
-                    sm.stopBgm();
-                    LanguageManager.switchToEndView(root.getScene(), simulator);
-                }
-            });
+            input = new InputHandler(simulator, bottomText, () -> { /* fin centralizado */ });
 
             drawer = new Drawer(mapCanvas, entitiesCanvas, postFxCanvas, hudCanvas, simulator, dims.getTileSize());
             if (pendingCameraState != null) {
-                if (log.isDebugEnabled())
-                    log.debug("Applying pending camera state: {}", pendingCameraState);
                 drawer.setCameraState(pendingCameraState);
                 pendingCameraState = null;
             }
 
-            drawer.update();
             simulator.loadDrawer(drawer);
+            drawerDirty = true;
 
-            renderTimer = new AnimationTimer() {
-                @Override
-                public void handle(long now) {
-                    if (!readKeys)
-                        return;
+            inputRepeat = new InputRepeatController(
+                    simulator,
+                    input,
+                    INITIAL_DELAY_NS,
+                    REPEAT_EVERY_NS,
+                    SPRINTING_SPEED
+            );
 
-                    if (now - last < FRAME_NS)
-                        return;
+            state = new GameStateCoordinator(
+                    simulator,
+                    () -> readKeys,
+                    this::handleGameEnded,
+                    this::activeBlaiGlassesPower,
+                    this::deactivateBlaiGlassesPower
+            );
 
-                    simulator.updateCheatedSystem(now);
+            gameLoop = new GameLoop(
+                    FRAME_NS,
+                    () -> readKeys,
+                    this::onRenderTick,
+                    this::onRepeatTick
+            );
+            gameLoop.start();
 
-                    // Update por frame del poder
-                    if (simulator.isBlaiGlassesPowerActive()) {
-                        long remainingBlaiGlassesPower = simulator.getRemainingBlaiGlassesPower();
+            // Si se desengancha de escena, parar runtime (evita duplicados)
+            root.sceneProperty().addListener((obs, oldScene, newScene) -> {
+                if (newScene == null) stopRuntime();
+            });
 
-                        long dt = (last == 0) ? 0 : (now - last);
-                        simulator.updateRemainingBlaiGlassesPower(Math.max(0L, remainingBlaiGlassesPower - dt));
-
-                        activeBlaiGlassesPower(remainingBlaiGlassesPower);
-
-                        if (remainingBlaiGlassesPower == 0L) {
-                            simulator.offBlaiGlasses();
-                            deactivateBlaiGlassesPower();
-                        }
-                    } else {
-                        deactivateBlaiGlassesPower();
-                    }
-
-                    last = now;
-
-                    // Esto hará que los items "floten" siempre
-                    drawer.renderFrame(now);
-                    drawer.renderHud();
-
-                    // Flecha opcional
-                    if (SkinManager.get().current().needArrow()) {
-                        drawer.renderArrow(now);
-                    }
-                }
-            };
-            renderTimer.start();
-
-            // Temporitzador que fa el repeat CONTROLAT (no el del SO)
-            moveTimer = new AnimationTimer() {
-                @Override
-                public void handle(long now) {
-                    if (!readKeys)
-                        return;
-
-                    if (activeMoveAction == null)
-                        return;
-
-                    if (!isActionHeld(activeMoveAction))
-                        return;
-
-                    if (now < nextRepeatNs)
-                        return;
-
-                    if (!activeMoveAction.canMaintain)
-                        return;
-
-                    input.runAction(activeMoveAction);
-                    drawer.update();
-
-                    long interval = (long) (REPEAT_EVERY_NS
-                            * (sprinting && simulator.getCurrentAction().isAMovement ? SPRINTING_SPEED : 1.0));
-                    nextRepeatNs = now + interval;
-                }
-            };
-            moveTimer.start();
-
+            // ---- key handlers (sin drawer.update aquí) ----
             root.setOnKeyPressed(event -> {
-                if (!readKeys) {
-                    if (log.isTraceEnabled())
-                        log.trace("KeyPressed ignored (readKeys=false)");
-                    return;
-                }
+                if (!readKeys) return;
 
-                KeyCode key = event.getCode();
-
-                boolean wasDown = pressed.contains(key);
-                pressed.add(key);
-
-                if (key == KeyCode.SHIFT) {
-                    sprinting = true;
-                    return;
-                }
-
-                KeyBind.Action action = KeyBind.getAction(key);
-                if (action == null)
-                    return;
-
-                // Mantenibles: es gestionen amb el temporitzador
-                if (action.canMaintain) {
-                    // Només al primer press real
-                    if (!wasDown && activeMoveAction != action) {
-                        activeMoveAction = action;
-
-                        if (log.isTraceEnabled())
-                            log.trace("Move start. key={} action={}", key, action);
-
-                        input.runAction(action);
-                        drawer.update();
-
-                        long now = System.nanoTime();
-                        long delay = (long) (INITIAL_DELAY_NS
-                                * (sprinting && simulator.getCurrentAction().isAMovement ? SPRINTING_SPEED : 1.0));
-                        nextRepeatNs = now + delay;
-                    }
-                    return;
-                }
+                long now = time.now();
+                boolean ran = inputRepeat.onKeyPressed(event.getCode(), now);
+                if (ran) drawerDirty = true;
             });
 
             root.setOnKeyReleased(event -> {
-                if (!readKeys) {
-                    if (log.isTraceEnabled())
-                        log.trace("KeyReleased ignored (readKeys=false)");
-                    return;
-                }
+                if (!readKeys) return;
 
+                long now = time.now();
                 KeyCode key = event.getCode();
+
                 Inventory inv = simulator.getInventory();
                 HeldItemTuningAdjuster.adjust(key, inv, (PowerType) inv.getSelectedPower());
 
-                pressed.remove(key);
-
-                if (key == KeyCode.SHIFT) {
-                    sprinting = false;
-                    return;
-                }
+                inputRepeat.onKeyReleased(key, now);
 
                 KeyBind.Action action = KeyBind.getAction(key);
-                if (action == null)
-                    return;
+                if (action == null) return;
 
-                // Si has deixat anar la tecla activa, busca una altra mantenible que continuï
-                // premuda
-                if (action == activeMoveAction && !isActionHeld(activeMoveAction)) {
-                    KeyBind.Action prev = activeMoveAction;
-                    activeMoveAction = findAnyHeldMaintainableAction();
-                    long base = (long) (INITIAL_DELAY_NS * action.cooldownMultiplier);
-                    long delay = (long) (base
-                            * (sprinting && simulator.getCurrentAction().isAMovement ? SPRINTING_SPEED : 1.0));
-
-                    boolean use = action == KeyBind.Action.USE;
-                    boolean power = simulator.getInventory().containsPower(simulator.getLastPower());
-                    delay *= use && power ? 1.5 : 1;
-
-                    nextRepeatNs = System.nanoTime() + delay;
-
-                    if (log.isTraceEnabled()) {
-                        log.trace("Move stop/switch. releasedKey={} prevAction={} newAction={}", key, prev,
-                                activeMoveAction);
-                    }
-                }
-
-                // Mantenibles
                 if (action.canMaintain) {
+                    // soltar mantenible puede cambiar timers internos, pero no cambia necesariamente el drawer;
+                    // lo dejamos como antes (no marcamos dirty).
                     return;
                 }
 
-                // Accions “d’un sol toc”
+                // one-shot => cambia estado => marcar dirty
                 input.handleKeyReleased(key);
-                drawer.update();
+                drawerDirty = true;
             });
 
-            if (log.isInfoEnabled())
-                log.info("Controller ready.");
+            if (log.isInfoEnabled()) log.info("Controller ready.");
         });
     }
 
-    private void shutdownControllerLogic() {
+    // ---- ticks ----
+
+    private void onRenderTick(long now) {
+        if (!readKeys) return;
+
+        // Fuente única de tiempo
+        time.update(now);
+
+        long last = (gameLoop == null) ? 0L : gameLoop.getLastRenderNs();
+        long dt = (last == 0L) ? 0L : (now - last);
+
+        if (state != null) {
+            state.tick(now, dt);
+        }
+
+        // Punto crítico #2: orden fijo y único
+        // lógica ya hecha -> update drawer una vez -> render
+        if (drawerDirty) {
+            drawer.update();
+            drawerDirty = false;
+        }
+
+        drawer.renderFrame(now);
+        drawer.renderHud();
+
+        if (SkinManager.get().current().needArrow()) {
+            drawer.renderArrow(now);
+        }
+    }
+
+    private void onRepeatTick(long now) {
+        if (!readKeys) return;
+        if (inputRepeat == null) return;
+
+        boolean executed = inputRepeat.handleRepeatTick(now);
+        if (executed) {
+            // NO drawer.update aquí: solo marcar dirty.
+            drawerDirty = true;
+        }
+    }
+
+    // ---- fin de juego ----
+
+    private void handleGameEnded() {
+        if (!readKeys) return;
+
         readKeys = false;
 
-        if (moveTimer != null) {
-            moveTimer.stop();
-            if (log.isDebugEnabled())
-                log.debug("moveTimer stopped.");
+        stopRuntime();
+
+        sm.setMuted(true);
+        sm.stopBgm();
+
+        if (root != null && root.getScene() != null) {
+            LanguageManager.switchToEndView(root.getScene(), simulator);
+        }
+    }
+
+    private void stopRuntime() {
+        if (gameLoop != null) {
+            gameLoop.stop();
+            gameLoop = null;
         }
 
         if (root != null) {
             root.setOnKeyPressed(null);
             root.setOnKeyReleased(null);
-            if (log.isDebugEnabled())
-                log.debug("Key handlers detached.");
-        }
-
-        if (renderTimer != null) {
-            renderTimer.stop();
         }
     }
 
+    // ---- UI helpers (Blai) ----
+
     private void addClass(Label n, String cls) {
-        if (n == null)
-            return;
-        if (!n.getStyleClass().contains(cls))
-            n.getStyleClass().add(cls);
+        if (n == null) return;
+        if (!n.getStyleClass().contains(cls)) n.getStyleClass().add(cls);
     }
 
     private void removeClass(Label n, String cls) {
-        if (n == null)
-            return;
+        if (n == null) return;
         n.getStyleClass().remove(cls);
     }
 
     private void activeBlaiGlassesPower(long remainingNs) {
-        if (blaiGlassesPowerText == null)
-            return;
+        if (blaiGlassesPowerText == null) return;
 
         addClass(blaiGlassesPowerText, "blai-glasses-power");
         removeClass(blaiGlassesPowerText, "hidden");
 
-        long remainingSec = (remainingNs + 999_999_999L) / 1_000_000_000L; // ceil
+        long remainingSec = (remainingNs + 999_999_999L) / 1_000_000_000L;
 
         double dis = simulator.getBlaiNumber();
 
@@ -462,19 +332,15 @@ public class Controller {
         }
 
         String title = LanguageManager.tr("blai.glasses.title");
-        String time = LanguageManager.tr("blai.glasses.time", remainingSec);
+        String timeTxt = LanguageManager.tr("blai.glasses.time", remainingSec);
 
-        String text = title + "\n" + distance + "\n" + time;
-
-        blaiGlassesPowerText.setText(text);
+        blaiGlassesPowerText.setText(title + "\n" + distance + "\n" + timeTxt);
     }
 
     private void deactivateBlaiGlassesPower() {
-        if (blaiGlassesPowerText == null)
-            return;
+        if (blaiGlassesPowerText == null) return;
 
         addClass(blaiGlassesPowerText, "hidden");
         removeClass(blaiGlassesPowerText, "blai-glasses-power");
     }
-
 }

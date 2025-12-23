@@ -1,7 +1,5 @@
 package com.jairo.utils.map_generator;
 
-import static com.jairo.app.gfx.Sprite.CHEATED_WALL_SOLID;
-
 import java.util.List;
 
 public class Cells {
@@ -34,6 +32,9 @@ public class Cells {
     public static final int CHEAT_WALL_ACTIVE = 18;
     public static final int CHEAT_WALL_SOLID = 19;
 
+    public static final int SECRET_WALL = 20;
+    public static final int ICE = 21;
+
     public static int parseCell(char c) {
         return switch (c) {
             case '1' -> WALL;
@@ -43,6 +44,8 @@ public class Cells {
             case '5' -> DOOR_OPEN_FROM_SOUTH;
             case '6' -> DOOR_OPEN_FROM_WEST;
             case '7' -> DOOR_OPEN_FROM_EAST;
+            case '8' -> SECRET_WALL;
+            case 'h' -> ICE;
             default -> PATH;
         };
     }
@@ -54,7 +57,8 @@ public class Cells {
             DOOR_OPEN_FROM_WEST,
             DOOR_OPEN_FROM_EAST,
             LOCKED_EXIT,
-            CHEAT_WALL_SOLID);
+            CHEAT_WALL_SOLID,
+            SECRET_WALL);
 
     public static boolean hasCollision(int tile) {
         return COLLISION.contains(tile);
@@ -65,17 +69,25 @@ public class Cells {
             DESTROYED_PATH,
             CHEAT_PATH,
             CHEAT_WALL,
-            CHEAT_WALL_ACTIVE);
+            CHEAT_WALL_ACTIVE,
+            ICE);
 
     public static boolean isPath(int tile) {
         return PATH_TYPES.contains(tile);
     }
 
-    private static List<Integer> metalSound = List.of(
-        CHEAT_WALL_SOLID
-    );
+    private static final List<Integer> metalSound = List.of(
+            CHEAT_WALL_SOLID);
 
     public static boolean playMetalSound(int tile) {
         return metalSound.contains(tile);
+    }
+
+    private static final List<Integer> breakables = List.of(
+            WALL,
+            SECRET_WALL);
+
+    public static boolean isBreakable(int tile) {
+        return breakables.contains(tile);
     }
 }

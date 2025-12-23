@@ -1,5 +1,7 @@
 package com.jairo.items;
 
+import java.util.List;
+
 import com.jairo.app.gfx.Sprite;
 
 public interface ItemType {
@@ -54,6 +56,14 @@ public interface ItemType {
 
     default int getMinDistFromExit() {
         return 0;
+    }
+
+    default List<Integer> getSpawnBlackList() {
+        return List.of();
+    }
+
+    default boolean shouldFloat() {
+        return true;
     }
 
 }
