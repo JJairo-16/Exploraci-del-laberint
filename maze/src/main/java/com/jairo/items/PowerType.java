@@ -9,9 +9,9 @@ import static com.jairo.items.Qualities.*;
  * Implementa ItemType para poder reusar conteos, sprites y pickup.
  */
 public enum PowerType implements ItemType {
-    PICKAXE(Sprite.PICKAXE, 0.01, 3, 6, Sound.POWERUP, EPIC), // ? 0.01 3 6
-    BLAI_GLASSES(Sprite.BLAI_GLASSES, 0.005, 10, 25, Sound.POWERUP, LEGENDARY), // ? 0.005 10 25
-    KEY(Sprite.KEY, 0, 40, 1, Sound.COIN, LEGENDARY, 60); // ? 0 40 1 60
+    PICKAXE(Sprite.PICKAXE, 0.016, 3, 6, Sound.POWERUP, EPIC), // ? 0.01 3 6
+    BLAI_GLASSES(Sprite.BLAI_GLASSES, 0.008, 10, 25, Sound.POWERUP, LEGENDARY), // ? 0.008 10 25
+    KEY(Sprite.KEY, 0, 40, 1, Sound.COIN, LEGENDARY, 160); // ? 0 40 1 160
 
     private final Sprite sprite;
     private final double density;
@@ -62,7 +62,7 @@ public enum PowerType implements ItemType {
     @Override public int getMinCount() {
         return switch (this) {
             case KEY -> 1; // asegúrate de que exista
-            default -> 0;
+            default -> 2;
         };
     }
 }

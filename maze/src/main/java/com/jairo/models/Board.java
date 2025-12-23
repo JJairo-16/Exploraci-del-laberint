@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.ArrayList;
 
 import com.jairo.utils.map_generator.MapGenerator;
+import com.jairo.utils.map_generator.map_modifier.CheatTunnelModifier;
 import com.jairo.utils.map_generator.map_modifier.MapModifier;
 import com.jairo.utils.map_generator.BoardGenerator;
 import com.jairo.utils.map_generator.Cells;
@@ -103,6 +104,8 @@ public class Board {
             String base = MapGenerator.generateMap();
             String flat = MapModifier.modify(base, BOARD_WIDTH, BOARD_HEIGHT);
             BoardGenerator.Maps maps = BoardGenerator.generateEmptyBoard(flat, BOARD_WIDTH, BOARD_HEIGHT);
+            CheatTunnelModifier.apply(maps.cells());
+
             return new Board(maps);
         } catch (Exception e) {
             log.error("Failed to generate board", e);
@@ -263,30 +266,30 @@ public class Board {
         return getCells(false);
     }
 
-    public String toString(boolean visibilityMode) {
-        int cap = (BOARD_WIDTH * 2 + 1) * BOARD_HEIGHT;
-        StringBuilder sb = new StringBuilder(cap);
+    // public String toString(boolean visibilityMode) {
+    //     int cap = (BOARD_WIDTH * 2 + 1) * BOARD_HEIGHT;
+    //     StringBuilder sb = new StringBuilder(cap);
 
-        List<List<Integer>> renderCells = visibilityMode ? cells : visibility;
+    //     List<List<Integer>> renderCells = visibilityMode ? cells : visibility;
 
-        for (int y = 0; y < BOARD_HEIGHT; y++) {
-            List<Integer> row = renderCells.get(y);
+    //     for (int y = 0; y < BOARD_HEIGHT; y++) {
+    //         List<Integer> row = renderCells.get(y);
 
-            for (int x = 0; x < BOARD_WIDTH; x++) {
-                int cell = needToLoadPlayer(x, y) ? PLAYER : row.get(x);
-                sb.append(SYMBOLS.get(cell));
-            }
+    //         for (int x = 0; x < BOARD_WIDTH; x++) {
+    //             int cell = needToLoadPlayer(x, y) ? PLAYER : row.get(x);
+    //             sb.append(SYMBOLS.get(cell));
+    //         }
 
-            sb.append('\n');
-        }
+    //         sb.append('\n');
+    //     }
 
-        return sb.toString();
-    }
+    //     return sb.toString();
+    // }
 
-    @Override
-    public String toString() {
-        return toString(true);
-    }
+    // @Override
+    // public String toString() {
+    //     return toString(true);
+    // }
 
     private boolean needToLoadPlayer(int x, int y) {
         if (y == 0 || y == BOARD_HEIGHT - 1)
@@ -399,7 +402,8 @@ public class Board {
         if (x < 0 || x >= BOARD_WIDTH || y < 0 || y >= BOARD_HEIGHT)
             return;
         cells.get(y).set(x, tile);
-        if (updateVisibility) visibility.get(y).set(x, tile);
+        if (updateVisibility)
+            visibility.get(y).set(x, tile);
 
         if (tile == EXIT) {
             exitX = x;

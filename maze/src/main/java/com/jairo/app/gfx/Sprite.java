@@ -22,6 +22,12 @@ public enum Sprite {
     DOOR_OPENED_FROM_SOUTH(DOORS.get("door_opened_from_south.png")),
     DOOR_OPENED_FROM_WEST(DOORS.get("door_opened_from_west.png")),
     DOOR_OPENED_FROM_EAST(DOORS.get("door_opened_from_east.png")),
+
+    CHEATED_PATH(GAME.get("cheated-path.png")),
+    CHEATED_WALL(Sprite.PATH.path()),
+    CHEAT_WALL_ACTIVE(Sprite.WALL.path()),
+    CHEATED_WALL_SOLID(Sprite.WALL.path()),
+    RUNES(GAME.get("runes.png")),
     
     ARROW(GEN.get("arrow.png")),
     PLAYER(PL_SKINS.get("default.png")),
@@ -29,7 +35,8 @@ public enum Sprite {
     COIN(ITEMS.get("coin.png")),
     PICKAXE(ITEMS.get("pickaxe.png")),
     BLAI_GLASSES(ITEMS.get("blai-glasses.png")),
-    KEY(ITEMS.get("key.png"));
+    KEY(ITEMS.get("key.png")),
+    CHEATED_BUTTON(ITEMS.get("cheated-button.png"));
 
     static {
         DOOR_OPEN_FROM_NORTH.updateFillTile();
@@ -43,6 +50,8 @@ public enum Sprite {
         DOOR_OPENED_FROM_EAST.updateFillTile();
 
         LOCKED_EXIT.updateFillTile(Sprite.EXIT);
+
+        CHEATED_PATH.updateFillTile(Sprite.PATH);
     }
     
     private String resourcePath;

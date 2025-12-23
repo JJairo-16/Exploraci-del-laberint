@@ -39,6 +39,7 @@ public final class KeyBind {
 
         KEY_BINDS.put(KeyCode.DIGIT1, Action.PREVIOUS_ITEM);
         KEY_BINDS.put(KeyCode.DIGIT2, Action.NEXT_ITEM);
+        KEY_BINDS.put(KeyCode.Q, Action.NEXT_ITEM);
     }
 
     public static Action getAction(KeyCode key) {

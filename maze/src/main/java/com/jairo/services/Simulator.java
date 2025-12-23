@@ -2,18 +2,18 @@ package com.jairo.services;
 
 import com.jairo.models.Board;
 import com.jairo.models.Player;
-import com.jairo.utils.KeyBind.Action;
 import com.jairo.utils.map_generator.Cells;
+import com.jairo.items.BasicItemType;
 import com.jairo.items.ItemType;
 import com.jairo.items.PlacedItem;
 import com.jairo.models.Inventory;
 import com.jairo.items.PowerType;
 
+import static com.jairo.app.gfx.Sprite.CHEATED_BUTTON;
 import static com.jairo.utils.KeyBind.Action;
 import static com.jairo.utils.map_generator.Cells.*;
 
 import java.util.Random;
-
 import com.jairo.app.audio.Sound;
 import com.jairo.app.audio.SoundManager;
 import com.jairo.app.audio.Steps;
@@ -64,6 +64,7 @@ public class Simulator {
     private static final int JI_JI_PROBABLY_RECURSIVE = 20; // %
 
     private static final Random RANDOM = new Random();
+    private final CheatWallActivationSystem cheatWallSystem;
 
     private boolean randomWithProbably(int probably) {
         return RANDOM.nextInt(100) < probably;
@@ -85,6 +86,7 @@ public class Simulator {
         this.placer = placer;
         this.player = player;
         this.board = board;
+        this.cheatWallSystem = new CheatWallActivationSystem(board);
         log.info("Simulator created");
     }
 
@@ -115,6 +117,9 @@ public class Simulator {
             boolean moved = simulatePlayerMovement(dx, dy);
             if (moved)
                 Steps.playRandomStep();
+
+            updateCheatedSystem();
+
             log.debug("Move dx={}, dy={} -> moved={}, pos=({}, {})",
                     dx, dy, moved, player.getX(), player.getY());
             return;
@@ -142,7 +147,7 @@ public class Simulator {
             case Action.USE:
                 use();
                 break;
-            
+
             case PREVIOUS_ITEM:
                 inventory.selectPrevPower();
                 break;
@@ -154,6 +159,19 @@ public class Simulator {
             default:
                 break;
         }
+
+        updateCheatedSystem();
+    }
+
+    private long lasNow = 0L;
+
+    public void updateCheatedSystem(long now) {
+        lasNow = now;
+        cheatWallSystem.update(board.getCells(), player.getX(), player.getY(), now);
+    }
+
+    private void updateCheatedSystem() {
+        cheatWallSystem.update(board.getCells(), player.getX(), player.getY(), lasNow);
     }
 
     public boolean simulatePlayerMovement(int dx, int dy) {
@@ -290,8 +308,12 @@ public class Simulator {
         }
 
         // ===== PAREDES =====
-        if (cell != WALL)
+        if (cell != WALL) {
+            if (Cells.playMetalSound(cell)) {
+                playDoorHit();
+            }
             return;
+        }
 
         // Pared del borde → no se rompe
         boolean isBorderWall = nx <= 0 || ny <= 0 ||
@@ -528,18 +550,22 @@ public class Simulator {
         if (picked == null)
             return;
 
-        inventory.add(picked.getType());
+        ItemType type = picked.getType();
+        inventory.add(type);
 
         if (picked.getType().isAPower()) {
-            inventory.addPower(picked.getType());
+            inventory.addPower(type);
+        } else if (type == BasicItemType.CHEATED_BUTTON) {
+            cheatWallSystem.switchOff();
+            sm.playSfx(CHEATED_BUTTON.path());
         }
 
-        String sfx = picked.getType().getPickupSoundPath();
+        String sfx = type.getPickupSoundPath();
         if (sfx != null && !sfx.isBlank()) {
             sm.playSfx(sfx);
         }
 
-        log.info("Picked up {} at ({},{})", picked.getType().getId(), x, y);
+        log.info("Picked up {} at ({},{})", type.getId(), x, y);
     }
 
     public ItemType getLastPower() {
@@ -624,7 +650,7 @@ public class Simulator {
                 return -1;
 
             int[] pos = keys.get(0);
-            
+
             int keyX = pos[0];
             int keyY = pos[1];
             distance = getDistance(playerX, playerY, keyX, keyY);

@@ -163,8 +163,6 @@ public class Inventory {
             return;
         }
 
-        int start = selectedPowerIndex;
-
         for (int attempts = 0; attempts < n; attempts++) {
             selectNextPower(); // avanza con wrap
             ItemType sel = getSelectedPower();

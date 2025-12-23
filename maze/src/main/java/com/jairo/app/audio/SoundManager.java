@@ -461,4 +461,24 @@ public final class SoundManager {
         }
     }
 
+    public void stopSfx(String resourcePath) {
+        AudioClip clip = sfxCache.get(resourcePath);
+        if (clip != null) {
+            clip.stop();
+        }
+    }
+
+    public void stopGroup(String groupName) {
+        Set<String> set = sfxGroups.get(groupName);
+        if (set == null)
+            return;
+
+        for (String path : set) {
+            AudioClip clip = sfxCache.get(path);
+            if (clip != null) {
+                clip.stop();
+            }
+        }
+    }
+
 }

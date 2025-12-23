@@ -63,7 +63,6 @@ public class Controller {
 
     @FXML
     private Label blaiGlassesPowerText;
-    private static final int BLAI_GLASSES_NERF = 20;
 
     private final Dimensions dims = new Dimensions();
     private final ImageStore images = ImageStore.getInstance();
@@ -244,6 +243,8 @@ public class Controller {
 
                     if (now - last < FRAME_NS)
                         return;
+
+                    simulator.updateCheatedSystem(now);
 
                     // Update por frame del poder
                     if (simulator.isBlaiGlassesPowerActive()) {

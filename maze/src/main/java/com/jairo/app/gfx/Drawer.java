@@ -68,7 +68,7 @@ public class Drawer {
     private static final double COIN_BASELINE_Y = 40; // misma línea que "x:"
     private static final double COIN_TEXT_OFFSET_X = 28;
 
-    private static final double COIN_SIZE = 20; // tamaño visual de la moneda
+    private static final double COIN_SIZE = 25; // tamaño visual de la moneda
     private static final double COIN_X = 110;
 
     // ---------- Cámara ----------
@@ -442,6 +442,7 @@ public class Drawer {
 
         renderPosition();
         renderCoins();
+        renderCheatedButton();
         renderInventory();
     }
 
@@ -464,11 +465,41 @@ public class Drawer {
         int coins = simulator.getInventory()
                 .getCount(BasicItemType.COIN);
 
-        // Icono de la moneda (alineado con baseline del texto)
+        // Posición del icono
+        double iconX = COIN_X;
+        double iconY = COIN_BASELINE_Y - COIN_SIZE + 7.5;
+
+        Image coinImg = images.get(Sprite.COIN);
+
+        // Tiempo para animación (igual que en items/powers)
+        double t = lastNow / 1_000_000_000.0;
+
+        Qualities q = BasicItemType.COIN.getQuality();
+        int red = q.red;
+        int green = q.green;
+        int blue = q.blue;
+
+        // Borde/glow (primero)
+        drawHudBorder(
+                COIN_SIZE, // size
+                t, // time
+                iconX, // screenX
+                0.0, // phase (puedes meter variación si quieres)
+                coinImg, // img
+                iconY, // screenY
+                red, green, blue,
+                0.65, // baseAlpha
+                0.30, // pulseAlpha
+                3.5, // pulseSpeed
+                0.12, // radiusScale (un pelín más porque el icono es pequeño)
+                0.75 // spread
+        );
+
+        // Sprite normal encima (para que quede nítida)
         hudGC.drawImage(
-                images.get(Sprite.COIN),
-                COIN_X,
-                COIN_BASELINE_Y - COIN_SIZE + 5, // ajuste visual fino
+                coinImg,
+                iconX,
+                iconY,
                 COIN_SIZE,
                 COIN_SIZE);
 
@@ -477,6 +508,57 @@ public class Drawer {
                 "x" + coins,
                 COIN_X + COIN_TEXT_OFFSET_X,
                 COIN_BASELINE_Y);
+    }
+
+    private void renderCheatedButton() {
+        if (!simulator.getInventory().has(BasicItemType.CHEATED_BUTTON))
+            return;
+
+        // --- Referencias de la moneda ---
+        double coinIconX = COIN_X;
+        double coinIconY = COIN_BASELINE_Y - COIN_SIZE + 7.5;
+        double coinBottomY = coinIconY + COIN_SIZE;
+
+        // --- Referencia del texto de monedas ---
+        double textBaselineY = COIN_BASELINE_Y;
+        double textTopY = textBaselineY - 18; // altura aproximada del texto (font 20)
+
+        // --- Espacio vertical disponible entre icono y texto ---
+        double gapTop = coinBottomY;
+        double gapBottom = textTopY;
+        double gapHeight = gapBottom - gapTop;
+
+        // Tamaño del botón (más grande que la moneda)
+        double size = COIN_SIZE * 1.7;
+
+        // Centramos el botón en el hueco
+        double iconX = coinIconX;
+        double iconY = gapTop + (gapHeight - size) / 2.0;
+
+        iconY += COIN_SIZE * 1.25;
+        iconX -= COIN_SIZE * 0.4;
+
+        // Sprite del botón
+        Image btnImg = images.get(Sprite.CHEATED_BUTTON);
+
+        // Tiempo para animación
+        double t = lastNow / 1_000_000_000.0;
+
+        Qualities q = BasicItemType.CHEATED_BUTTON.getQuality();
+
+        // --- Glow ---
+        drawHudBorder(
+                size, t,
+                iconX, 0.0,
+                btnImg, iconY,
+                q.red, q.green, q.blue,
+                0.65, 0.30,
+                3.5,
+                0.12,
+                0.75);
+
+        // --- Sprite ---
+        hudGC.drawImage(btnImg, iconX, iconY, size, size);
     }
 
     private final List<ItemType> powers = List.of(PowerType.values());
@@ -806,5 +888,4 @@ public class Drawer {
 
         hudGC.restore();
     }
-
 }

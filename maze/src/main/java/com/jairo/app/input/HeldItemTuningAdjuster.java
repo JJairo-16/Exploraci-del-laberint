@@ -13,7 +13,7 @@ public class HeldItemTuningAdjuster {
     private HeldItemTuningAdjuster() {
     }
 
-    private static boolean status = true;
+    private static boolean status = false;
 
     /**
      * Compatibilidad: ajusta el tuning del skin para un item "por defecto".

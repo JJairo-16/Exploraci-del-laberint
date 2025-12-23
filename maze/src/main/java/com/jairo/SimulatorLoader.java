@@ -66,7 +66,8 @@ public class SimulatorLoader {
                 BasicItemType.COIN,
                 PowerType.PICKAXE,
                 PowerType.BLAI_GLASSES,
-                PowerType.KEY);
+                PowerType.KEY,
+                BasicItemType.CHEATED_BUTTON);
 
         placer.placeObjects(
                 board.getCells(),

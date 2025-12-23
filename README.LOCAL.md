@@ -282,7 +282,7 @@ L’objectiu del joc és explorar un laberint fins a trobar la sortida. Al comen
       <td>Objecte anterior</td>
     </tr>
     <td>2</td>
-      <td></td>
+      <td>Q</td>
       <td>Següent objecte</td>
     </tr>
   </tbody>
