@@ -47,8 +47,7 @@ public class Drawer {
             0.65, 0.30,
             3.5,
             0.12,
-            0.75
-    );
+            0.75);
 
     // ---------- FXML ----------
     @FXML
@@ -90,8 +89,10 @@ public class Drawer {
     private final InventoryHudRenderer inventoryHudRenderer;
 
     private final WorldItemsRenderer worldItemsRenderer; // (1) ya extraído
-    private final PostFxRenderer postFxRenderer;         // (3) nuevo
-    private final MapRenderer mapRenderer;               // (4) nuevo
+    private final PostFxRenderer postFxRenderer; // (3) nuevo
+    private final MapRenderer mapRenderer; // (4) nuevo
+
+    private static boolean renderFps = true;
 
     private Font hudFont = Font.loadFont(
             getClass().getResourceAsStream("/fonts/Roboto-Regular.ttf"),
@@ -197,9 +198,7 @@ public class Drawer {
                 (vp, t) -> worldItemsRenderer.render(
                         vp.startX(), vp.startY(), vp.endX(), vp.endY(),
                         t,
-                        scaledTileSize()
-                )
-        );
+                        scaledTileSize()));
     }
 
     // ---------- Cámara ----------
@@ -217,8 +216,7 @@ public class Drawer {
                 map.getHeight(),
                 scaledTileSize(),
                 boardW,
-                boardH
-        );
+                boardH);
     }
 
     // ---------- Update principal ----------
@@ -236,8 +234,7 @@ public class Drawer {
                 map.getWidth(),
                 map.getHeight(),
                 boardW,
-                boardH
-        );
+                boardH);
 
         long now = renderLoop.getLastNow();
 
@@ -251,17 +248,23 @@ public class Drawer {
                 (v, t) -> worldItemsRenderer.render(
                         v.startX(), v.startY(), v.endX(), v.endY(),
                         t,
-                        scaledTileSize()
-                ),
+                        scaledTileSize()),
                 () -> postFxRenderer.render(postFxGC, postFx.getWidth(), postFx.getHeight()),
                 this::renderHud,
                 () -> {
                     if (SkinManager.get().current().needArrow()) {
                         playerRenderer.renderArrow();
                     }
-                }
-        );
+                });
     }
+
+    // ---------- FPS HUD ----------
+    private long fpsWindowStartNs = 0L;
+    private int fpsFrames = 0;
+    private double fpsValue = 0.0;
+
+    // Actualiza 4 veces/seg (estable y sin parpadeo)
+    private static final long FPS_WINDOW_NS = 250_000_000L; // 0.25s
 
     // ---------- HUD ----------
     public void renderHud() {
@@ -270,11 +273,33 @@ public class Drawer {
         syncHudOrderedItems();
         HudModel model = hudLayout.compute(hudOrderedItems);
 
+        // ✅ FPS
+        if (renderFps) renderFps();
+
         renderPosition(model);
         renderCoins(model);
         renderHudOrderedItems(model);
 
         renderInventory();
+    }
+
+    private void renderFps() {
+        long now = renderLoop.getLastNow(); // mismo "now" que usa el renderLoop
+        updateFps(now);
+
+        // Si ya has añadido fpsTextX/fpsTextY en HudLayout:
+        String fpsText = "FPS: " + (int) Math.round(fpsValue);
+        double margin = 18;
+
+        double fpsX = hud.getWidth() - margin - 60; // ancho aprox del texto
+        double fpsY = margin + 74; // baseline del texto
+
+        inventoryHudRenderer.renderFps(
+                hudGC,
+                fpsText,
+                fpsX,
+                fpsY,
+                hudFont);
     }
 
     private void renderPosition(HudModel model) {
@@ -310,8 +335,7 @@ public class Drawer {
                 t,
                 0.0,
                 q.red, q.green, q.blue,
-                HUD_GLOW
-        );
+                HUD_GLOW);
 
         hudGC.drawImage(coinImg, r.x, r.y, r.w, r.h);
         hudGC.fillText("x" + coins, model.coinTextX, model.coinTextBaselineY);
@@ -334,10 +358,12 @@ public class Drawer {
     }
 
     private void renderHudItem(SpecialType type, Sprite sprite, Rect r, double t) {
-        if (sprite == null) return;
+        if (sprite == null)
+            return;
 
         Image img = images.get(sprite);
-        if (img == null) return;
+        if (img == null)
+            return;
 
         Qualities q = type.getQuality();
 
@@ -350,8 +376,7 @@ public class Drawer {
                 t,
                 0.0,
                 q.red, q.green, q.blue,
-                HUD_GLOW
-        );
+                HUD_GLOW);
 
         hudGC.drawImage(img, r.x, r.y, r.w, r.h);
     }
@@ -362,8 +387,7 @@ public class Drawer {
                 simulator.getInventory(),
                 renderLoop.getLastNow(),
                 hud.getWidth(),
-                hudFont
-        );
+                hudFont);
     }
 
     // ---------- Helpers / Estado ----------
@@ -371,15 +395,38 @@ public class Drawer {
         return type != UNKNOWN;
     }
 
-    public record CameraState(double cameraX, double cameraY, double zoom) { }
+    public record CameraState(double cameraX, double cameraY, double zoom) {
+    }
 
     public CameraState getCameraState() {
         return new CameraState(cameraSystem.getCameraX(), cameraSystem.getCameraY(), zoomSystem.getZoom());
     }
 
     public void setCameraState(CameraState state) {
-        if (state == null) return;
+        if (state == null)
+            return;
         cameraSystem.setCamera(state.cameraX(), state.cameraY());
         zoomSystem.setZoom(state.zoom());
     }
+
+    private void updateFps(long nowNs) {
+        if (fpsWindowStartNs == 0L) {
+            fpsWindowStartNs = nowNs;
+            fpsFrames = 0;
+            fpsValue = 0.0;
+            return;
+        }
+
+        fpsFrames++;
+
+        long elapsed = nowNs - fpsWindowStartNs;
+        if (elapsed >= FPS_WINDOW_NS) {
+            fpsValue = (fpsFrames * 1_000_000_000.0) / elapsed;
+
+            // Reiniciar ventana
+            fpsWindowStartNs = nowNs;
+            fpsFrames = 0;
+        }
+    }
+
 }

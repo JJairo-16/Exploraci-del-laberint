@@ -81,6 +81,48 @@ public class ItemPlacer {
         return Collections.unmodifiableList(placedItems);
     }
 
+    public List<PlacedItem> getPlacedItems(int minX, int minY, int maxX, int maxY) {
+        if (placedItems.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        // Normalizar por si vienen invertidos
+        int loX = Math.min(minX, maxX);
+        int hiX = Math.max(minX, maxX);
+        int loY = Math.min(minY, maxY);
+        int hiY = Math.max(minY, maxY);
+
+        // Evitar overflow al calcular área
+        long width = (long) hiX - (long) loX + 1L;
+        long height = (long) hiY - (long) loY + 1L;
+        long area = (width <= 0 || height <= 0) ? 0 : width * height;
+
+        // Heurística: si el rectángulo es pequeño, es más rápido consultar el mapa por
+        // celdas.
+        if (area > 0 && area <= placedItems.size() * 2L) {
+            List<PlacedItem> res = new ArrayList<>();
+            for (int y = loY; y <= hiY; y++) {
+                for (int x = loX; x <= hiX; x++) {
+                    PlacedItem it = itemsByPos.get(pack(x, y));
+                    if (it != null)
+                        res.add(it);
+                }
+            }
+            return Collections.unmodifiableList(res);
+        }
+
+        // Si el rectángulo es grande, filtrar la lista suele ser mejor.
+        List<PlacedItem> res = new ArrayList<>();
+        for (PlacedItem it : placedItems) {
+            int x = it.getX();
+            int y = it.getY();
+            if (x >= loX && x <= hiX && y >= loY && y <= hiY) {
+                res.add(it);
+            }
+        }
+        return Collections.unmodifiableList(res);
+    }
+
     public PlacedItem getItemAt(int x, int y) {
         return itemsByPos.get(pack(x, y));
     }

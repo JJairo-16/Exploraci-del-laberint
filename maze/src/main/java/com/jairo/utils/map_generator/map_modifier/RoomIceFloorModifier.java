@@ -11,7 +11,8 @@ import static com.jairo.utils.map_generator.Cells.*;
 
 public final class RoomIceFloorModifier {
 
-    private RoomIceFloorModifier() {}
+    private RoomIceFloorModifier() {
+    }
 
     private static final double MIN_RATIO = 1; // 0.20
     private static final double MAX_RATIO = 1; // 0.30
@@ -21,17 +22,20 @@ public final class RoomIceFloorModifier {
     }
 
     public static void apply(List<List<Integer>> cells, SecureRandom rnd) {
-        if (cells == null || cells.isEmpty() || cells.get(0).isEmpty()) return;
+        if (cells == null || cells.isEmpty() || cells.get(0).isEmpty())
+            return;
 
         // Rects: {x1,y1,x2,y2} (viene de la lista estática del MapGenerator)
         List<int[]> rooms = MapGenerator.getLastRoomsAsRects();
-        if (rooms == null || rooms.isEmpty()) return;
+        if (rooms == null || rooms.isEmpty())
+            return;
 
         // Elegir ratio random en [0.20, 0.30]
         double ratio = MIN_RATIO + rnd.nextDouble() * (MAX_RATIO - MIN_RATIO);
 
         int target = (int) Math.round(rooms.size() * ratio);
-        target = Math.max(1, Math.min(target, rooms.size()));
+        target = Math.min(target, rooms.size());
+        target = Math.max(1, target);
 
         // Selección aleatoria de habitaciones
         List<int[]> pick = new ArrayList<>(rooms);
@@ -57,8 +61,9 @@ public final class RoomIceFloorModifier {
                     int tile = row.get(x);
 
                     // Solo tocar suelos transitables y evitar salida/conector
-                    if (!isPath(tile)) continue;
-                    if (tile == EXIT || tile == EXIT_CONNECTOR) continue;
+                    if (!isPath(tile) ||
+                            tile == EXIT || tile == EXIT_CONNECTOR)
+                        continue;
 
                     row.set(x, ICE);
                 }

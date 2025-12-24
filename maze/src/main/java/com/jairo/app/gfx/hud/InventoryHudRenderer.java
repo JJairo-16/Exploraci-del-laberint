@@ -3,34 +3,71 @@ package com.jairo.app.gfx.hud;
 import java.util.List;
 
 import com.jairo.app.gfx.ImageStore;
+import com.jairo.app.gfx.sub_drawer.GlowEffectRenderer;
 import com.jairo.items.ItemType;
 import com.jairo.items.PowerType;
 import com.jairo.items.Qualities;
 import com.jairo.models.Inventory;
 
 import javafx.scene.canvas.GraphicsContext;
-import javafx.scene.effect.DropShadow;
 import javafx.scene.image.Image;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
+import javafx.scene.text.Text;
 
 /**
  * Renderiza el HUD del inventario de powers (slots + selección + contador).
  * No depende de Drawer: solo necesita GC, Inventory, tiempo y ancho del canvas.
+ *
+ * - Glow animado con tiempo estable (dt acumulado), independiente del FPS.
+ * - Sin new DropShadow por icono: usa GlowEffectRenderer optimizado.
  */
 public class InventoryHudRenderer {
 
     private final ImageStore images;
     private final List<ItemType> powers = List.of(PowerType.values());
 
+    // ---------- Tiempo estable de animación ----------
+    private static final long MAX_DT_NS = 100_000_000L; // 0.10s clamp
+    private long lastNowNs = 0L;
+    private double animTimeSec = 0.0;
+
+    // Glow params (equivalente a tu drawHudBorder)
+    private static final GlowEffectRenderer.GlowParams HUD_GLOW = new GlowEffectRenderer.GlowParams(
+            0.65, 0.30,
+            3.5,
+            0.10,
+            0.75);
+
     public InventoryHudRenderer(ImageStore images) {
         this.images = images;
+    }
+
+    private void updateAnimClock(long nowNs) {
+        if (lastNowNs == 0L) {
+            lastNowNs = nowNs;
+            return;
+        }
+
+        long dt = nowNs - lastNowNs;
+        lastNowNs = nowNs;
+
+        if (dt < 0L)
+            dt = 0L;
+        if (dt > MAX_DT_NS)
+            dt = MAX_DT_NS;
+
+        animTimeSec += dt / 1_000_000_000.0;
     }
 
     public void render(GraphicsContext hudGC, Inventory inventory, long nowNs, double canvasW, Font baseHudFont) {
         if (powers.isEmpty() || inventory == null)
             return;
+
+        // ✅ tiempo estable (independiente del FPS)
+        updateAnimClock(nowNs);
+        double t = animTimeSec;
 
         final double padding = 25;
         final double slotSize = 40;
@@ -95,19 +132,21 @@ public class InventoryHudRenderer {
                     double ix = sx + (s - iconDrawSize) / 2.0 + (0.5 / (isSelected ? 2.0 : 1.0));
                     double iy = sy + (s - iconDrawSize) / 2.0 + (isSelected ? 0.5 : 0);
 
-                    double t = nowNs / 1_000_000_000.0;
                     double phase = i * 0.9;
 
                     Qualities q = power.getQuality();
 
-                    drawHudBorder(
+                    // ✅ sin new DropShadow por icono
+                    GlowEffectRenderer.applyRgb(
                             hudGC,
-                            iconDrawSize, t, ix, phase, img, iy,
+                            img,
+                            ix,
+                            iy,
+                            iconDrawSize,
+                            t,
+                            phase,
                             q.red, q.green, q.blue,
-                            0.65, 0.30,
-                            3.5,
-                            0.10,
-                            0.75);
+                            HUD_GLOW);
 
                     hudGC.drawImage(img, ix, iy, iconDrawSize, iconDrawSize);
                 }
@@ -162,38 +201,81 @@ public class InventoryHudRenderer {
         hudGC.setLineWidth(2);
     }
 
-    private void drawHudBorder(
-            GraphicsContext hudGC,
-            double size,
-            double t,
-            double screenX,
-            double phase,
-            Image img,
-            double screenY,
-            int red, int green, int blue,
-            double baseAlpha,
-            double pulseAlpha,
-            double pulseSpeed,
-            double radiusScale,
-            double spread) {
+    // ====== Campos (en tu clase) ======
+    private String cachedFpsFamily;
+    private Font cachedFpsFont;
 
-        hudGC.save();
+    private final Text fpsMeasure = new Text();
+    private String lastFpsText;
+    private Font lastMeasureFont;
+    private double lastTextW;
+    private double lastTextH;
 
-        double pulse = 0.5 + 0.5 * Math.sin(t * pulseSpeed + phase);
-        double radius = Math.max(1.0, size * radiusScale);
+    private static final Color FPS_BG = Color.rgb(0, 0, 0, 0.30);
+    private static final Color FPS_STROKE = Color.rgb(255, 255, 255, 0.20);
+    private static final Color TEXT_SHADOW = Color.rgb(0, 0, 0, 0.95);
+    private static final Color TEXT_WHITE = Color.WHITE;
 
-        DropShadow ds = new DropShadow();
-        ds.setRadius(radius);
-        ds.setSpread(spread);
-        ds.setOffsetX(0);
-        ds.setOffsetY(0);
-        ds.setColor(Color.rgb(
-                red, green, blue,
-                Math.min(1.0, baseAlpha + pulse * pulseAlpha)));
+    // ====== Helper: font cacheado ======
+    private Font getFpsFont(Font baseHudFont) {
+        String fam = (baseHudFont != null && baseHudFont.getFamily() != null) ? baseHudFont.getFamily() : "System";
+        if (cachedFpsFont == null || !fam.equals(cachedFpsFamily)) {
+            cachedFpsFamily = fam;
+            cachedFpsFont = Font.font(fam, FontWeight.BOLD, 14);
+        }
+        return cachedFpsFont;
+    }
 
-        hudGC.setEffect(ds);
-        hudGC.drawImage(img, screenX, screenY, size, size);
+    // ====== Método optimizado ======
+    public void renderFps(GraphicsContext hudGC, String fpsText, double centerX, double baselineY, Font baseHudFont) {
+        if (hudGC == null || fpsText == null || fpsText.isBlank())
+            return;
 
-        hudGC.restore();
+        Font fpsFont = getFpsFont(baseHudFont);
+
+        // Medir SOLO si cambió el texto o el font
+        if (lastFpsText == null || !lastFpsText.equals(fpsText) || lastMeasureFont != fpsFont) {
+            fpsMeasure.setFont(fpsFont);
+            fpsMeasure.setText(fpsText);
+
+            var b = fpsMeasure.getLayoutBounds();
+            lastTextW = Math.ceil(b.getWidth());
+            lastTextH = Math.ceil(b.getHeight());
+
+            lastFpsText = fpsText;
+            lastMeasureFont = fpsFont;
+        }
+
+        hudGC.setFont(fpsFont);
+
+        final double padX = 10;
+        final double padY = 6;
+
+        double boxW = lastTextW + padX * 2;
+        double boxH = lastTextH + padY;
+
+        double bx = centerX - boxW / 2.0;
+        double by = baselineY - lastTextH + (padY / 2.0);
+
+        hudGC.setFill(FPS_BG);
+        hudGC.fillRoundRect(bx, by, boxW, boxH, 8, 8);
+
+        hudGC.setStroke(FPS_STROKE);
+        hudGC.setLineWidth(1);
+        hudGC.strokeRoundRect(bx, by, boxW, boxH, 8, 8);
+
+        double textX = centerX - lastTextW / 2.0;
+
+        hudGC.setFill(TEXT_SHADOW);
+        hudGC.fillText(fpsText, textX - 1, baselineY);
+        hudGC.fillText(fpsText, textX + 1, baselineY);
+        hudGC.fillText(fpsText, textX, baselineY - 1);
+        hudGC.fillText(fpsText, textX, baselineY + 1);
+
+        hudGC.setFill(TEXT_WHITE);
+        hudGC.fillText(fpsText, textX, baselineY);
+
+        hudGC.setFont(baseHudFont);
+        hudGC.setLineWidth(2);
     }
 }

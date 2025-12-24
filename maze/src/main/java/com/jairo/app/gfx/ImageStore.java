@@ -10,15 +10,15 @@ import java.nio.file.Path;
 import java.util.EnumMap;
 
 public final class ImageStore {
-    private static ImageStore instance;
-
-    private ImageStore() {}
+    private ImageStore() {
+    }
 
     public static ImageStore getInstance() {
-        if (instance == null) {
-            instance = new ImageStore();
-        }
-        return instance;
+        return Holder.INSTANCE;
+    }
+
+    private static final class Holder {
+        private static final ImageStore INSTANCE = new ImageStore();
     }
 
     private static final Logger log = LoggerFactory.getLogger(ImageStore.class);
@@ -26,14 +26,22 @@ public final class ImageStore {
     private final EnumMap<Sprite, Image> cache = new EnumMap<>(Sprite.class);
 
     public Image get(Sprite sprite) {
+        if (sprite == null)
+            return null;
         return cache.computeIfAbsent(sprite, this::load);
     }
 
     private Image load(Sprite sprite) {
-        log.info("Loading sprite: {}", sprite);
-
         String p = sprite.path();
+        log.debug("Loading sprite: {}", sprite);
 
+        // 1) Classpath primero (lo normal en un juego empaquetado)
+        URL url = ImageStore.class.getResource(p);
+        if (url != null) {
+            return new Image(url.toExternalForm(), false);
+        }
+
+        // 2) Fallback filesystem (solo si realmente existe)
         try {
             Path filePath = Path.of(p);
             if (Files.exists(filePath)) {
@@ -42,19 +50,16 @@ public final class ImageStore {
         } catch (Exception ignored) {
         }
 
-        URL url = ImageStore.class.getResource(p);
-        if (url == null) {
-            log.warn("Sprite not found: {}", sprite);
-            throw new IllegalStateException("No s'ha trobat el recurs: " + p);
-        }
-        return new Image(url.toExternalForm(), false);
+        log.warn("Sprite not found: {}", sprite);
+        throw new IllegalStateException("No s'ha trobat el recurs: " + p);
     }
 
     public void preloadAll() {
         for (Sprite s : Sprite.values()) {
             try {
                 get(s);
-            } catch (Exception ignored) {
+            } catch (Exception e) {
+                log.warn("Failed to preload sprite {}", s, e);
             }
         }
     }

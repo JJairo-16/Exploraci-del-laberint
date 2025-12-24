@@ -1,4 +1,3 @@
-// File: src/main/java/com/jairo/app/gfx/sub_drawer/GlowEffectRenderer.java
 package com.jairo.app.gfx.sub_drawer;
 
 import javafx.scene.canvas.GraphicsContext;
@@ -17,6 +16,13 @@ public final class GlowEffectRenderer {
             double radiusScale,
             double spread
     ) {}
+
+    /**
+     * DropShadow reutilizable.
+     * En JavaFX todo el render se hace en el FX thread,
+     * así que NO es necesario ThreadLocal.
+     */
+    private static final DropShadow SHARED_DROP_SHADOW = new DropShadow();
 
     public static void applyRgb(
             GraphicsContext gc,
@@ -39,16 +45,17 @@ public final class GlowEffectRenderer {
         double radius = Math.max(1.0, size * params.radiusScale());
         double alpha = Math.min(1.0, params.baseAlpha() + pulse * params.pulseAlpha());
 
-        DropShadow ds = new DropShadow();
-        ds.setRadius(radius);
-        ds.setSpread(params.spread());
-        ds.setOffsetX(0);
-        ds.setOffsetY(0);
-        ds.setColor(Color.rgb(red, green, blue, alpha));
+        // ✅ OPTI sin ThreadLocal ni warnings
+        SHARED_DROP_SHADOW.setRadius(radius);
+        SHARED_DROP_SHADOW.setSpread(params.spread());
+        SHARED_DROP_SHADOW.setOffsetX(0);
+        SHARED_DROP_SHADOW.setOffsetY(0);
+        SHARED_DROP_SHADOW.setColor(Color.rgb(red, green, blue, alpha));
 
-        gc.setEffect(ds);
+        gc.setEffect(SHARED_DROP_SHADOW);
         gc.drawImage(img, x, y, size, size);
 
+        // restore revierte el effect
         gc.restore();
     }
 }

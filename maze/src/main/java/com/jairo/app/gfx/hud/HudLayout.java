@@ -12,6 +12,9 @@ public final class HudLayout {
     private static final double HUD_LEFT_X = 50;
     private static final double HUD_TOP_Y = 40;
 
+    // NUEVO: FPS por encima de la posición
+    private static final double FPS_LINE_GAP = 22; // separación vertical desde HUD_TOP_Y hacia arriba
+
     // Separación entre líneas de "x:" y "y:"
     private static final double POSITION_LINE_GAP = 24;
 
@@ -47,6 +50,10 @@ public final class HudLayout {
     }
 
     public static final class HudModel {
+        // NUEVO: FPS
+        public final double fpsTextX;
+        public final double fpsTextY;
+
         // Posición
         public final double posXTextX;
         public final double posXTextY;
@@ -61,10 +68,15 @@ public final class HudLayout {
         // Items (en el mismo orden que la lista recibida)
         public final List<Rect> hudItems;
 
-        public HudModel(double posXTextX, double posXTextY,
-                        double posYTextX, double posYTextY,
-                        Rect coinIcon, double coinTextX, double coinTextBaselineY,
-                        List<Rect> hudItems) {
+        public HudModel(
+                double fpsTextX, double fpsTextY,
+                double posXTextX, double posXTextY,
+                double posYTextX, double posYTextY,
+                Rect coinIcon, double coinTextX, double coinTextBaselineY,
+                List<Rect> hudItems
+        ) {
+            this.fpsTextX = fpsTextX;
+            this.fpsTextY = fpsTextY;
             this.posXTextX = posXTextX;
             this.posXTextY = posXTextY;
             this.posYTextX = posYTextX;
@@ -81,6 +93,11 @@ public final class HudLayout {
      *                        HudLayout no filtra: si metes algo aquí, se coloca.
      */
     public HudModel compute(List<?> hudItemsOrdered) {
+        // ---- FPS ----
+        // Lo colocamos encima de la línea de "x:" para que no moleste.
+        double fpsTextX = HUD_LEFT_X;
+        double fpsTextY = HUD_TOP_Y - FPS_LINE_GAP;
+
         // ---- Position texts ----
         double posXTextX = HUD_LEFT_X;
         double posXTextY = HUD_TOP_Y;
@@ -99,6 +116,7 @@ public final class HudLayout {
         // ---- HUD items ----
         if (hudItemsOrdered == null || hudItemsOrdered.isEmpty()) {
             return new HudModel(
+                    fpsTextX, fpsTextY,
                     posXTextX, posXTextY,
                     posYTextX, posYTextY,
                     coinIcon, coinTextX, coinTextBaselineY,
@@ -120,6 +138,7 @@ public final class HudLayout {
         }
 
         return new HudModel(
+                fpsTextX, fpsTextY,
                 posXTextX, posXTextY,
                 posYTextX, posYTextY,
                 coinIcon, coinTextX, coinTextBaselineY,

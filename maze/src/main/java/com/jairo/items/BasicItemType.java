@@ -3,8 +3,6 @@ package com.jairo.items;
 import com.jairo.app.audio.Sound;
 import com.jairo.app.gfx.Sprite;
 
-import static com.jairo.items.Qualities.*;
-
 public enum BasicItemType implements ItemType {
     COIN(Sprite.COIN, 0.2, 5, 4, Sound.COIN);
     

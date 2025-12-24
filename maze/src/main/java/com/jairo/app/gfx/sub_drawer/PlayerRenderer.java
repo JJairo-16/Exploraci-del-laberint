@@ -31,11 +31,40 @@ public class PlayerRenderer {
 
     private long now;
 
+    // ---------- Tiempo estable de animación (independiente de FPS) ----------
+    private static final long MAX_DT_NS = 100_000_000L; // 0.10s clamp por stutter/alt-tab
+    private long lastNowNs = 0L;
+    private double animTimeSec = 0.0;
+
+    // Glow params para held item (sin new DropShadow por frame)
+    private static final GlowEffectRenderer.GlowParams HELD_ITEM_GLOW =
+            new GlowEffectRenderer.GlowParams(
+                    0.55, 0.20,
+                    3.5,
+                    0.06,
+                    0.65
+            );
+
     public PlayerRenderer(Simulator simulator, GraphicsContext entitiesGC, GraphicsContext hudGC, ImageStore images) {
         this.simulator = simulator;
         this.entitiesGC = entitiesGC;
         this.hudGC = hudGC;
         this.images = images;
+    }
+
+    private void updateAnimClock(long nowNs) {
+        if (lastNowNs == 0L) {
+            lastNowNs = nowNs;
+            return;
+        }
+
+        long dt = nowNs - lastNowNs;
+        lastNowNs = nowNs;
+
+        if (dt < 0L) dt = 0L;
+        if (dt > MAX_DT_NS) dt = MAX_DT_NS;
+
+        animTimeSec += dt / 1_000_000_000.0;
     }
 
     public void renderPlayer(double size, double cameraX, double cameraY) {
@@ -56,7 +85,7 @@ public class PlayerRenderer {
         }
 
         Inventory inv = simulator.getInventory();
-        PowerType item = (PowerType) inv.getSelectedPower(); // ahora es PowerType
+        PowerType item = (PowerType) inv.getSelectedPower();
         if (item == null || !inv.has(item))
             return;
 
@@ -92,9 +121,11 @@ public class PlayerRenderer {
         double rotation = hasCursor ? helItemTuning.rotationDeg() : helItemTuning.noCursorRotationDeg();
 
         Image itemImg = images.get(item.getSprite());
+        if (itemImg == null) return;
 
-        // tiempo
-        double t = System.nanoTime() / 1_000_000_000.0;
+        // ✅ Tiempo estable (NO System.nanoTime)
+        // animTimeSec se actualiza desde renderArrow(now) (o desde el loop que le pase now)
+        double t = animTimeSec;
         double phase = item.hashCode() * 0.001;
 
         // --- BORDE CUANDO ESTÁ EN LA MANO (ROTADO) ---
@@ -141,13 +172,17 @@ public class PlayerRenderer {
 
         this.now = now;
 
-        double t = now / 1_000_000_000.0;
+        // ✅ Actualiza reloj estable usando dt
+        updateAnimClock(now);
+
+        double t = animTimeSec;
         double wave = Math.sin(t * Math.PI * 2.0 * ANIM_SPEED_HZ);
 
-        double animOffset = Math.sin(t * Math.PI * 2.0 * ANIM_SPEED_HZ) * (size * ANIM_OFFSET_MAX);
+        double animOffset = wave * (size * ANIM_OFFSET_MAX);
         double alpha = OPACITY_MIN + (wave + 1.0) * 0.5 * (OPACITY_MAX - OPACITY_MIN);
 
         Image arrow = images.get(Sprite.ARROW);
+        if (arrow == null) return;
 
         arrowSize = size * SIZE_MULTIPLIER;
         double offset = size * OFFSET_MULTIPLIER;
@@ -209,32 +244,27 @@ public class PlayerRenderer {
             double rotationDeg,
             double t,
             double phase,
-            Qualities q) {
-
-        int red = q.red;
-        int green = q.green;
-        int blue = q.blue;
-
-        gc.save();
-
-        double pulse = 0.5 + 0.5 * Math.sin(t * 3.5 + phase);
-        double radius = Math.max(1.0, size * 0.06);
-
-        javafx.scene.effect.DropShadow ds = new javafx.scene.effect.DropShadow();
-        ds.setRadius(radius);
-        ds.setSpread(0.65);
-        ds.setOffsetX(0);
-        ds.setOffsetY(0);
-        ds.setColor(javafx.scene.paint.Color.rgb(
-                red, green, blue,
-                Math.min(1.0, 0.55 + pulse * 0.20)));
-
-        gc.setEffect(ds);
+            Qualities q
+    ) {
+        if (img == null || q == null) return;
 
         // Dibujo rotado del "borde"
+        gc.save();
         gc.translate(x + size / 2.0, y + size / 2.0);
         gc.rotate(rotationDeg);
-        gc.drawImage(img, -size / 2.0, -size / 2.0, size, size);
+
+        // ✅ Glow optimizado (sin new DropShadow)
+        GlowEffectRenderer.applyRgb(
+                gc,
+                img,
+                -size / 2.0,
+                -size / 2.0,
+                size,
+                t,
+                phase,
+                q.red, q.green, q.blue,
+                HELD_ITEM_GLOW
+        );
 
         gc.restore();
     }

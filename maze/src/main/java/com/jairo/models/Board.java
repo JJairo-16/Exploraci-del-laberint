@@ -33,6 +33,7 @@ public class Board {
     private int playerX;
     private int playerY;
     private static boolean cornerPeek = true;
+    private boolean newDiscover = false;
 
     // Salida (EXIT)
     private int exitX = -1;
@@ -270,6 +271,51 @@ public class Board {
         return getCells(false);
     }
 
+    private int[][] visibilityCache; // última copia generada
+
+    public int[][] getVisibility() {
+        if (!newDiscover && visibilityCache != null) {
+            return visibilityCache;
+        }
+
+        int rows = visibility.size();
+        int[][] copy = new int[rows][];
+
+        for (int y = 0; y < rows; y++) {
+            List<Integer> row = visibility.get(y);
+            int cols = row.size();
+            int[] rowCopy = new int[cols];
+            for (int x = 0; x < cols; x++) {
+                rowCopy[x] = row.get(x);
+            }
+            copy[y] = rowCopy;
+        }
+
+        visibilityCache = copy;
+        newDiscover = false;
+        return copy;
+    }
+
+    public int[][] getVisibilityArea(int startX, int startY, int endX, int endY) {
+        newDiscover = false;
+
+        int h = endY - startY + 1;
+        int w = endX - startX + 1;
+
+        int[][] out = new int[h][w];
+        for (int y = 0; y < h; y++) {
+            var row = visibility.get(startY + y);
+            for (int x = 0; x < w; x++) {
+                out[y][x] = row.get(startX + x);
+            }
+        }
+        return out;
+    }
+
+    public boolean getIfNewDiscover() {
+        return newDiscover;
+    }
+
     public boolean movePlayer(int x, int y) {
         if (x < 0 || x >= BOARD_WIDTH || y < 0 || y >= BOARD_HEIGHT) {
             log.trace("Move rejected: out of bounds (x={}, y={})", x, y);
@@ -301,7 +347,7 @@ public class Board {
         int cell = getTile(newX, newY);
         return !Cells.hasCollision(cell);
     }
-    
+
     public void discoverAroundPlayer(int x, int y) {
         playerX = x;
         playerY = y;
@@ -326,6 +372,7 @@ public class Board {
                 int nx = playerX + dx;
                 if (visibilityRow.get(nx) == UNKNOWN) {
                     visibilityRow.set(nx, cellsRow.get(nx));
+                    newDiscover = true;
                 }
             }
         }
@@ -380,8 +427,10 @@ public class Board {
         if (x < 0 || x >= BOARD_WIDTH || y < 0 || y >= BOARD_HEIGHT)
             return;
         cells.get(y).set(x, tile);
-        if (updateVisibility)
+        if (updateVisibility) {
             visibility.get(y).set(x, tile);
+            newDiscover = true;
+        }
 
         if (tile == EXIT) {
             exitX = x;

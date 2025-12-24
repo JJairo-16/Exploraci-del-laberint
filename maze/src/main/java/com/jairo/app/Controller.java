@@ -14,6 +14,7 @@ import com.jairo.app.input.FocusKeeper;
 import com.jairo.app.input.HeldItemTuningAdjuster;
 import com.jairo.app.input.InputHandler;
 import com.jairo.app.input.InputRepeatController;
+import com.jairo.app.loop.AdaptiveFramePacer;
 import com.jairo.app.loop.GameLoop;
 import com.jairo.app.state.GameStateCoordinator;
 import com.jairo.app.time.FxTimeSource;
@@ -42,20 +43,30 @@ public class Controller {
 
     private Simulator simulator;
 
-    @FXML private HBox root;
-    @FXML private StackPane leftPane;
+    @FXML
+    private HBox root;
+    @FXML
+    private StackPane leftPane;
 
-    @FXML private Canvas mapCanvas;
-    @FXML private Canvas entitiesCanvas;
-    @FXML private Canvas postFxCanvas;
-    @FXML private Canvas hudCanvas;
+    @FXML
+    private Canvas mapCanvas;
+    @FXML
+    private Canvas entitiesCanvas;
+    @FXML
+    private Canvas postFxCanvas;
+    @FXML
+    private Canvas hudCanvas;
 
-    @FXML private VBox rightPanel;
-    @FXML private Label bottomText;
+    @FXML
+    private VBox rightPanel;
+    @FXML
+    private Label bottomText;
 
-    @FXML private ChoiceBox<String> languageSelector;
+    @FXML
+    private ChoiceBox<String> languageSelector;
 
-    @FXML private Label blaiGlassesPowerText;
+    @FXML
+    private Label blaiGlassesPowerText;
 
     private final Dimensions dims = new Dimensions();
     private final ImageStore images = ImageStore.getInstance();
@@ -90,14 +101,16 @@ public class Controller {
     private void initialize() {
         Platform.runLater(() -> {
             if (started) {
-                if (log.isWarnEnabled()) log.warn("Controller initialize() called twice; ignoring second init.");
+                if (log.isWarnEnabled())
+                    log.warn("Controller initialize() called twice; ignoring second init.");
                 return;
             }
             started = true;
 
             stopRuntime();
 
-            if (simulator == null) simulator = SimulatorLoader.load();
+            if (simulator == null)
+                simulator = SimulatorLoader.load();
 
             sm.preload(Sound.values());
             sm.playBgmLoop(Sound.THEME.path());
@@ -142,8 +155,7 @@ public class Controller {
                                 languageSelector.getScene(),
                                 code,
                                 simulator,
-                                cameraState
-                        );
+                                cameraState);
                     }
 
                     // tras cambiar idioma (o intentar), recupera foco
@@ -151,7 +163,8 @@ public class Controller {
                 });
             }
 
-            input = new InputHandler(simulator, bottomText, () -> { /* fin centralizado */ });
+            input = new InputHandler(simulator, bottomText, () -> {
+                /* fin centralizado */ });
 
             drawer = new Drawer(mapCanvas, entitiesCanvas, postFxCanvas, hudCanvas, simulator, dims.getTileSize());
             if (pendingCameraState != null) {
@@ -167,41 +180,44 @@ public class Controller {
                     input,
                     INITIAL_DELAY_NS,
                     REPEAT_EVERY_NS,
-                    SPRINTING_SPEED
-            );
+                    SPRINTING_SPEED);
 
             state = new GameStateCoordinator(
                     simulator,
                     () -> readKeys,
                     this::handleGameEnded,
                     this::activeBlaiGlassesPower,
-                    this::deactivateBlaiGlassesPower
-            );
+                    this::deactivateBlaiGlassesPower);
 
+            AdaptiveFramePacer pacer = new AdaptiveFramePacer(30, 120); // min/max fps
             gameLoop = new GameLoop(
-                    FRAME_NS,
+                    pacer,
                     () -> readKeys,
                     this::onRenderTick,
-                    this::onRepeatTick
-            );
+                    this::onRepeatTick);
+
             gameLoop.start();
 
             // Si se desengancha de escena, parar runtime (evita duplicados)
             root.sceneProperty().addListener((obs, oldScene, newScene) -> {
-                if (newScene == null) stopRuntime();
+                if (newScene == null)
+                    stopRuntime();
             });
 
             // ---- key handlers (sin drawer.update aquí) ----
             root.setOnKeyPressed(event -> {
-                if (!readKeys) return;
+                if (!readKeys)
+                    return;
 
                 long now = time.now();
                 boolean ran = inputRepeat.onKeyPressed(event.getCode(), now);
-                if (ran) drawerDirty = true;
+                if (ran)
+                    drawerDirty = true;
             });
 
             root.setOnKeyReleased(event -> {
-                if (!readKeys) return;
+                if (!readKeys)
+                    return;
 
                 long now = time.now();
                 KeyCode key = event.getCode();
@@ -212,10 +228,12 @@ public class Controller {
                 inputRepeat.onKeyReleased(key, now);
 
                 KeyBind.Action action = KeyBind.getAction(key);
-                if (action == null) return;
+                if (action == null)
+                    return;
 
                 if (action.canMaintain) {
-                    // soltar mantenible puede cambiar timers internos, pero no cambia necesariamente el drawer;
+                    // soltar mantenible puede cambiar timers internos, pero no cambia
+                    // necesariamente el drawer;
                     // lo dejamos como antes (no marcamos dirty).
                     return;
                 }
@@ -225,14 +243,16 @@ public class Controller {
                 drawerDirty = true;
             });
 
-            if (log.isInfoEnabled()) log.info("Controller ready.");
+            if (log.isInfoEnabled())
+                log.info("Controller ready.");
         });
     }
 
     // ---- ticks ----
 
     private void onRenderTick(long now) {
-        if (!readKeys) return;
+        if (!readKeys)
+            return;
 
         // Fuente única de tiempo
         time.update(now);
@@ -260,8 +280,10 @@ public class Controller {
     }
 
     private void onRepeatTick(long now) {
-        if (!readKeys) return;
-        if (inputRepeat == null) return;
+        if (!readKeys)
+            return;
+        if (inputRepeat == null)
+            return;
 
         boolean executed = inputRepeat.handleRepeatTick(now);
         if (executed) {
@@ -273,7 +295,8 @@ public class Controller {
     // ---- fin de juego ----
 
     private void handleGameEnded() {
-        if (!readKeys) return;
+        if (!readKeys)
+            return;
 
         readKeys = false;
 
@@ -302,17 +325,21 @@ public class Controller {
     // ---- UI helpers (Blai) ----
 
     private void addClass(Label n, String cls) {
-        if (n == null) return;
-        if (!n.getStyleClass().contains(cls)) n.getStyleClass().add(cls);
+        if (n == null)
+            return;
+        if (!n.getStyleClass().contains(cls))
+            n.getStyleClass().add(cls);
     }
 
     private void removeClass(Label n, String cls) {
-        if (n == null) return;
+        if (n == null)
+            return;
         n.getStyleClass().remove(cls);
     }
 
     private void activeBlaiGlassesPower(long remainingNs) {
-        if (blaiGlassesPowerText == null) return;
+        if (blaiGlassesPowerText == null)
+            return;
 
         addClass(blaiGlassesPowerText, "blai-glasses-power");
         removeClass(blaiGlassesPowerText, "hidden");
@@ -338,7 +365,8 @@ public class Controller {
     }
 
     private void deactivateBlaiGlassesPower() {
-        if (blaiGlassesPowerText == null) return;
+        if (blaiGlassesPowerText == null)
+            return;
 
         addClass(blaiGlassesPowerText, "hidden");
         removeClass(blaiGlassesPowerText, "blai-glasses-power");

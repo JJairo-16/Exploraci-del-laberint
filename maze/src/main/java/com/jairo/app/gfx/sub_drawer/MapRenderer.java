@@ -4,8 +4,6 @@ package com.jairo.app.gfx.sub_drawer;
 import static com.jairo.app.gfx.DrawerParser.parse;
 import static com.jairo.utils.map_generator.Cells.UNKNOWN;
 
-import java.util.List;
-
 import com.jairo.app.gfx.ImageStore;
 import com.jairo.app.gfx.Sprite;
 import com.jairo.models.Board;
@@ -20,34 +18,46 @@ public class MapRenderer {
     private final ImageStore images;
     private final GraphicsContext mapGC;
 
+    private final double lockedExitRotation;
+
     public MapRenderer(Board board, CameraSystem cameraSystem, ImageStore images, GraphicsContext mapGC) {
         this.board = board;
         this.cameraSystem = cameraSystem;
         this.images = images;
         this.mapGC = mapGC;
+        lockedExitRotation = getLockedExitRotation();
     }
 
     public void render(RenderLoopSystem.Viewport vp, double scaledTileSize) {
-        List<List<Integer>> visibility = board.getCells(true);
+        int[][] visArea = board.getVisibilityArea(vp.startX(), vp.startY(), vp.endX(), vp.endY());
+
+        double camX = cameraSystem.getCameraX();
+        double camY = cameraSystem.getCameraY();
 
         for (int y = vp.startY(); y <= vp.endY(); y++) {
+            int[] row = visArea[y - vp.startY()];
             for (int x = vp.startX(); x <= vp.endX(); x++) {
-                int type = visibility.get(y).get(x);
-                if (!isDiscovered(type)) continue;
+                int type = row[x - vp.startX()];
+                if (!isDiscovered(type))
+                    continue;
 
                 Sprite sprite = parse(type);
-                renderCell(sprite, x, y, sprite.rotation, scaledTileSize);
+                double rot = (sprite == Sprite.LOCKED_EXIT) ? lockedExitRotation : sprite.rotation;
+
+                renderCell(sprite, x, y, rot, scaledTileSize, camX, camY);
             }
         }
     }
 
-    private void renderCell(Sprite sprite, int x, int y, double rotation, double scaledTileSize) {
+    private void renderCell(Sprite sprite, int x, int y, double rotation,
+            double scaledTileSize, double camX, double camY) {
         Image img = images.get(sprite);
-        if (img == null) return;
+        if (img == null)
+            return;
 
         double size = scaledTileSize;
-        double screenX = (x - cameraSystem.getCameraX()) * size;
-        double screenY = (y - cameraSystem.getCameraY()) * size;
+        double screenX = (x - camX) * size;
+        double screenY = (y - camY) * size;
 
         if (!sprite.getIfIsFullTile()) {
             Image back = images.get(sprite.getBack());
@@ -56,18 +66,8 @@ public class MapRenderer {
             }
         }
 
-        // Regla especial: locked exit rota según borde
-        if (sprite == Sprite.LOCKED_EXIT) {
-            int exitX = board.getExitX();
-            int exitY = board.getExitY();
-
-            if (exitY == Board.BOARD_HEIGHT - 1) {
-                rotation = 180;
-            } else if (exitX == 0) {
-                rotation = -90;
-            } else if (exitX == Board.BOARD_WIDTH - 1) {
-                rotation = 90;
-            }
+        if (Sprite.LOCKED_EXIT == sprite) {
+            rotation = lockedExitRotation;
         }
 
         if (rotation == 0) {
@@ -76,18 +76,32 @@ public class MapRenderer {
         }
 
         mapGC.save();
-
         double cx = screenX + size / 2.0;
         double cy = screenY + size / 2.0;
-
         mapGC.translate(cx, cy);
         mapGC.rotate(rotation);
         mapGC.drawImage(img, -size / 2.0, -size / 2.0, size, size);
-
         mapGC.restore();
     }
 
     private boolean isDiscovered(int type) {
         return type != UNKNOWN;
     }
+
+    private double getLockedExitRotation() {
+        int exitX = board.getExitX();
+        int exitY = board.getExitY();
+
+        if (exitY == Board.BOARD_HEIGHT - 1) {
+            return 180;
+        }
+        if (exitX == 0) {
+            return -90;
+        }
+        if (exitX == Board.BOARD_WIDTH - 1) {
+            return 90;
+        }
+        return 0;
+    }
+
 }
