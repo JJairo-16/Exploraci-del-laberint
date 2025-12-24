@@ -24,10 +24,14 @@ public class Board {
     public static final int BOARD_WIDTH = MapGenerator.BOARD_WIDTH;
     public static final int BOARD_HEIGHT = MapGenerator.BOARD_HEIGHT;
 
-    // Mapa
+    // Mapa (original, para render/visibilidad/etc.)
     private final List<List<Integer>> cells;
     private final List<List<Integer>> visibility;
     private final List<int[]> secretWalls;
+
+    // Mapa plano 1D (para accesos rápidos / reachability)
+    // idx = y*BOARD_WIDTH + x
+    private final int[] grid;
 
     // Jugador
     private int playerX;
@@ -39,6 +43,10 @@ public class Board {
     private int exitX = -1;
     private int exitY = -1;
 
+    // Reachability (BFS rápido sobre grid 1D)
+    private static final BoardReachability REACHABILITY =
+            new BoardReachability(BOARD_WIDTH, BOARD_HEIGHT);
+
     /**
      * Constructor PRIVADO: crea el board a partir de maps ya generados.
      * La generación y validación se hace en el wrapper estático.
@@ -47,7 +55,20 @@ public class Board {
         this.cells = maps.cells();
         this.visibility = maps.visibility();
         this.secretWalls = maps.secretWalls();
+        this.grid = flattenToGrid(this.cells);
         findExitPositionOrThrow();
+    }
+
+    private static int[] flattenToGrid(List<List<Integer>> cells) {
+        int[] g = new int[BOARD_WIDTH * BOARD_HEIGHT];
+        for (int y = 0; y < BOARD_HEIGHT; y++) {
+            List<Integer> row = cells.get(y);
+            int base = y * BOARD_WIDTH;
+            for (int x = 0; x < BOARD_WIDTH; x++) {
+                g[base + x] = row.get(x); // unboxing 1 vez por celda
+            }
+        }
+        return g;
     }
 
     // ------------------------------------------------------------
@@ -59,8 +80,7 @@ public class Board {
      * Si no lo consigue tras maxRetries, lanza excepción.
      */
     public static Board generateReachable(int spawnX, int spawnY, int maxRetries) {
-        if (maxRetries <= 0)
-            maxRetries = 1;
+        if (maxRetries <= 0) maxRetries = 1;
 
         int tries = 0;
         while (tries++ < maxRetries) {
@@ -99,8 +119,7 @@ public class Board {
     /**
      * Resultado simple para "detectar casos donde es imposible llegar a la salida".
      */
-    public record GenerationResult(Board board, boolean exitReachable) {
-    }
+    public record GenerationResult(Board board, boolean exitReachable) {}
 
     // Generación "una vez" (reutilizable por los wrappers)
     private static Board generateOnce() {
@@ -110,7 +129,6 @@ public class Board {
             BoardGenerator.Maps maps = BoardGenerator.generateEmptyBoard(flat, BOARD_WIDTH, BOARD_HEIGHT);
             CheatTunnelModifier.apply(maps.cells());
             RoomIceFloorModifier.apply(maps.cells());
-
             return new Board(maps);
         } catch (Exception e) {
             log.error("Failed to generate board", e);
@@ -119,100 +137,15 @@ public class Board {
     }
 
     // ------------------------------------------------------------
-    // DETECCIÓN: REACHABILITY (BFS)
+    // DETECCIÓN: REACHABILITY (delegado a grid 1D)
     // ------------------------------------------------------------
 
-    /**
-     * Devuelve true si el EXIT es alcanzable desde (spawnX, spawnY).
-     * (No consume puertas DOOR_OPEN_FROM_*, solo permite caminar por celdas
-     * transitables
-     * y por puertas ya abiertas DOOR_OPENED_FROM_*).
-     */
     public boolean isExitReachableFrom(int spawnX, int spawnY) {
-        if (exitX < 0 || exitY < 0)
-            return false;
-        if (spawnX < 0 || spawnY < 0 || spawnX >= BOARD_WIDTH || spawnY >= BOARD_HEIGHT)
-            return false;
-
-        boolean[][] vis = new boolean[BOARD_HEIGHT][BOARD_WIDTH];
-        int[] qx = new int[BOARD_WIDTH * BOARD_HEIGHT];
-        int[] qy = new int[BOARD_WIDTH * BOARD_HEIGHT];
-        int head = 0, tail = 0;
-
-        if (!isWalkableForValidation(getTile(spawnX, spawnY)))
-            return false;
-
-        vis[spawnY][spawnX] = true;
-        qx[tail] = spawnX;
-        qy[tail] = spawnY;
-        tail++;
-
-        while (head < tail) {
-            int x = qx[head];
-            int y = qy[head];
-            head++;
-
-            if (x == exitX && y == exitY)
-                return true;
-
-            // 4 vecinos
-            // (sin crear arrays dentro del loop para evitar basura)
-            // derecha
-            if (x + 1 < BOARD_WIDTH && !vis[y][x + 1] && isWalkableForValidation(getTile(x + 1, y))) {
-                vis[y][x + 1] = true;
-                qx[tail] = x + 1;
-                qy[tail] = y;
-                tail++;
-            }
-            // izquierda
-            if (x - 1 >= 0 && !vis[y][x - 1] && isWalkableForValidation(getTile(x - 1, y))) {
-                vis[y][x - 1] = true;
-                qx[tail] = x - 1;
-                qy[tail] = y;
-                tail++;
-            }
-            // abajo
-            if (y + 1 < BOARD_HEIGHT && !vis[y + 1][x] && isWalkableForValidation(getTile(x, y + 1))) {
-                vis[y + 1][x] = true;
-                qx[tail] = x;
-                qy[tail] = y + 1;
-                tail++;
-            }
-            // arriba
-            if (y - 1 >= 0 && !vis[y - 1][x] && isWalkableForValidation(getTile(x, y - 1))) {
-                vis[y - 1][x] = true;
-                qx[tail] = x;
-                qy[tail] = y - 1;
-                tail++;
-            }
-        }
-
-        return false;
-    }
-
-    private boolean isWalkableForValidation(int cell) {
-        // caminable si NO hay colisión
-        if (!Cells.hasCollision(cell))
-            return true;
-
-        // puertas ya abiertas: caminables
-        return cell == DOOR_OPENED_FROM_NORTH
-                || cell == DOOR_OPENED_FROM_SOUTH
-                || cell == DOOR_OPENED_FROM_WEST
-                || cell == DOOR_OPENED_FROM_EAST;
+        return REACHABILITY.isExitReachable(grid, spawnX, spawnY, exitX, exitY);
     }
 
     private int countWalkableNeighborsForValidation(int x, int y) {
-        int c = 0;
-        if (x + 1 < BOARD_WIDTH && isWalkableForValidation(getTile(x + 1, y)))
-            c++;
-        if (x - 1 >= 0 && isWalkableForValidation(getTile(x - 1, y)))
-            c++;
-        if (y + 1 < BOARD_HEIGHT && isWalkableForValidation(getTile(x, y + 1)))
-            c++;
-        if (y - 1 >= 0 && isWalkableForValidation(getTile(x, y - 1)))
-            c++;
-        return c;
+        return REACHABILITY.countWalkableNeighbors(grid, x, y);
     }
 
     // ------------------------------------------------------------
@@ -220,38 +153,27 @@ public class Board {
     // ------------------------------------------------------------
 
     private void findExitPositionOrThrow() {
-        int foundX = -1, foundY = -1;
-
-        for (int y = 0; y < BOARD_HEIGHT; y++) {
-            List<Integer> row = cells.get(y);
-            for (int x = 0; x < BOARD_WIDTH; x++) {
-                if (row.get(x) == EXIT) {
-                    foundX = x;
-                    foundY = y;
-                    break;
-                }
-            }
-            if (foundX != -1)
+        int foundIdx = -1;
+        for (int idx = 0; idx < grid.length; idx++) {
+            if (grid[idx] == EXIT) {
+                foundIdx = idx;
                 break;
+            }
         }
 
-        if (foundX == -1) {
+        if (foundIdx == -1) {
             log.error("EXIT not found on generated board");
             throw new IllegalStateException("EXIT not found on generated board");
         }
 
-        this.exitX = foundX;
-        this.exitY = foundY;
+        this.exitY = foundIdx / BOARD_WIDTH;
+        this.exitX = foundIdx - (exitY * BOARD_WIDTH);
+
         log.info("EXIT found at ({},{})", exitX, exitY);
     }
 
-    public int getExitX() {
-        return exitX;
-    }
-
-    public int getExitY() {
-        return exitY;
-    }
+    public int getExitX() { return exitX; }
+    public int getExitY() { return exitY; }
 
     // ------------------------------------------------------------
     // API EXISTENTE (sin cambios relevantes)
@@ -334,8 +256,7 @@ public class Board {
     }
 
     public boolean canMovePlayer(int dx, int dy) {
-        if (dx == 0 && dy == 0)
-            return false;
+        if (dx == 0 && dy == 0) return false;
 
         int newX = playerX + dx;
         int newY = playerY + dy;
@@ -351,7 +272,6 @@ public class Board {
     public void discoverAroundPlayer(int x, int y) {
         playerX = x;
         playerY = y;
-
         discoverAroundPlayer();
     }
 
@@ -384,34 +304,30 @@ public class Board {
 
         for (int dy = -1; dy <= 1; dy++) {
             int ny = py + dy;
-            if (ny < 0 || ny >= visibility.size())
-                continue;
+            if (ny < 0 || ny >= visibility.size()) continue;
 
             List<Integer> visibilityRow = visibility.get(ny);
             List<Integer> cellsRow = cells.get(ny);
 
             for (int dx = -1; dx <= 1; dx++) {
                 int nx = px + dx;
-                if (nx < 0 || nx >= visibilityRow.size())
-                    continue;
+                if (nx < 0 || nx >= visibilityRow.size()) continue;
 
-                if (visibilityRow.get(nx) != UNKNOWN)
-                    continue;
+                if (visibilityRow.get(nx) != UNKNOWN) continue;
 
                 // Evitar descubrir diagonales si la esquina está bloqueada por ambos lados
                 if (dx != 0 && dy != 0) {
                     int sideX = px + dx; // (px+dx, py)
                     int sideY = py + dy; // (px, py+dy)
 
-                    // bounds de los lados
-                    if (sideX >= 0 && sideX < visibilityRow.size() && sideY >= 0 && sideY < visibility.size()) {
+                    if (sideX >= 0 && sideX < visibilityRow.size()
+                            && sideY >= 0 && sideY < visibility.size()) {
                         int cellSideX = cells.get(py).get(sideX);
                         int cellSideY = cells.get(sideY).get(px);
 
                         boolean blockX = Cells.hasCollision(cellSideX);
                         boolean blockY = Cells.hasCollision(cellSideY);
 
-                        // Si ambos lados están bloqueados, NO revelar la diagonal
                         if (blockX && blockY) {
                             continue;
                         }
@@ -424,9 +340,12 @@ public class Board {
     }
 
     public void updateTile(int x, int y, int tile, boolean updateVisibility) {
-        if (x < 0 || x >= BOARD_WIDTH || y < 0 || y >= BOARD_HEIGHT)
-            return;
+        if (x < 0 || x >= BOARD_WIDTH || y < 0 || y >= BOARD_HEIGHT) return;
+
+        // actualizar estructuras
         cells.get(y).set(x, tile);
+        grid[y * BOARD_WIDTH + x] = tile;
+
         if (updateVisibility) {
             visibility.get(y).set(x, tile);
             newDiscover = true;
@@ -442,15 +361,18 @@ public class Board {
         updateTile(x, y, tile, true);
     }
 
+    /**
+     * Lectura rápida desde grid 1D (con bounds).
+     */
     public int getTile(int x, int y) {
         if (x < 0 || y < 0 || y >= BOARD_HEIGHT || x >= BOARD_WIDTH) {
             return Cells.WALL;
         }
-        return cells.get(y).get(x);
+        return grid[y * BOARD_WIDTH + x];
     }
 
     public static Board generateStandard() {
-        return generateOnce(); // el método privado que ya tenías para generar 1 vez
+        return generateOnce();
     }
 
     public void openSecretWalls() {
@@ -458,13 +380,14 @@ public class Board {
             int x = sw[0];
             int y = sw[1];
 
+            // actualizar ambas estructuras
             cells.get(y).set(x, PATH);
+            grid[y * BOARD_WIDTH + x] = PATH;
+
             if (visibility.get(y).get(x) == SECRET_WALL) {
                 visibility.get(y).set(x, PATH);
             }
         }
-
         secretWalls.clear();
     }
-
 }

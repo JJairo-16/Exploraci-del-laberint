@@ -25,6 +25,10 @@ public class ItemPlacer {
     private final Set<Long> occupied = new HashSet<>();
     private final Map<Long, PlacedItem> itemsByPos = new HashMap<>();
 
+    private final List<Long> pathPositions = new ArrayList<>();
+    private int cachedW = -1;
+    private int cachedH = -1;
+
     /**
      * Coloca objetos usando la configuración embebida en cada ItemType:
      * - densidad => calcula cantidad según tamaño del mapa (PATH)
@@ -53,8 +57,9 @@ public class ItemPlacer {
         // no colocar nada en la posición del jugador
         occupied.add(pack(playerX, playerY));
 
-        // 1) tamaño útil del mapa (PATH)
-        int pathCount = countCellsOfType(cells, PATH);
+        // 1) cachear todas las posiciones PATH una sola vez
+        buildPathCache(cells);
+        int pathCount = pathPositions.size();
 
         // 2) distancias reales por caminos (BFS)
         int[][] distFromPlayer = bfsFrom(cells, playerX, playerY);
@@ -98,8 +103,7 @@ public class ItemPlacer {
         long height = (long) hiY - (long) loY + 1L;
         long area = (width <= 0 || height <= 0) ? 0 : width * height;
 
-        // Heurística: si el rectángulo es pequeño, es más rápido consultar el mapa por
-        // celdas.
+        // Heurística: si el rectángulo es pequeño, es más rápido consultar el mapa por celdas.
         if (area > 0 && area <= placedItems.size() * 2L) {
             List<PlacedItem> res = new ArrayList<>();
             for (int y = loY; y <= hiY; y++) {
@@ -151,6 +155,25 @@ public class ItemPlacer {
 
     /* ===================== Internos ===================== */
 
+    private void buildPathCache(List<List<Integer>> cells) {
+        pathPositions.clear();
+
+        int h = cells.size();
+        int w = cells.isEmpty() ? 0 : cells.get(0).size();
+        cachedW = w;
+        cachedH = h;
+
+        for (int y = 0; y < h; y++) {
+            List<Integer> row = cells.get(y);
+            for (int x = 0; x < w; x++) {
+                int v = row.get(x);
+                if (Cells.isPath(v)) {
+                    pathPositions.add(pack(x, y));
+                }
+            }
+        }
+    }
+
     private int computeAmountForType(ItemType type, int pathCount) {
         double raw = pathCount * Math.max(0.0, type.getDensity());
         int amount = (int) Math.round(raw);
@@ -161,8 +184,7 @@ public class ItemPlacer {
     }
 
     /**
-     * Coloca "amount" items de este type. Garantiza colocación relajando
-     * restricciones:
+     * Coloca "amount" items de este type. Garantiza colocación relajando restricciones:
      * - minPlayer baja a 0
      * - minBetween baja a 0
      * - minExit baja a 0 (último recurso)
@@ -180,7 +202,6 @@ public class ItemPlacer {
 
         int placed = 0;
 
-        // 1) Intento principal (todo estricto)
         placed += placeWithConstraints(cells, distFromPlayer, distFromExit, type, amount - placed,
                 minPlayer, minExit, minBetween);
 
@@ -226,8 +247,8 @@ public class ItemPlacer {
         if (need <= 0)
             return 0;
 
-        // NUEVO: candidates respetando blacklist del propio ItemType
-        List<int[]> candidates = collectCandidates(
+        // Candidatos usando SOLO las celdas PATH cacheadas
+        List<Long> candidates = collectCandidatesPacked(
                 cells,
                 distFromPlayer,
                 distFromExit,
@@ -242,17 +263,21 @@ public class ItemPlacer {
         Collections.shuffle(candidates, RNG);
 
         int placedNow = 0;
-        for (int[] p : candidates) {
+        for (long key : candidates) {
             if (placedNow >= need)
                 break;
 
-            long key = pack(p[0], p[1]);
             if (occupied.contains(key))
                 continue;
-            if (!respectsMinDistBetween(p[0], p[1], minBetween))
+
+            int x = (int) key;
+            int y = (int) (key >>> 32);
+
+            // Nota: ya se comprobó en collectCandidatesPacked, pero lo dejamos por seguridad
+            if (!respectsMinDistBetween(x, y, minBetween))
                 continue;
 
-            place(type, p[0], p[1]);
+            place(type, x, y);
             placedNow++;
         }
 
@@ -267,54 +292,54 @@ public class ItemPlacer {
         itemsByPos.put(key, it);
     }
 
-    private List<int[]> collectCandidates(
+    /**
+     * Recoge candidatos iterando SOLO pathPositions (cache).
+     * Devuelve posiciones empaquetadas (long) para evitar crear int[]{x,y} por candidato.
+     */
+    private List<Long> collectCandidatesPacked(
             List<List<Integer>> cells,
             int[][] distFromPlayer,
             int[][] distFromExit,
-            List<Integer> spawnBlackList, // NUEVO
+            List<Integer> spawnBlackList,
             int minDistPlayer,
             int minDistExit,
             int minDistBetween) {
-
-        int h = cells.size();
-        int w = cells.get(0).size();
 
         // Para lookup rápido (y evitar NPE)
         Set<Integer> black = (spawnBlackList == null || spawnBlackList.isEmpty())
                 ? Collections.emptySet()
                 : new HashSet<>(spawnBlackList);
 
-        List<int[]> res = new ArrayList<>();
-        for (int y = 0; y < h; y++) {
-            for (int x = 0; x < w; x++) {
+        List<Long> res = new ArrayList<>();
 
-                int cellValue = cells.get(y).get(x);
+        for (long pos : pathPositions) {
+            int x = (int) pos;
+            int y = (int) (pos >>> 32);
 
-                // NUEVO: no permitir spawn en celdas de la blacklist de este item
-                if (black.contains(cellValue))
+            // blacklist por valor real de celda
+            int cellValue = cells.get(y).get(x);
+            if (black.contains(cellValue))
+                continue;
+
+            if (occupied.contains(pos))
+                continue;
+
+            int dp = distFromPlayer[y][x];
+            if (dp == -1 || dp < minDistPlayer)
+                continue;
+
+            if (minDistExit > 0) {
+                int de = distFromExit[y][x];
+                if (de == -1 || de < minDistExit)
                     continue;
-
-                if (!Cells.isPath(cellValue))
-                    continue;
-                if (occupied.contains(pack(x, y)))
-                    continue;
-
-                int dp = distFromPlayer[y][x];
-                if (dp == -1 || dp < minDistPlayer)
-                    continue;
-
-                if (minDistExit > 0) {
-                    int de = distFromExit[y][x];
-                    if (de == -1 || de < minDistExit)
-                        continue;
-                }
-
-                if (!respectsMinDistBetween(x, y, minDistBetween))
-                    continue;
-
-                res.add(new int[] { x, y });
             }
+
+            if (!respectsMinDistBetween(x, y, minDistBetween))
+                continue;
+
+            res.add(pos);
         }
+
         return res;
     }
 
@@ -331,20 +356,6 @@ public class ItemPlacer {
         return true;
     }
 
-    private int countCellsOfType(List<List<Integer>> cells, int cellType) {
-        int count = 0;
-        for (List<Integer> row : cells) {
-            for (int v : row) {
-                if (v == cellType)
-                    count++;
-            }
-        }
-        return count;
-    }
-
-    /**
-     * BFS desde cualquier punto que sea PATH. Si no lo es, devuelve todo -1.
-     */
     private int[][] bfsFrom(List<List<Integer>> cells, int sx, int sy) {
         int h = cells.size();
         int w = cells.get(0).size();
@@ -460,8 +471,8 @@ public class ItemPlacer {
     }
 
     /**
-     * Elimina del mapa (estructuras internas) todos los items del tipo indicado.
-     * 
+     * Elimina del mapa (estructuras internas) tod0s los items del tipo indicado.
+     *
      * @param type Tipo a eliminar
      * @return cuántos se han eliminado
      */
@@ -487,10 +498,9 @@ public class ItemPlacer {
     }
 
     /**
-     * Elimina del mapa todos los items del tipo indicado EXCEPTO el que esté en
-     * (keepX, keepY).
+     * Elimina del mapa tod0s los items del tipo indicado EXCEPTO el que esté en (keepX, keepY).
      * Útil para "quitar el resto" después de hacer pickup/activar uno.
-     * 
+     *
      * @param type  Tipo a eliminar
      * @param keepX X a conservar
      * @param keepY Y a conservar
@@ -520,5 +530,4 @@ public class ItemPlacer {
 
         return removed;
     }
-
 }

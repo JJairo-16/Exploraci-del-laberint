@@ -9,7 +9,7 @@ import static com.jairo.items.Qualities.*;
  * Implementa ItemType para poder reusar conteos, sprites y pickup.
  */
 public enum PowerType implements ItemType {
-    PICKAXE(Sprite.PICKAXE, 0.0125, 3, 6, Sound.POWERUP, EPIC), // ? 0.0125 3 6
+    PICKAXE(Sprite.PICKAXE, 0.0225, 3, 6, Sound.POWERUP, EPIC), // ? 0.0125 3 6
     BLAI_GLASSES(Sprite.BLAI_GLASSES, 0.006, 10, 20, Sound.POWERUP, LEGENDARY), // ? 0.006 10 20
     KEY(Sprite.KEY, 0, 40, 1, Sound.COIN, LEGENDARY, 90); // ? 0 40 1 90
 
