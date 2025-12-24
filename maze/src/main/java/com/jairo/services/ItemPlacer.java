@@ -45,6 +45,7 @@ public class ItemPlacer {
             int exitX,
             int exitY,
             List<ItemType> types) {
+
         placedItems.clear();
         occupied.clear();
         itemsByPos.clear();
@@ -172,6 +173,7 @@ public class ItemPlacer {
             int[][] distFromExit,
             ItemType type,
             int amount) {
+
         int minPlayer = Math.max(0, type.getMinDistFromPlayer());
         int minBetween = Math.max(0, type.getMinDistBetweenItems());
         int minExit = Math.max(0, type.getMinDistFromExit());
@@ -220,10 +222,20 @@ public class ItemPlacer {
             int minPlayer,
             int minExit,
             int minBetween) {
+
         if (need <= 0)
             return 0;
 
-        List<int[]> candidates = collectCandidates(cells, distFromPlayer, distFromExit, minPlayer, minExit, minBetween);
+        // NUEVO: candidates respetando blacklist del propio ItemType
+        List<int[]> candidates = collectCandidates(
+                cells,
+                distFromPlayer,
+                distFromExit,
+                type.getSpawnBlackList(),
+                minPlayer,
+                minExit,
+                minBetween);
+
         if (candidates.isEmpty())
             return 0;
 
@@ -259,16 +271,30 @@ public class ItemPlacer {
             List<List<Integer>> cells,
             int[][] distFromPlayer,
             int[][] distFromExit,
+            List<Integer> spawnBlackList, // NUEVO
             int minDistPlayer,
             int minDistExit,
             int minDistBetween) {
+
         int h = cells.size();
         int w = cells.get(0).size();
+
+        // Para lookup rápido (y evitar NPE)
+        Set<Integer> black = (spawnBlackList == null || spawnBlackList.isEmpty())
+                ? Collections.emptySet()
+                : new HashSet<>(spawnBlackList);
 
         List<int[]> res = new ArrayList<>();
         for (int y = 0; y < h; y++) {
             for (int x = 0; x < w; x++) {
-                if (!Cells.isPath(cells.get(y).get(x)))
+
+                int cellValue = cells.get(y).get(x);
+
+                // NUEVO: no permitir spawn en celdas de la blacklist de este item
+                if (black.contains(cellValue))
+                    continue;
+
+                if (!Cells.isPath(cellValue))
                     continue;
                 if (occupied.contains(pack(x, y)))
                     continue;
@@ -432,4 +458,67 @@ public class ItemPlacer {
     private static long pack(int x, int y) {
         return (((long) y) << 32) ^ (x & 0xffffffffL);
     }
+
+    /**
+     * Elimina del mapa (estructuras internas) todos los items del tipo indicado.
+     * 
+     * @param type Tipo a eliminar
+     * @return cuántos se han eliminado
+     */
+    public int removeAllOfType(ItemType type) {
+        if (type == null || placedItems.isEmpty())
+            return 0;
+
+        int removed = 0;
+
+        // Iteramos al revés para poder borrar de placedItems por índice sin líos
+        for (int i = placedItems.size() - 1; i >= 0; i--) {
+            PlacedItem it = placedItems.get(i);
+            if (it.getType() == type) {
+                long key = pack(it.getX(), it.getY());
+                placedItems.remove(i);
+                itemsByPos.remove(key);
+                occupied.remove(key);
+                removed++;
+            }
+        }
+
+        return removed;
+    }
+
+    /**
+     * Elimina del mapa todos los items del tipo indicado EXCEPTO el que esté en
+     * (keepX, keepY).
+     * Útil para "quitar el resto" después de hacer pickup/activar uno.
+     * 
+     * @param type  Tipo a eliminar
+     * @param keepX X a conservar
+     * @param keepY Y a conservar
+     * @return cuántos se han eliminado
+     */
+    public int removeAllOfTypeExcept(ItemType type, int keepX, int keepY) {
+        if (type == null || placedItems.isEmpty())
+            return 0;
+
+        long keepKey = pack(keepX, keepY);
+        int removed = 0;
+
+        for (int i = placedItems.size() - 1; i >= 0; i--) {
+            PlacedItem it = placedItems.get(i);
+            if (it.getType() != type)
+                continue;
+
+            long key = pack(it.getX(), it.getY());
+            if (key == keepKey)
+                continue;
+
+            placedItems.remove(i);
+            itemsByPos.remove(key);
+            occupied.remove(key);
+            removed++;
+        }
+
+        return removed;
+    }
+
 }

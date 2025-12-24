@@ -1,7 +1,4 @@
-// File: src/main/java/com/jairo/app/gfx/Drawer.java
 package com.jairo.app.gfx;
-
-import static com.jairo.utils.map_generator.Cells.UNKNOWN;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -92,7 +89,10 @@ public class Drawer {
     private final PostFxRenderer postFxRenderer; // (3) nuevo
     private final MapRenderer mapRenderer; // (4) nuevo
 
-    private static boolean renderFps = true;
+    private boolean renderFps = false;
+    public void switchFps() {
+        renderFps = !renderFps;
+    }
 
     private Font hudFont = Font.loadFont(
             getClass().getResourceAsStream("/fonts/Roboto-Regular.ttf"),
@@ -391,10 +391,6 @@ public class Drawer {
     }
 
     // ---------- Helpers / Estado ----------
-    private boolean isDiscovered(int type) {
-        return type != UNKNOWN;
-    }
-
     public record CameraState(double cameraX, double cameraY, double zoom) {
     }
 

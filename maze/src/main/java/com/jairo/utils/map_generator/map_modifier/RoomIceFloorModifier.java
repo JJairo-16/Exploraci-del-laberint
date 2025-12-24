@@ -14,8 +14,8 @@ public final class RoomIceFloorModifier {
     private RoomIceFloorModifier() {
     }
 
-    private static final double MIN_RATIO = 1; // 0.20
-    private static final double MAX_RATIO = 1; // 0.30
+    private static final double MIN_RATIO = 0.20; // 0.20
+    private static final double MAX_RATIO = 0.4; // 0.40
 
     public static void apply(List<List<Integer>> cells) {
         apply(cells, new SecureRandom());

@@ -76,7 +76,6 @@ public class Controller {
     private Drawer drawer;
 
     private GameLoop gameLoop;
-    private static final long FRAME_NS = 33_000_000L;
 
     private InputRepeatController inputRepeat;
     private static final long INITIAL_DELAY_NS = 240_000_000L;

@@ -123,7 +123,11 @@ public class Simulator {
         if (dx != 0 || dy != 0) {
             boolean moved = simulatePlayerMovement(dx, dy);
             if (moved) {
-                Steps.playRandomStep();
+                int nx = dx + player.getX();
+                int ny = dx + player.getY();
+                int tile = board.getTile(nx, ny);
+
+                if (tile != ICE) Steps.playRandomStep();
                 iceSystem.afterManualMove(lasNow, lastMovement);
             }
 
@@ -165,6 +169,10 @@ public class Simulator {
 
             case NEXT_ITEM:
                 inventory.selectNextPower();
+                break;
+            
+            case SWITCH_SHOW_FPS:
+                drawer.switchFps();
                 break;
 
             default:
@@ -369,6 +377,10 @@ public class Simulator {
 
         ItemType type = picked.getType();
         inventory.add(type);
+
+        if (type.removeRemaining()) {
+            placer.removeAllOfType(type);
+        }
 
         runPickup(type);
 

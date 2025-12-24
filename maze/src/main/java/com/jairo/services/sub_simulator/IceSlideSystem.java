@@ -153,7 +153,7 @@ public class IceSlideSystem {
             return;
         }
 
-        Steps.playRandomStep();
+        // Steps.playRandomStep();
 
         // Si ya no está en hielo => parar
         int under = board.getTile(player.getX(), player.getY());

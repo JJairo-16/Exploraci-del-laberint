@@ -37,8 +37,9 @@ public enum Sprite {
     BLAI_GLASSES(ITEMS.get("blai-glasses.png")),
     KEY(ITEMS.get("key.png")),
     CHEATED_BUTTON(ITEMS.get("cheated-button.png")),
+    BOOTS(ITEMS.get("boots.png")),
 
-    ICE(GAME.get("none.png"));
+    ICE(GAME.get("ice.png"));
 
     static {
         DOOR_OPEN_FROM_NORTH.updateFillTile();

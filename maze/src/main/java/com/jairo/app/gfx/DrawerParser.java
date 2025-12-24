@@ -36,6 +36,7 @@ public final class DrawerParser {
                 CHEAT_WALL_ACTIVE,
                 CHEATED_WALL_SOLID,
 
+                WALL,
                 ICE
         };
     }

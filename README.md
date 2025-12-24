@@ -31,6 +31,7 @@ L’objectiu del joc és explorar un laberint fins a trobar la sortida. Al comen
 | X                   |                      | Següent skin          |
 | 1                   |                      | Objecte anterior      |
 | 2                   | Q                    | Següent objecte       |
+| F1                  |                      | Alternar mostrar FPS  |
 
 ---
 

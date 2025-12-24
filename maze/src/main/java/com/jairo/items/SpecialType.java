@@ -4,26 +4,30 @@ import com.jairo.app.audio.Sound;
 import com.jairo.app.gfx.Sprite;
 
 import static com.jairo.items.Qualities.*;
+import static com.jairo.utils.map_generator.Cells.ICE;
+
+import java.util.Arrays;
+import java.util.List;
 
 public enum SpecialType implements ItemType {
-    CHEATED_BUTTON(Sprite.CHEATED_BUTTON, 1, 1, 5, Sound.CHEATED_BUTTON, EPIC), // ? 0 40 1
-    BOOTS(Sprite.PLAYER, 1, 1, 5, Sound.POWERUP, EPIC);
+    CHEATED_BUTTON(Sprite.CHEATED_BUTTON, 1, Sound.CHEATED_BUTTON, EPIC), // ? 40
+    BOOTS(Sprite.BOOTS, 1, Sound.BOOTS, EPIC);
 
     private final Sprite sprite;
-    private final double density;
+    private final double density = 1;
     private final int minPlayer;
-    private final int minBetween;
+    private final int minBetween = 2;
     private final String pickupSfx;
     private final Qualities quality;
 
     private int minCount = 1;
     private int maxCount = 1;
+    private List<Integer> spawnBlacklist;
+    private boolean removeRemaining = false;
 
-    SpecialType(Sprite sprite, double density, int minPlayer, int minBetween, Sound pickupSfx, Qualities quality) {
+    SpecialType(Sprite sprite, int minPlayer, Sound pickupSfx, Qualities quality) {
         this.sprite = sprite;
-        this.density = density;
         this.minPlayer = minPlayer;
-        this.minBetween = minBetween;
         this.pickupSfx = pickupSfx.path();
         this.quality = quality;
     }
@@ -37,13 +41,32 @@ public enum SpecialType implements ItemType {
     @Override public Qualities getQuality() { return quality; }
     @Override public int getMinCount() { return minCount; }
     @Override public int getMaxCount() { return maxCount; }
+    @Override public List<Integer> getSpawnBlackList() { return spawnBlacklist; }
+    @Override public boolean removeRemaining() { return removeRemaining; }
 
     static {
-        BOOTS.debug();
+        BOOTS.setSpawnBlacklist(ICE);
     }
 
+    @SuppressWarnings("unused")
     private void debug() {
         minCount = 100;
         maxCount = 100;
+    }
+
+    private void setSpawnBlacklist(int... cellTypes) {
+        if (cellTypes == null || cellTypes.length == 0) {
+            this.spawnBlacklist = List.of();
+            return;
+        }
+
+        this.spawnBlacklist = Arrays.stream(cellTypes).boxed().toList();
+    }
+
+    @SuppressWarnings("unused")
+    private void updateCount(int min, int max, boolean removeRemaining) {
+        this.minCount = min;
+        this.maxCount = max;
+        this.removeRemaining = removeRemaining;
     }
 }

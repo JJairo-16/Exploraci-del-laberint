@@ -27,6 +27,7 @@ public enum Sound {
     CHEATED_BUTTON(ITEMS.get("cheated-button.mp3")),
     CHEATED_WALL1(ITEMS.get("cheated-wall-1.mp3")),
     CHEATED_WALL2(ITEMS.get("cheated-wall-2.mp3")),
+    BOOTS(ITEMS.get("boots.mp3")),
     
     PICKAXE_DOOR(ITEMS.get("pickaxe-door.mp3")),
     PICKAXE_WALL(ITEMS.get("pickaxe-wall.mp3")),

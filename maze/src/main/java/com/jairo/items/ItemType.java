@@ -54,10 +54,17 @@ public interface ItemType {
         return Qualities.COMMON;
     }
 
+    /** Distancia mínima desde la salida (en tiles, Manhattan via BFS) */
     default int getMinDistFromExit() {
         return 0;
     }
 
+    /**
+     * Blacklist de tipos de celda donde NO se debe spawnear este item.
+     * Ej: List.of(WATER, LAVA, SPIKES)
+     *
+     * Por defecto, vacío => no filtra nada extra.
+     */
     default List<Integer> getSpawnBlackList() {
         return List.of();
     }
@@ -66,4 +73,7 @@ public interface ItemType {
         return true;
     }
 
+    default boolean removeRemaining() {
+        return false;
+    }
 }

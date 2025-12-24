@@ -285,6 +285,11 @@ L’objectiu del joc és explorar un laberint fins a trobar la sortida. Al comen
       <td>Q</td>
       <td>Següent objecte</td>
     </tr>
+    <tr>
+    <td>F1</td>
+    <td></td>
+    <td>Alternar mostrar FPS</td>
+    </tr>
   </tbody>
 </table>
 

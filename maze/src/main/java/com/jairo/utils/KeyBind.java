@@ -40,6 +40,8 @@ public final class KeyBind {
         KEY_BINDS.put(KeyCode.DIGIT1, Action.PREVIOUS_ITEM);
         KEY_BINDS.put(KeyCode.DIGIT2, Action.NEXT_ITEM);
         KEY_BINDS.put(KeyCode.Q, Action.NEXT_ITEM);
+
+        KEY_BINDS.put(KeyCode.F1, Action.SWITCH_SHOW_FPS);
     }
 
     public static Action getAction(KeyCode key) {
@@ -59,6 +61,7 @@ public final class KeyBind {
         PREVIOUS_SKIN(true, false, 1.5),
         PREVIOUS_ITEM(),
         NEXT_ITEM(),
+        SWITCH_SHOW_FPS(),
         NONE();
 
         public final boolean canMaintain;
