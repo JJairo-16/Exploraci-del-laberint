@@ -1,6 +1,8 @@
 package com.jairo.app.gfx.hud;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 import com.jairo.app.gfx.ImageStore;
 import com.jairo.app.gfx.sub_drawer.GlowEffectRenderer;
@@ -18,22 +20,48 @@ import javafx.scene.text.Text;
 
 /**
  * Renderiza el HUD del inventario de powers (slots + selección + contador).
- * No depende de Drawer: solo necesita GC, Inventory, tiempo y ancho del canvas.
  *
- * - Glow animado con tiempo estable (dt acumulado), independiente del FPS.
- * - Sin new DropShadow por icono: usa GlowEffectRenderer optimizado.
+ * - Solo renderiza un objeto si se tiene en inventario (count > 0),
+ *   salvo los que estén en ALWAYS_RENDER.
+ * - ALWAYS_RENDER: objetos que se renderizan siempre.
+ * - NO_COUNTER: objetos a los que NO se les dibuja contador.
+ *
+ * - Si se supera MAX_ITEMS_PER_ROW, continúa en la fila de abajo (wrap por filas).
  */
 public class InventoryHudRenderer {
 
     private final ImageStore images;
+
+    // Lista base (orden fijo)
     private final List<ItemType> powers = List.of(PowerType.values());
+
+    // Reutiliza la lista visible para evitar alloc por frame
+    private final List<ItemType> visible = new ArrayList<>(Math.max(8, PowerType.values().length));
+
+    // =========================
+    // Listas de control
+    // =========================
+
+    /** Objetos que siempre se renderizan, aunque no tengas. */
+    private static final Set<ItemType> ALWAYS_RENDER = Set.of(
+    );
+
+    /** Objetos que NO deben mostrar contador (aunque tengan count). */
+    private static final Set<ItemType> NO_COUNTER = Set.of(
+            PowerType.KEY
+    );
+
+    // =========================
+    // Layout por filas
+    // =========================
+    private static final int MAX_ITEMS_PER_ROW = 4;
 
     // ---------- Tiempo estable de animación ----------
     private static final long MAX_DT_NS = 100_000_000L; // 0.10s clamp
     private long lastNowNs = 0L;
     private double animTimeSec = 0.0;
 
-    // Glow params (equivalente a tu drawHudBorder)
+    // Glow params
     private static final GlowEffectRenderer.GlowParams HUD_GLOW = new GlowEffectRenderer.GlowParams(
             0.65, 0.30,
             3.5,
@@ -53,49 +81,90 @@ public class InventoryHudRenderer {
         long dt = nowNs - lastNowNs;
         lastNowNs = nowNs;
 
-        if (dt < 0L)
-            dt = 0L;
-        if (dt > MAX_DT_NS)
-            dt = MAX_DT_NS;
+        if (dt < 0L) dt = 0L;
+        if (dt > MAX_DT_NS) dt = MAX_DT_NS;
 
         animTimeSec += dt / 1_000_000_000.0;
     }
 
     public void render(GraphicsContext hudGC, Inventory inventory, long nowNs, double canvasW, Font baseHudFont) {
-        if (powers.isEmpty() || inventory == null)
+        if (powers.isEmpty() || inventory == null || hudGC == null)
             return;
 
-        // ✅ tiempo estable (independiente del FPS)
         updateAnimClock(nowNs);
         double t = animTimeSec;
+
+        // =========================
+        // Determinar seleccionado (1-based -> 0-based)
+        // =========================
+        int selectedIndex = inventory.getSelectedPowerIndex();
+        int selectedI = selectedIndex - 1;
+
+        ItemType selectedPower = null;
+        if (selectedI >= 0 && selectedI < powers.size()) {
+            selectedPower = powers.get(selectedI);
+        }
+
+        // =========================
+        // Filtrar visibles (reutilizando lista) + calcular selectedVisibleIndex sin indexOf
+        // =========================
+        visible.clear();
+        int selectedVisibleIndex = -1;
+
+        for (ItemType p : powers) {
+            if (p == null) continue;
+
+            int count = inventory.getCount(p);
+            boolean hasIt = count > 0;
+
+            if (hasIt || ALWAYS_RENDER.contains(p)) {
+                if (p == selectedPower) {
+                    selectedVisibleIndex = visible.size(); // índice antes de añadir
+                }
+                visible.add(p);
+            }
+        }
+
+        if (visible.isEmpty()) return;
 
         final double padding = 25;
         final double slotSize = 40;
         final double gap = 8;
         final double iconPadding = 6;
 
-        int selectedIndex = inventory.getSelectedPowerIndex();
-        int selectedI = selectedIndex - 1;
+        // separación vertical entre filas
+        final double rowGap = 10;
+        final double rowStep = slotSize + rowGap;
 
         final double selectedGrow = 4;
         final double baseRadius = 8;
         final double selectedRadius = 10;
         final double iconGrow = 10;
 
-        double totalW = powers.size() * slotSize + (powers.size() - 1) * gap;
-        double startX = canvasW - padding - totalW;
+        // calcular columnas/filas
+        int cols = Math.max(1, Math.min(MAX_ITEMS_PER_ROW, visible.size()));
+
+        // Ancho de UNA fila (máximo cols)
+        double rowW = cols * slotSize + (cols - 1) * gap;
+
+        // Arranque: alineado a la derecha usando el ancho de fila
+        double startX = canvasW - padding - rowW;
         double startY = padding;
 
         hudGC.setLineWidth(2);
 
-        for (int i = 0; i < powers.size(); i++) {
-            ItemType power = powers.get(i);
+        for (int i = 0; i < visible.size(); i++) {
+            ItemType power = visible.get(i);
             int count = inventory.getCount(power);
 
-            double x = startX + i * (slotSize + gap);
-            double y = startY;
+            // posición por grid
+            int col = i % cols;
+            int row = i / cols;
 
-            boolean isSelected = (i == selectedI);
+            double x = startX + col * (slotSize + gap);
+            double y = startY + row * rowStep;
+
+            boolean isSelected = (i == selectedVisibleIndex);
 
             double s = isSelected ? (slotSize + selectedGrow) : slotSize;
             double offset = isSelected ? (selectedGrow / 2.0) : 0.0;
@@ -123,7 +192,7 @@ public class InventoryHudRenderer {
                     isSelected ? selectedRadius : baseRadius);
 
             // Icono + glow
-            if (power != null && power.getSprite() != null) {
+            if (power.getSprite() != null) {
                 Image img = images.get(power.getSprite());
                 if (img != null) {
                     double iconSize = s - iconPadding * 2;
@@ -136,7 +205,6 @@ public class InventoryHudRenderer {
 
                     Qualities q = power.getQuality();
 
-                    // ✅ sin new DropShadow por icono
                     GlowEffectRenderer.applyRgb(
                             hudGC,
                             img,
@@ -152,8 +220,10 @@ public class InventoryHudRenderer {
                 }
             }
 
-            // Contador
-            if (count > -1) {
+            // Contador: solo si count >= 2 y no está en NO_COUNTER
+            boolean drawCounter = !NO_COUNTER.contains(power) && count >= 2;
+
+            if (drawCounter) {
                 String txt = String.valueOf(count);
 
                 Font countFont = Font.font(baseHudFont.getFamily(), FontWeight.BOLD, 16);
@@ -182,7 +252,6 @@ public class InventoryHudRenderer {
                 hudGC.setLineWidth(1);
                 hudGC.strokeRoundRect(bx, by, bw, bh, 6, 6);
 
-                // “Shadow” del texto
                 hudGC.setFill(Color.rgb(0, 0, 0, 0.95));
                 hudGC.fillText(txt, tx - 1, ty);
                 hudGC.fillText(txt, tx + 1, ty);
@@ -192,7 +261,6 @@ public class InventoryHudRenderer {
                 hudGC.setFill(Color.WHITE);
                 hudGC.fillText(txt, tx, ty);
 
-                // Restaurar
                 hudGC.setFont(baseHudFont);
                 hudGC.setLineWidth(2);
             }
@@ -201,7 +269,7 @@ public class InventoryHudRenderer {
         hudGC.setLineWidth(2);
     }
 
-    // ====== Campos (en tu clase) ======
+    // ====== FPS ======
     private String cachedFpsFamily;
     private Font cachedFpsFont;
 
@@ -216,7 +284,6 @@ public class InventoryHudRenderer {
     private static final Color TEXT_SHADOW = Color.rgb(0, 0, 0, 0.95);
     private static final Color TEXT_WHITE = Color.WHITE;
 
-    // ====== Helper: font cacheado ======
     private Font getFpsFont(Font baseHudFont) {
         String fam = (baseHudFont != null && baseHudFont.getFamily() != null) ? baseHudFont.getFamily() : "System";
         if (cachedFpsFont == null || !fam.equals(cachedFpsFamily)) {
@@ -226,14 +293,12 @@ public class InventoryHudRenderer {
         return cachedFpsFont;
     }
 
-    // ====== Método optimizado ======
     public void renderFps(GraphicsContext hudGC, String fpsText, double centerX, double baselineY, Font baseHudFont) {
         if (hudGC == null || fpsText == null || fpsText.isBlank())
             return;
 
         Font fpsFont = getFpsFont(baseHudFont);
 
-        // Medir SOLO si cambió el texto o el font
         if (lastFpsText == null || !lastFpsText.equals(fpsText) || lastMeasureFont != fpsFont) {
             fpsMeasure.setFont(fpsFont);
             fpsMeasure.setText(fpsText);

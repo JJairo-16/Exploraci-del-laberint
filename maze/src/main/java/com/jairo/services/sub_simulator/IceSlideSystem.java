@@ -1,6 +1,5 @@
 package com.jairo.services.sub_simulator;
 
-import com.jairo.app.audio.Steps;
 import com.jairo.app.gfx.Drawer;
 import com.jairo.models.Board;
 import com.jairo.models.Player;
@@ -15,7 +14,7 @@ import static com.jairo.utils.map_generator.Cells.ICE;
 public class IceSlideSystem {
 
     /** Ajusta para más/menos suavidad */
-    private static final long ICE_STEP_NS = 120_000_000L; // 120ms por tile (ojo: comentario original decía 45ms)
+    private static final long ICE_STEP_NS = 110_000_000L; // 120ms por tile (ojo: comentario original decía 45ms)
 
     private final Board board;
     private final Player player;

@@ -20,72 +20,112 @@ public class MapRenderer {
 
     private final double lockedExitRotation;
 
+    // ---- Hot-path caches (avoid repeated lookups / virtual calls) ----
+    private final Sprite[] sprites = Sprite.values();
+    private final Image[] spriteImgCache;
+    private final Image[] backImgCache;
+    private final boolean[] fullTileCache;
+    private final double[] baseRotationCache;
+
     public MapRenderer(Board board, CameraSystem cameraSystem, ImageStore images, GraphicsContext mapGC) {
         this.board = board;
         this.cameraSystem = cameraSystem;
         this.images = images;
         this.mapGC = mapGC;
+
         lockedExitRotation = getLockedExitRotation();
-    }
 
-    public void render(RenderLoopSystem.Viewport vp, double scaledTileSize) {
-        int[][] visArea = board.getVisibilityArea(vp.startX(), vp.startY(), vp.endX(), vp.endY());
+        // Build caches once: images.get(sprite) might be a map lookup, so cache per Sprite.
+        int n = sprites.length;
+        spriteImgCache = new Image[n];
+        backImgCache = new Image[n];
+        fullTileCache = new boolean[n];
+        baseRotationCache = new double[n];
 
-        double camX = cameraSystem.getCameraX();
-        double camY = cameraSystem.getCameraY();
-
-        for (int y = vp.startY(); y <= vp.endY(); y++) {
-            int[] row = visArea[y - vp.startY()];
-            for (int x = vp.startX(); x <= vp.endX(); x++) {
-                int type = row[x - vp.startX()];
-                if (!isDiscovered(type))
-                    continue;
-
-                Sprite sprite = parse(type);
-                double rot = (sprite == Sprite.LOCKED_EXIT) ? lockedExitRotation : sprite.rotation;
-
-                renderCell(sprite, x, y, rot, scaledTileSize, camX, camY);
-            }
+        for (int i = 0; i < n; i++) {
+            Sprite s = sprites[i];
+            spriteImgCache[i] = images.get(s);
+            backImgCache[i] = images.get(s.getBack());
+            fullTileCache[i] = s.getIfIsFullTile();
+            baseRotationCache[i] = s.rotation;
         }
     }
 
-    private void renderCell(Sprite sprite, int x, int y, double rotation,
-            double scaledTileSize, double camX, double camY) {
-        Image img = images.get(sprite);
-        if (img == null)
-            return;
+    public void render(RenderLoopSystem.Viewport vp, double scaledTileSize) {
+        // Board method likely allocates; if you can change Board later, make it fill a reused buffer.
+        final int[][] visArea = board.getVisibilityArea(vp.startX(), vp.startY(), vp.endX(), vp.endY());
 
-        double size = scaledTileSize;
-        double screenX = (x - camX) * size;
-        double screenY = (y - camY) * size;
+        final double camX = cameraSystem.getCameraX();
+        final double camY = cameraSystem.getCameraY();
+        final double size = scaledTileSize;
 
-        if (!sprite.getIfIsFullTile()) {
-            Image back = images.get(sprite.getBack());
+        final int startX = vp.startX();
+        final int startY = vp.startY();
+        final int endX = vp.endX();
+        final int endY = vp.endY();
+
+        // Compute first row screenY once, then increment per row (saves many mults).
+        double screenY = (startY - camY) * size;
+
+        for (int y = startY; y <= endY; y++) {
+            final int[] row = visArea[y - startY];
+
+            // Compute first tile screenX once, then increment per tile (saves many mults).
+            double screenX = (startX - camX) * size;
+
+            for (int x = startX; x <= endX; x++) {
+                final int type = row[x - startX];
+                if (type == UNKNOWN) {
+                    screenX += size;
+                    continue;
+                }
+
+                final Sprite sprite = parse(type);
+                renderCellCached(sprite, screenX, screenY, size);
+
+                screenX += size;
+            }
+
+            screenY += size;
+        }
+    }
+
+    /**
+     * Optimized render: expects screenX/screenY already computed.
+     * Uses cached images/flags/rotations per Sprite.
+     */
+    private void renderCellCached(Sprite sprite, double screenX, double screenY, double size) {
+        final int idx = sprite.ordinal();
+
+        final Image img = spriteImgCache[idx];
+        if (img == null) return;
+
+        // Draw background first for non-full tiles (cached)
+        if (!fullTileCache[idx]) {
+            final Image back = backImgCache[idx];
             if (back != null) {
                 mapGC.drawImage(back, screenX, screenY, size, size);
             }
         }
 
-        if (Sprite.LOCKED_EXIT == sprite) {
-            rotation = lockedExitRotation;
-        }
+        // Rotation: cached base rotation, with LOCKED_EXIT override.
+        double rotation = (sprite == Sprite.LOCKED_EXIT) ? lockedExitRotation : baseRotationCache[idx];
 
-        if (rotation == 0) {
+        if (rotation == 0.0) {
             mapGC.drawImage(img, screenX, screenY, size, size);
             return;
         }
 
+        // Rotated draw: avoid extra conditionals and recomputations.
+        final double half = size * 0.5;
+        final double cx = screenX + half;
+        final double cy = screenY + half;
+
         mapGC.save();
-        double cx = screenX + size / 2.0;
-        double cy = screenY + size / 2.0;
         mapGC.translate(cx, cy);
         mapGC.rotate(rotation);
-        mapGC.drawImage(img, -size / 2.0, -size / 2.0, size, size);
+        mapGC.drawImage(img, -half, -half, size, size);
         mapGC.restore();
-    }
-
-    private boolean isDiscovered(int type) {
-        return type != UNKNOWN;
     }
 
     private double getLockedExitRotation() {
@@ -103,5 +143,4 @@ public class MapRenderer {
         }
         return 0;
     }
-
 }

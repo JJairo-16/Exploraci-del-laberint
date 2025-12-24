@@ -10,13 +10,13 @@ import java.util.Arrays;
 import java.util.List;
 
 public enum SpecialType implements ItemType {
-    CHEATED_BUTTON(Sprite.CHEATED_BUTTON, 1, Sound.CHEATED_BUTTON, EPIC), // ? 40
-    BOOTS(Sprite.BOOTS, 1, Sound.BOOTS, EPIC);
+    CHEATED_BUTTON(Sprite.CHEATED_BUTTON, 50, Sound.CHEATED_BUTTON, EPIC),
+    BOOTS(Sprite.BOOTS, 50, Sound.BOOTS, EPIC);
 
     private final Sprite sprite;
     private final double density = 1;
     private final int minPlayer;
-    private final int minBetween = 2;
+    private int minBetween = 2;
     private final String pickupSfx;
     private final Qualities quality;
 
@@ -68,5 +68,7 @@ public enum SpecialType implements ItemType {
         this.minCount = min;
         this.maxCount = max;
         this.removeRemaining = removeRemaining;
+
+        this.minBetween = 30;
     }
 }

@@ -156,28 +156,19 @@ public class Inventory {
             selectedPowerIndex = 0;
     }
 
+    /**
+     * Selecciona el siguiente power disponible (que tengas: count > 0),
+     * omitiendo los que no tengas.
+     *
+     * Reglas:
+     * - Si no tienes ningún power con count > 0 -> selectedPowerIndex = 0
+     * - Si hay alguno, hace wrap y elige el siguiente disponible.
+     * - La búsqueda es cíclica y como máximo recorre N elementos.
+     */
     public void selectNextPowerWithJump() {
-        int n = powers.size();
-        if (n <= 0) {
-            selectedPowerIndex = 0;
-            return;
-        }
-
-        for (int attempts = 0; attempts < n; attempts++) {
-            selectNextPower(); // avanza con wrap
-            ItemType sel = getSelectedPower();
-
-            // si llega a 0, sigue buscando
-            if (selectedPowerIndex == 0)
-                continue;
-
-            // nos quedamos en el primero que realmente tenemos
-            if (sel != null && has(sel))
-                return;
-        }
-
-        // no hay ninguno que tengas
-        selectedPowerIndex = 0;
+        do {
+            selectNextPower();
+        } while (!has(getSelectedPower()) && selectedPowerIndex != 0);
     }
 
     /**
@@ -194,6 +185,12 @@ public class Inventory {
         selectedPowerIndex--;
         if (selectedPowerIndex < 0)
             selectedPowerIndex = n;
+    }
+
+    public void selectPrevPowerWithJump() {
+        do {
+            selectPrevPower();
+        } while (!has(getSelectedPower()) && selectedPowerIndex != 0);
     }
 
     // ------------------------

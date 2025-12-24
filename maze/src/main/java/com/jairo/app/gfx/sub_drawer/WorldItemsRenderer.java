@@ -2,10 +2,13 @@ package com.jairo.app.gfx.sub_drawer;
 
 import static com.jairo.utils.map_generator.Cells.UNKNOWN;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import com.jairo.app.gfx.ImageStore;
 import com.jairo.app.gfx.Sprite;
+import com.jairo.app.gfx.sub_drawer.tools.ItemAuraRenderer;
 import com.jairo.items.ItemType;
 import com.jairo.items.PlacedItem;
 import com.jairo.items.Qualities;
@@ -13,14 +16,24 @@ import com.jairo.models.Board;
 import com.jairo.services.ItemPlacer;
 
 import javafx.scene.canvas.GraphicsContext;
-import javafx.scene.effect.DropShadow;
+import javafx.scene.effect.Effect;
 import javafx.scene.image.Image;
 
 public class WorldItemsRenderer {
 
-    // ---------- Constantes (antes en Drawer) ----------
+    // ---------- Constantes ----------
     private static final double FLOAT_SPEED_HZ = 0.9;
     private static final double FLOAT_AMPLITUDE_TILES = 0.12;
+
+    // Aura/border config
+    private static final double BORDER_BASE_ALPHA = 0.55;
+    private static final double BORDER_PULSE_ALPHA = 0.20;
+    private static final double BORDER_PULSE_SPEED = 3.5;
+    private static final double BORDER_RADIUS_SCALE = 0.075;
+    private static final double BORDER_SPREAD = 0.75;
+
+    // Cache phase by (x,y,typeKey)
+    private final Map<Long, Double> phaseCache = new HashMap<>(2048);
 
     private final ItemPlacer placer;
     private final Board board;
@@ -28,6 +41,9 @@ public class WorldItemsRenderer {
 
     private final ImageStore images;
     private final GraphicsContext entitiesGC;
+
+    // Aura renderer (extraído)
+    private final ItemAuraRenderer auraRenderer = new ItemAuraRenderer();
 
     public WorldItemsRenderer(
             ItemPlacer placer,
@@ -45,54 +61,75 @@ public class WorldItemsRenderer {
 
     public void render(int startX, int startY, int endX, int endY, long now, double scaledTileSize) {
         List<PlacedItem> items = placer.getPlacedItems(startX, startY, endX, endY);
-        if (items == null || items.isEmpty())
-            return;
+        if (items == null || items.isEmpty()) return;
 
         List<List<Integer>> cells = board.getCells(true);
 
-        double t = now / 1_000_000_000.0;
-        double omega = 2.0 * Math.PI * FLOAT_SPEED_HZ;
-        double ampPx = scaledTileSize * FLOAT_AMPLITUDE_TILES;
+        final double t = now / 1_000_000_000.0;
+        final double omega = 2.0 * Math.PI * FLOAT_SPEED_HZ;
+        final double ampPx = scaledTileSize * FLOAT_AMPLITUDE_TILES;
 
         final double camX = cameraSystem.getCameraX();
         final double camY = cameraSystem.getCameraY();
 
+        // JavaFX version compatibility: this API uses getEffect(Effect) not getEffect()
+        final Effect oldEffect = entitiesGC.getEffect(null);
+
         for (PlacedItem it : items) {
-            int x = it.getX();
-            int y = it.getY();
+            final int x = it.getX();
+            final int y = it.getY();
 
-            int cellType = cells.get(y).get(x);
-            if (!isDiscovered(cellType))
-                continue;
+            final List<Integer> row = cells.get(y);
+            final int cellType = row.get(x);
+            if (!isDiscovered(cellType)) continue;
 
-            ItemType type = it.getType();
-            Sprite sprite = spriteForItemType(type);
-            if (sprite == null)
-                continue;
+            final ItemType type = it.getType();
+            final Sprite sprite = spriteForItemType(type);
+            if (sprite == null) continue;
 
-            double screenX = (x - camX) * scaledTileSize;
-            double screenY = (y - camY) * scaledTileSize;
+            final Image img = images.get(sprite);
+            if (img == null) continue;
 
-            int seed = (x * 73856093) ^ (y * 19349663) ^ (type.hashCode());
-            double phase = (seed & 0xFFFF) / 65535.0 * (2.0 * Math.PI);
+            final double screenX = (x - camX) * scaledTileSize;
+            final double screenY = (y - camY) * scaledTileSize;
 
-            double yOffset = 0.0;
+            // Cache phase: estable por (x,y,type)
+            final double phase = getOrComputePhase(x, y, type);
+
+            double drawY = screenY;
             if (type.shouldFloat()) {
-                yOffset = Math.sin(t * omega + phase) * ampPx;
+                drawY += Math.sin(t * omega + phase) * ampPx;
             }
 
-            Image img = images.get(sprite);
-            if (img == null)
-                continue;
+            // Aura/border (extraído)
+            final Qualities q = it.quality;
+            if (q != null) {
+                auraRenderer.drawAura(
+                        entitiesGC,
+                        scaledTileSize,
+                        t,
+                        screenX,
+                        phase,
+                        img,
+                        drawY,
+                        q.red, q.green, q.blue,
+                        BORDER_BASE_ALPHA,
+                        BORDER_PULSE_ALPHA,
+                        BORDER_PULSE_SPEED,
+                        BORDER_RADIUS_SCALE,
+                        BORDER_SPREAD,
+                        oldEffect
+                );
+            }
 
-            double drawY = screenY + yOffset;
-
-            drawQualityBorder(scaledTileSize, t, screenX, phase, img, drawY, it.quality);
+            // Sprite normal
             entitiesGC.drawImage(img, screenX, drawY, scaledTileSize, scaledTileSize);
         }
+
+        entitiesGC.setEffect(oldEffect);
     }
 
-    // ---------- Helpers / Estado ----------
+    // ---------- Helpers ----------
     private boolean isDiscovered(int type) {
         return type != UNKNOWN;
     }
@@ -101,56 +138,17 @@ public class WorldItemsRenderer {
         return (type == null) ? null : type.getSprite();
     }
 
-    private void drawQualityBorder(
-            double size,
-            double t,
-            double screenX,
-            double phase,
-            Image img,
-            double drawY,
-            Qualities q) {
-        drawBorder(
-                size, t, screenX, phase, img, drawY,
-                q.red, q.green, q.blue,
-                0.55, 0.20,
-                3.5,
-                0.075,
-                0.75);
-    }
+    private double getOrComputePhase(int x, int y, ItemType type) {
+        final int typeKey = (type == null) ? 0 : type.hashCode();
+        final long key = (((long) x) << 32) ^ (y & 0xffffffffL) ^ (((long) typeKey) << 1);
 
-    private static final DropShadow SHARED_DROP_SHADOW = new DropShadow();
-    static {
-        SHARED_DROP_SHADOW.setOffsetX(0);
-        SHARED_DROP_SHADOW.setOffsetY(0);
-    }
+        final Double cached = phaseCache.get(key);
+        if (cached != null) return cached;
 
-    private void drawBorder(
-            double size,
-            double t,
-            double screenX,
-            double phase,
-            Image img,
-            double drawY,
-            int red, int green, int blue,
-            double baseAlpha,
-            double pulseAlpha,
-            double pulseSpeed,
-            double radiusScale,
-            double spread) {
-        entitiesGC.save();
+        final int seed = (x * 73856093) ^ (y * 19349663) ^ typeKey;
+        final double phase = ((seed & 0xFFFF) / 65535.0) * (2.0 * Math.PI);
 
-        double pulse = 0.5 + 0.5 * Math.sin(t * pulseSpeed + phase);
-        double radius = Math.max(1.0, size * radiusScale);
-
-        SHARED_DROP_SHADOW.setRadius(radius);
-        SHARED_DROP_SHADOW.setSpread(spread);
-        SHARED_DROP_SHADOW.setColor(javafx.scene.paint.Color.rgb(
-                red, green, blue,
-                Math.min(1.0, baseAlpha + pulse * pulseAlpha)));
-
-        entitiesGC.setEffect(SHARED_DROP_SHADOW);
-        entitiesGC.drawImage(img, screenX, drawY, size, size);
-
-        entitiesGC.restore();
+        phaseCache.put(key, phase);
+        return phase;
     }
 }

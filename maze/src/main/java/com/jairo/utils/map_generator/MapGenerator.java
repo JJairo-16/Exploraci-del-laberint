@@ -14,10 +14,10 @@ public final class MapGenerator {
     private static final Logger log = LoggerFactory.getLogger(MapGenerator.class);
     private static boolean debugSingleConnection = false;
 
-    private static volatile List<Room> LAST_ROOMS = List.of();
+    private static volatile List<Room> lastRooms = List.of();
 
-    private static final int WIDTH = 60; // 60
-    private static final int HEIGHT = 45; // 45
+    private static final int WIDTH = 70; // 60
+    private static final int HEIGHT = 55; // 45
 
     public static final int BOARD_WIDTH = makeOdd(WIDTH);
     public static final int BOARD_HEIGHT = makeOdd(HEIGHT);
@@ -71,7 +71,7 @@ public final class MapGenerator {
 
     public static List<int[]> getLastRoomsAsRects() {
         // Devuelve cada room como {x1,y1,x2,y2}
-        List<Room> snapshot = LAST_ROOMS; // snapshot rápido (por si cambia en otro hilo)
+        List<Room> snapshot = lastRooms; // snapshot rápido (por si cambia en otro hilo)
         List<int[]> out = new ArrayList<>(snapshot.size());
         for (Room r : snapshot) {
             out.add(new int[] { r.x1, r.y1, r.x2, r.y2 });
@@ -97,7 +97,7 @@ public final class MapGenerator {
         int cellH = (BOARD_HEIGHT - 1) / 2;
         if (cellW <= 0 || cellH <= 0) {
             log.warn("Maze generation skipped: invalid cell grid (cellW={}, cellH={})", cellW, cellH);
-            LAST_ROOMS = List.of();
+            lastRooms = List.of();
             return toMapDataString(g);
         }
 
@@ -106,7 +106,7 @@ public final class MapGenerator {
 
         List<Room> rooms = carveRooms(g, visited, rnd);
         
-        LAST_ROOMS = Collections.unmodifiableList(new ArrayList<>(rooms));
+        lastRooms = Collections.unmodifiableList(new ArrayList<>(rooms));
 
         int sx = rnd.nextInt(cellW);
         int sy = rnd.nextInt(cellH);

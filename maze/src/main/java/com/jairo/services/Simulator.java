@@ -3,7 +3,6 @@ package com.jairo.services;
 import com.jairo.models.Board;
 import com.jairo.models.Player;
 import com.jairo.utils.KeyBind.Action;
-import com.jairo.utils.map_generator.Cells;
 import com.jairo.items.ItemType;
 import com.jairo.items.PlacedItem;
 import com.jairo.models.Inventory;
@@ -12,7 +11,6 @@ import com.jairo.items.SpecialType;
 
 import static com.jairo.utils.map_generator.Cells.*;
 
-import com.jairo.app.audio.Sound;
 import com.jairo.app.audio.SoundManager;
 import com.jairo.app.audio.Steps;
 import com.jairo.app.gfx.Drawer;
@@ -23,8 +21,8 @@ import org.slf4j.LoggerFactory;
 
 import com.jairo.services.sub_simulator.IceSlideSystem;
 import com.jairo.services.sub_simulator.UseSystem;
-import com.jairo.services.sub_simulator.UseSystem.DnResult;
 import com.jairo.services.sub_simulator.DoorSystem;
+import com.jairo.services.sub_simulator.ItemUseActions;
 
 public class Simulator {
     private static final Logger log = LoggerFactory.getLogger(Simulator.class);
@@ -53,6 +51,9 @@ public class Simulator {
     // ✅ Extraído: UseSystem
     private final UseSystem useSystem;
 
+    // ✅ Extraído: ItemUseActions (lógica de pico/gafas/llave)
+    private final ItemUseActions itemUseActions;
+
     public Action getCurrentAction() {
         return currentAction;
     }
@@ -74,17 +75,26 @@ public class Simulator {
         this.iceSystem = new IceSlideSystem(board, player);
         this.doorSystem = new DoorSystem(board);
 
-        // ✅ UseSystem: ahora abre puerta mediante DoorSystem
+        this.itemUseActions = new ItemUseActions(
+                player,
+                board,
+                inventory,
+                placer,
+                doorSystem,
+                sm
+        );
+
+        // ✅ UseSystem: abre puerta mediante DoorSystem
         this.useSystem = new UseSystem(
                 player,
                 board,
                 inventory,
                 (item, dn) -> {
                     lastPower = item;
-                    useItem(item, dn);
+                    itemUseActions.onUse(item, dn);
                 },
                 action -> doorSystem.tryToOpenDoor(action, player.getX(), player.getY()),
-                this::playLockedExit);
+                itemUseActions::playLockedExit);
 
         log.info("Simulator created");
     }
@@ -96,8 +106,7 @@ public class Simulator {
     }
 
     public void simulate(Action action) {
-        // Si estamos deslizándonos en hielo, ignorar inputs de movimiento para no
-        // “romper” el slide
+        // Si estamos deslizándonos en hielo, ignorar inputs de movimiento para no “romper” el slide
         if (iceSystem.isSliding() && action.isAMovement) {
             updateCheatedSystem();
             return;
@@ -124,7 +133,7 @@ public class Simulator {
             boolean moved = simulatePlayerMovement(dx, dy);
             if (moved) {
                 int nx = dx + player.getX();
-                int ny = dx + player.getY();
+                int ny = dy + player.getY(); // ✅ fix: era dx + player.getY()
                 int tile = board.getTile(nx, ny);
 
                 if (tile != ICE) Steps.playRandomStep();
@@ -140,14 +149,12 @@ public class Simulator {
 
         switch (action) {
             case ZOOM_IN:
-                if (drawer != null)
-                    drawer.zoomIn();
+                if (drawer != null) drawer.zoomIn();
                 log.info("Zoom in");
                 break;
 
             case ZOOM_OUT:
-                if (drawer != null)
-                    drawer.zoomOut();
+                if (drawer != null) drawer.zoomOut();
                 log.info("Zoom out");
                 break;
 
@@ -164,13 +171,13 @@ public class Simulator {
                 break;
 
             case PREVIOUS_ITEM:
-                inventory.selectPrevPower();
+                inventory.selectPrevPowerWithJump();
                 break;
 
             case NEXT_ITEM:
-                inventory.selectNextPower();
+                inventory.selectNextPowerWithJump();
                 break;
-            
+
             case SWITCH_SHOW_FPS:
                 drawer.switchFps();
                 break;
@@ -228,8 +235,7 @@ public class Simulator {
         return moved;
     }
 
-    public record Position(int x, int y) {
-    }
+    public record Position(int x, int y) {}
 
     public Position getPlayerPosition() {
         return new Position(player.getX(), player.getY());
@@ -239,124 +245,6 @@ public class Simulator {
     private void use() {
         ItemType used = useSystem.use(lastMovement, currentAction, LOCKED_EXIT);
         lastPower = used;
-    }
-
-    private void useItem(ItemType item, DnResult dn) {
-        switch (item) {
-            case PowerType.PICKAXE:
-                usePickaxe(item, dn);
-                break;
-
-            case PowerType.BLAI_GLASSES:
-                tryToActiveBlaiGlasses(dn);
-                break;
-
-            case PowerType.KEY:
-                tryToOpenExit(dn);
-                break;
-
-            default:
-                break;
-        }
-    }
-
-    // =========================
-    // PICKAXE (usa DoorSystem)
-    // =========================
-    private void usePickaxe(ItemType item, DnResult dn) {
-        if (item != PowerType.PICKAXE)
-            return;
-
-        int dx = dn.dx();
-        int dy = dn.dy();
-
-        if (dx == 0 && dy == 0)
-            return;
-
-        int nx = dn.nx();
-        int ny = dn.ny();
-
-        boolean outOfBounds = nx < 1 || ny < 1 ||
-                nx >= Board.BOARD_WIDTH - 1 ||
-                ny >= Board.BOARD_HEIGHT - 1;
-
-        if (outOfBounds) {
-            playDoorHit();
-            return;
-        }
-
-        int cell = dn.cell();
-
-        if (!Cells.hasCollision(cell))
-            return;
-
-        if (doorSystem.isDoorClosed(cell)) {
-            boolean opened = false;
-
-            if (doorSystem.isDoorClosedButOpenable(cell)) {
-                opened = doorSystem.tryOpenDoorAt(nx, ny, dx, dy, cell);
-            }
-
-            if (!opened)
-                playDoorHit();
-            return;
-        }
-
-        if (doorSystem.isDoorOpened(cell)) {
-            playDoorHit();
-            return;
-        }
-
-        if (cell != WALL) {
-            if (Cells.playMetalSound(cell)) {
-                playDoorHit();
-            }
-            return;
-        }
-
-        boolean isBorderWall = nx <= 0 || ny <= 0 ||
-                nx >= Board.BOARD_WIDTH - 1 ||
-                ny >= Board.BOARD_HEIGHT - 1;
-
-        if (isBorderWall) {
-            playDoorHit();
-            return;
-        }
-
-        if (wallTouchesDoor(nx, ny)) {
-            playDoorHit();
-            return;
-        }
-
-        if (!inventory.consumeOne(item))
-            return;
-
-        board.updateTile(nx, ny, DESTROYED_PATH);
-        sm.playSfx(Sound.PICKAXE_WALL.path());
-    }
-
-    private boolean wallTouchesDoor(int x, int y) {
-        int[][] dirs = { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } };
-
-        for (int[] d : dirs) {
-            int ax = x + d[0];
-            int ay = y + d[1];
-
-            if (ax < 0 || ay < 0 || ax >= Board.BOARD_WIDTH || ay >= Board.BOARD_HEIGHT)
-                continue;
-
-            int neighbor = board.getTile(ax, ay);
-
-            if (doorSystem.isAnyDoor(neighbor) || doorSystem.isDoorOpened(neighbor)
-                    || doorSystem.isDoorClosedButOpenable(neighbor)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private void playDoorHit() {
-        sm.playSfxWithTailDelay(Sound.PICKAXE_DOOR.path(), 1.0, true, 200);
     }
 
     public ItemPlacer getItemPlacer() {
@@ -372,8 +260,7 @@ public class Simulator {
         int y = player.getY();
 
         PlacedItem picked = placer.pickupAt(x, y);
-        if (picked == null)
-            return;
+        if (picked == null) return;
 
         ItemType type = picked.getType();
         inventory.add(type);
@@ -420,136 +307,25 @@ public class Simulator {
     }
 
     // =========================
-    // BLAI GLASSES (usa DoorSystem)
+    // DELEGADOS DE BLAI GLASSES
     // =========================
-    private static final long BLAI_GLASSES_MAX_POWER = 5_000_000_000L;
-    private boolean blaiGlassesActive = false;
-    private long blaiGlassesRemainingNs = 0L;
-
-    private void tryToActiveBlaiGlasses(DnResult dn) {
-        int dx = dn.dx();
-        int dy = dn.dy();
-
-        if (dx == 0 && dy == 0)
-            return;
-
-        int nx = dn.nx();
-        int ny = dn.ny();
-        int cell = dn.cell();
-
-        if (doorSystem.isDoorClosed(cell)) {
-            boolean opened = false;
-
-            if (doorSystem.isDoorClosedButOpenable(cell)) {
-                opened = doorSystem.tryOpenDoorAt(nx, ny, dx, dy, cell);
-            }
-
-            if (opened)
-                return;
-        }
-
-        if (cell == LOCKED_EXIT) {
-            playLockedExit();
-            return;
-        }
-
-        if (cell == EXIT) {
-            return;
-        }
-
-        if (!blaiGlassesActive && inventory.has(PowerType.BLAI_GLASSES)) {
-            inventory.consumeOne(PowerType.BLAI_GLASSES);
-
-            blaiGlassesActive = true;
-            blaiGlassesRemainingNs = BLAI_GLASSES_MAX_POWER;
-
-            sm.playSfx(Sound.BLAI_GLASSES_POWER.path());
-        }
-    }
-
     public boolean isBlaiGlassesPowerActive() {
-        return blaiGlassesActive;
+        return itemUseActions.isBlaiGlassesPowerActive();
     }
 
     public void offBlaiGlasses() {
-        blaiGlassesActive = false;
+        itemUseActions.offBlaiGlasses();
     }
 
     public long getRemainingBlaiGlassesPower() {
-        return blaiGlassesRemainingNs;
+        return itemUseActions.getRemainingBlaiGlassesPower();
     }
 
     public void updateRemainingBlaiGlassesPower(long update) {
-        blaiGlassesRemainingNs = update;
+        itemUseActions.updateRemainingBlaiGlassesPower(update);
     }
-
-    private static final int BLAI_GLASSES_NERF_KEY = 3;
-    private static final int BLAI_GLASSES_NERF_EXIT = 20;
 
     public double getBlaiNumber() {
-        Position playerPos = getPlayerPosition();
-        int playerX = playerPos.x();
-        int playerY = playerPos.y();
-
-        double distance;
-        if (!inventory.has(PowerType.KEY)) {
-            var keys = placer.getPositionsOf(PowerType.KEY);
-            if (keys.isEmpty())
-                return -1;
-
-            int[] pos = keys.get(0);
-
-            int keyX = pos[0];
-            int keyY = pos[1];
-            distance = getDistance(playerX, playerY, keyX, keyY);
-            if (distance < BLAI_GLASSES_NERF_KEY)
-                distance = -1;
-        } else {
-            int exitX = board.getExitX();
-            int exitY = board.getExitY();
-            distance = getDistance(playerX, playerY, exitX, exitY);
-            if (distance < BLAI_GLASSES_NERF_EXIT)
-                distance = -1;
-        }
-
-        return distance;
-    }
-
-    private double getDistance(int x1, int y1, int x2, int y2) {
-        double dx = (double) x2 - x1;
-        double dy = (double) y2 - y1;
-        double dis = Math.hypot(dx, dy);
-        return Math.round(dis * 100.0) / 100.0;
-    }
-
-    // =========================
-    // KEY / EXIT (usa DoorSystem)
-    // =========================
-    private void tryToOpenExit(DnResult dn) {
-        int dx = dn.dx();
-        int dy = dn.dy();
-
-        if (dx == 0 && dy == 0)
-            return;
-
-        int nx = dn.nx();
-        int ny = dn.ny();
-        int cell = dn.cell();
-
-        if (doorSystem.isDoorClosed(cell) && doorSystem.isDoorClosedButOpenable(cell)) {
-            doorSystem.tryOpenDoorAt(nx, ny, dx, dy, cell);
-            return;
-        }
-
-        if (cell != LOCKED_EXIT)
-            return;
-
-        inventory.consumeOne(PowerType.KEY);
-        board.updateTile(nx, ny, EXIT);
-        sm.playSfx(Sound.OPEN_LOCK.path());
-    }
-
-    private void playLockedExit() {
-        sm.playSfxWithTailDelay(Sound.EXIT_LOCK.path(), 1.5, false, 50);
+        return itemUseActions.getBlaiNumber();
     }
 }
