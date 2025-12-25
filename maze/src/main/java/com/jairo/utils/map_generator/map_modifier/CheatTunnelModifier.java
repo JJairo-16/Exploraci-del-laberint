@@ -11,6 +11,9 @@ import static com.jairo.utils.map_generator.Cells.*;
  * Sustituye algunos suelos de túnel por CHEAT_PATH y exactamente
  * un suelo adyacente y continuo por CHEAT_WALL.
  *
+ * Además: convierte aleatoriamente entre un 20% y un 30% de los CHEAT_PATH
+ * colocados en HIDDEN_CHEAT_PATH.
+ *
  * OJO: Opera sobre el board 2D (List<List<Integer>>), NO sobre el string plano,
  * porque CHEAT_* son valores > 9.
  */
@@ -21,6 +24,10 @@ public final class CheatTunnelModifier {
     // Por defecto: pocos "cheats"
     private static final double DEFAULT_DENSITY = 0.02;
     private static final int MAX_ATTEMPTS_MULT = 8;
+
+    // Ratio de CHEAT_PATH que pasarán a HIDDEN_CHEAT_PATH
+    private static final double MIN_HIDDEN_RATIO = 0.2; // 0.2
+    private static final double MAX_HIDDEN_RATIO = 0.3; // 0.3
 
     public static void apply(List<List<Integer>> cells) {
         apply(cells, DEFAULT_DENSITY, new SecureRandom());
@@ -47,12 +54,15 @@ public final class CheatTunnelModifier {
         if (candidates.isEmpty()) return;
 
         // objetivo aproximado
-        int target = Math.max(1, (int)Math.round(candidates.size() * density));
+        int target = Math.max(1, (int) Math.round(candidates.size() * density));
 
         Collections.shuffle(candidates, rnd);
 
         int placed = 0;
         int attempts = Math.min(candidates.size() * MAX_ATTEMPTS_MULT, 9000);
+
+        // Guardamos dónde colocamos CHEAT_PATH para luego ocultar un % de ellos
+        List<int[]> placedCheatPaths = new ArrayList<>(target);
 
         for (int i = 0; i < attempts && placed < target; i++) {
             int[] p = candidates.get(rnd.nextInt(candidates.size()));
@@ -73,7 +83,31 @@ public final class CheatTunnelModifier {
             cells.get(y).set(x, CHEAT_PATH);
             cells.get(ny).set(nx, CHEAT_WALL);
 
+            placedCheatPaths.add(new int[] {x, y});
             placed++;
+        }
+
+        // 4) Convertir entre el 20% y el 30% de los CHEAT_PATH colocados a HIDDEN_CHEAT_PATH
+        if (!placedCheatPaths.isEmpty()) {
+            // Elegimos un ratio aleatorio en [0.20, 0.30]
+            double ratio = MIN_HIDDEN_RATIO + rnd.nextDouble() * (MAX_HIDDEN_RATIO - MIN_HIDDEN_RATIO);
+
+            int hiddenTarget = (int) Math.round(placedCheatPaths.size() * ratio);
+            // Por seguridad: acotar a [0, placedCheatPaths.size()]
+            if (hiddenTarget < 0) hiddenTarget = 0;
+            if (hiddenTarget > placedCheatPaths.size()) hiddenTarget = placedCheatPaths.size();
+
+            Collections.shuffle(placedCheatPaths, rnd);
+
+            for (int i = 0; i < hiddenTarget; i++) {
+                int[] p = placedCheatPaths.get(i);
+                int x = p[0], y = p[1];
+
+                // Si por cualquier razón cambió, no lo forzamos
+                if (cells.get(y).get(x) == CHEAT_PATH) {
+                    cells.get(y).set(x, HIDDEN_CHEAT_PATH);
+                }
+            }
         }
     }
 

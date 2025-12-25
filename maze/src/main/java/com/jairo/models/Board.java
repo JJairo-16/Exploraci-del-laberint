@@ -24,6 +24,8 @@ public class Board {
     public static final int BOARD_WIDTH = MapGenerator.BOARD_WIDTH;
     public static final int BOARD_HEIGHT = MapGenerator.BOARD_HEIGHT;
 
+    private static final double MIN_WALKABLE_CELLS_RATIO = 0.3;
+
     // Mapa (original, para render/visibilidad/etc.)
     private final List<List<Integer>> cells;
     private final List<List<Integer>> visibility;
@@ -93,6 +95,11 @@ public class Board {
             // opcional: evitar spawns raros (sin salidas / área mínima)
             if (b.countWalkableNeighborsForValidation(spawnX, spawnY) == 0) {
                 log.warn("Generated board rejected (spawn trapped). try {}/{}", tries, maxRetries);
+                continue;
+            }
+
+            if (!sufficientWalkableCells(b.getCells())) {
+                log.warn("Generated board rejected (insufficient walkable cells). try {}/{}", tries, maxRetries);
                 continue;
             }
 
@@ -287,7 +294,8 @@ public class Board {
     private int baseMaxY = 1;
 
     public void updateDiscoverPower(int[] power) {
-        if (power == null || power.length != 4) return;
+        if (power == null || power.length != 4)
+            return;
 
         baseMinX = power[0];
         baseMaxX = power[1];
@@ -367,4 +375,24 @@ public class Board {
         }
         secretWalls.clear();
     }
+
+    private static boolean sufficientWalkableCells(List<List<Integer>> cells) {
+        int walkable = 0;
+        int totalCells = 0;
+
+        for (List<Integer> row : cells) {
+            totalCells += row.size();
+            for (int cell : row) {
+                if (Cells.isPath(cell)) {
+                    walkable++;
+                }
+            }
+        }
+
+        if (totalCells == 0)
+            return false;
+
+        return walkable >= MIN_WALKABLE_CELLS_RATIO * totalCells;
+    }
+
 }

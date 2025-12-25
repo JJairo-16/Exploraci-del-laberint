@@ -37,12 +37,18 @@ public final class DrawerParser {
                 CHEATED_WALL_SOLID,
 
                 WALL,
-                ICE
+                ICE,
+
+                HIDDEN_CHEATED_PATH
         };
     }
 
     public static Sprite parse(int tile) {
         // Maneja negativos o ids fuera de rango
         return (tile >= 0 && tile < LIB.length) ? LIB[tile] : NONE;
+    }
+
+    public static void reload(int i, Sprite sprite) {
+        LIB[i] = sprite;
     }
 }

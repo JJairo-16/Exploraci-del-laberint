@@ -62,7 +62,13 @@ public final class CheatWallActivationSystem {
 
         if (!active) return;
 
-        boolean onCheatPath = (cells.get(playerY).get(playerX) == CHEAT_PATH);
+        int cell = cells.get(playerY).get(playerX);
+        boolean onCheatPath = (isACheatedPath(cell));
+
+        if (cell == HIDDEN_CHEAT_PATH) {
+            board.updateTile(playerX, playerY, CHEAT_PATH);
+        }
+
         if (!onCheatPath) {
             revertAndClear(cells);
             return;
@@ -232,5 +238,13 @@ public final class CheatWallActivationSystem {
             cheatedWallChain.setOnFinished(e -> sm.playSfx(s2));
             cheatedWallChain.playFromStart();
         });
+    }
+
+    private static final List<Integer> CHEATED_PATHS = List.of(
+        CHEAT_PATH,
+        HIDDEN_CHEAT_PATH
+    );
+    private boolean isACheatedPath(int cell) {
+        return CHEATED_PATHS.contains(cell);
     }
 }

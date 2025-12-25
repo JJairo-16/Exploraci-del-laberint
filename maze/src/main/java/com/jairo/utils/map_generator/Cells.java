@@ -35,6 +35,8 @@ public class Cells {
     public static final int SECRET_WALL = 20;
     public static final int ICE = 21;
 
+    public static final int HIDDEN_CHEAT_PATH = 22;
+
     public static int parseCell(char c) {
         return switch (c) {
             case '1' -> WALL;
@@ -68,6 +70,7 @@ public class Cells {
             PATH,
             DESTROYED_PATH,
             CHEAT_PATH,
+            HIDDEN_CHEAT_PATH,
             CHEAT_WALL,
             CHEAT_WALL_ACTIVE,
             ICE);

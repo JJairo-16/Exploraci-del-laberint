@@ -32,8 +32,8 @@ public class DoorSystem {
     private static final long DELAY_MS = 200L;
     private static final long TOC_TOC_DELAY_MS = 100L;
 
-    private static final int TOC_TOC_PROBABLY = 10; // %
-    private static final int JI_JI_PROBABLY_RECURSIVE = 20; // %
+    private static final int TOC_TOC_PROBABLY = 20; // %
+    private static final int JI_JI_PROBABLY_RECURSIVE = 35; // %
 
     private static final Random RANDOM = new Random();
 

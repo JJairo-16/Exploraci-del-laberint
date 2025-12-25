@@ -24,6 +24,7 @@ public enum Sprite {
     DOOR_OPENED_FROM_EAST(DOORS.get("door_opened_from_east.png")),
 
     CHEATED_PATH(GAME.get("cheated-path.png")),
+    HIDDEN_CHEATED_PATH(Sprite.PATH.path()),
     CHEATED_WALL(Sprite.PATH.path()),
     CHEAT_WALL_ACTIVE(Sprite.WALL.path()),
     CHEATED_WALL_SOLID(Sprite.WALL.path()),
@@ -62,9 +63,9 @@ public enum Sprite {
     private boolean fullTile = true;
     private Sprite back;
 
-    Sprite(String resourcePath, double rotaion) {
+    Sprite(String resourcePath, double rotation) {
         this.resourcePath = resourcePath;
-        this.rotation = rotaion;
+        this.rotation = rotation;
     }
 
     Sprite(String resourcePath) {
