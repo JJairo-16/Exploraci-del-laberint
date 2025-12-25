@@ -77,11 +77,24 @@ public class ItemUseActions {
 
         int cell = dn.cell();
 
-        if (!Cells.hasCollision(cell)) return;
+        if (!Cells.hasCollision(cell)) {
+            if(doorSystem.isDoorOpened(cell)) {
+                playDoorHit();
+            }
+
+            return;
+        }
 
         if (doorSystem.isAnyDoor(cell)) {
-            playDoorHit();
-            return;
+            boolean opened = false;
+
+            if (doorSystem.isDoorClosedButOpenable(cell)) {
+                opened = doorSystem.tryOpenDoorAt(nx, ny, dx, dy, cell);
+            }
+
+            if (!opened) {
+                playDoorHit();
+            }
         }
 
         if (!Cells.isBreakable(cell)) {

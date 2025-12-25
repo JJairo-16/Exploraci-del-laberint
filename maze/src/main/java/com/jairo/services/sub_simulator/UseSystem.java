@@ -63,9 +63,6 @@ public class UseSystem {
      * @return el item usado o null si se ha hecho USE "sin item"
      */
     public ItemType use(Action lastMovement, Action currentAction, int lockedExit) {
-        boolean opened = doorOpener.tryOpenDoor(currentAction);
-        if (opened) return null;
-
         // 1) Intentar usar item seleccionado
         ItemType selected = inventory.getSelectedPower();
         if (selected != null && inventory.has(selected)) {
@@ -81,6 +78,7 @@ public class UseSystem {
             return null;
         }
 
+        doorOpener.tryOpenDoor(currentAction);
         return null;
     }
 

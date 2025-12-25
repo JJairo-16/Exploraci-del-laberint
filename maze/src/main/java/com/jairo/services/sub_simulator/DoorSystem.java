@@ -42,7 +42,8 @@ public class DoorSystem {
     public DoorSystem(Board board) {
         this.board = board;
 
-        // Definir grupo una vez (idempotente si tu SoundManager lo soporta; si no, mantén un flag)
+        // Definir grupo una vez (idempotente si tu SoundManager lo soporta; si no,
+        // mantén un flag)
         sm.defineGroup("lockedDoor",
                 LOCKED_DOOR_SOUND,
                 TOCTOC_SOUND,
@@ -113,7 +114,11 @@ public class DoorSystem {
     // Abrir puerta delante
     // =========================
 
-    public boolean tryToOpenDoor(Action currentAction, int playerX, int playerY, boolean force) {
+    public boolean tryToOpenDoor(Action currentAction,
+            int playerX,
+            int playerY,
+            boolean force,
+            boolean playNoOpenedSound) {
         int dx = 0;
         int dy = 0;
 
@@ -134,6 +139,7 @@ public class DoorSystem {
 
         int cell = board.getTile(nx, ny);
 
+        // Si no es una puerta cerrada abrible, no hacemos nada
         if (!isDoorClosedButOpenable(cell))
             return false;
 
@@ -156,10 +162,14 @@ public class DoorSystem {
 
             board.updateTile(nx, ny, opened);
             sm.playSfx(OPEN_DOOR_SOUND);
-            return false;
+            return false; // (mantengo tu comportamiento original)
         }
 
-        // No se puede abrir: reproducir sonido “locked”
+        // No se puede abrir: NO reproducir sonido si está desactivado
+        if (!playNoOpenedSound)
+            return true;
+
+        // No se puede abrir: reproducir sonido “locked” (evitar solapar)
         if (sm.isGroupPlaying("lockedDoor"))
             return false;
 
@@ -171,7 +181,7 @@ public class DoorSystem {
     }
 
     public boolean tryToOpenDoor(Action currentAction, int playerX, int playerY) {
-        return tryToOpenDoor(currentAction, playerX, playerY, false);
+        return tryToOpenDoor(currentAction, playerX, playerY, false, true);
     }
 
     private boolean randomWithProbably(int probably) {
