@@ -303,7 +303,7 @@ public class ItemUseActions {
     }
 
     private static final int BROKEN_KEY_EXIT_RATIO = 35;
-    private static final int JIJI_RATIO = 35;
+    private static final int JIJI_RATIO = 20;
     private static final long DELAY_MS = 20L;
 
     private void tryToUseBrokenKey(DnResult dn) {

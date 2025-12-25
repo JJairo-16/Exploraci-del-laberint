@@ -13,9 +13,12 @@ public enum BasicItemType implements ItemType {
     private final int minBetween;
     private final String pickupSfx;
     private final Qualities quality;
+    
+    private int minDistFromBorder = 0;
 
     static {
         MAP.shouldDuplicatePickup = false;
+        MAP.minDistFromBorder = 3;
     }
 
     private boolean shouldDuplicatePickup = true;
@@ -46,6 +49,7 @@ public enum BasicItemType implements ItemType {
     @Override public String getPickupSoundPath() { return pickupSfx; }
     @Override public Qualities getQuality() { return quality; }
     @Override public boolean shouldDuplicatePickup() { return shouldDuplicatePickup; }
+    @Override public int getMinDistFromBorder() { return minDistFromBorder; }
 
     // Opcional: limites
     @Override public int getMaxCount() {

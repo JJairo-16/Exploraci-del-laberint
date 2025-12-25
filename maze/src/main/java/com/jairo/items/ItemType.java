@@ -82,4 +82,8 @@ public interface ItemType {
     default boolean shouldDuplicatePickup() {
         return false;
     }
+
+    default int getMinDistFromBorder() {
+        return 0;
+    }
 }

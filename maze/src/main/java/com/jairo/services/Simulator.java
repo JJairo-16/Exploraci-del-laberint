@@ -29,7 +29,6 @@ import com.jairo.services.sub_simulator.coin_system.CoinsPowerState;
 import com.jairo.services.sub_simulator.DoorSystem;
 import com.jairo.services.sub_simulator.ItemUseActions;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 

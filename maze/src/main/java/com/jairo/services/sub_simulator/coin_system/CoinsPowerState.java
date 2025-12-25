@@ -33,11 +33,17 @@ public final class CoinsPowerState {
     }
 
     private static final int[] LEVEL_THRESHOLDS = {
-            CoinSpeedSystem.setMinPercentage(10),
-            CoinDuplicateSystem.setMinPercentage(25),
+            10,
+            25,
             45,
             55
     };
+
+    static {
+        applyGlobalMultiplierWithCapInPlace(LEVEL_THRESHOLDS, 1.8, 80);
+        CoinDuplicateSystem.setMinPercentage(LEVEL_THRESHOLDS[0]);
+        CoinDuplicateSystem.setMinPercentage(LEVEL_THRESHOLDS[1]);
+    }
 
     private static int level = 0;
     private boolean enabled = false;
@@ -117,11 +123,6 @@ public final class CoinsPowerState {
             playSound();
         }
 
-        // Niveles 2..4: calidad del poder (EPIC, LEGENDARY, UNIQUE)
-        // Mapeo correcto:
-        // 2 -> EPIC
-        // 3 -> LEGENDARY
-        // 4 -> UNIQUE
         List<Qualities> qs = List.of(EPIC, LEGENDARY, UNIQUE);
 
         for (int i = 0; i < qs.size(); i++) {
@@ -141,4 +142,31 @@ public final class CoinsPowerState {
     private void playSound() {
         sm.playSfx(SOUND_PATH);
     }
+
+    public static void applyGlobalMultiplierWithCapInPlace(
+            int[] values,
+            double initialMultiplier,
+            int maxLastValue) {
+
+        if (values == null || values.length == 0)
+            return;
+
+        int lastValue = values[values.length - 1];
+
+        if (lastValue <= 0)
+            return;
+
+        double multiplier;
+        if (Math.round(lastValue * initialMultiplier) > maxLastValue) {
+            double maxMultiplier = (maxLastValue - 0.5) / lastValue;
+            multiplier = Math.min(initialMultiplier, maxMultiplier);
+        } else {
+            multiplier = initialMultiplier;
+        }
+
+        for (int i = 0; i < values.length; i++) {
+            values[i] = (int) Math.round(values[i] * multiplier);
+        }
+    }
+
 }

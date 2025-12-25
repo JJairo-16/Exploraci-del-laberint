@@ -49,6 +49,9 @@ public enum SpecialType implements ItemType {
     static {
         BOOTS.setSpawnBlacklist(ICE, Cells.CHEAT_WALL);
         COINS_POWER.updateCount(0, 0, false);
+
+        CHEATED_BUTTON.updateCount(2, 2, true);
+        BOOTS.updateCount(2, 2, true);
     }
 
     @SuppressWarnings("unused")
