@@ -44,6 +44,7 @@ public enum Sprite {
     // * Items
     // Basic
     COIN(ITEMS.get("coin.png")),
+    MAP(ITEMS.get("map.png")),
     
     // Power
     PICKAXE(ITEMS.get("pickaxe.png")),

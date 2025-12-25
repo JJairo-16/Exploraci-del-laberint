@@ -27,6 +27,7 @@ public class SimulatorLoader {
     private static final List<ItemType> items = List.of(
             // * Basic
             BasicItemType.COIN,
+            BasicItemType.MAP,
 
             // * Special
             SpecialType.CHEATED_BUTTON,

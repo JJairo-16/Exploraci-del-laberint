@@ -38,7 +38,9 @@ public enum Sound {
     BROKEN_KEY_FAIL(ITEMS.get("broken-key-sound.mp3")),
 
     OPEN_LOCK(ITEMS.get("open-lock.mp3")),
-    EXIT_LOCK(ITEMS.get("no-open-lock.mp3"));
+    EXIT_LOCK(ITEMS.get("no-open-lock.mp3")),
+
+    MAP_WRITING(ITEMS.get("map-wrinting.mp3"));
 
     private final String resourcePath;
 

@@ -29,6 +29,8 @@ import com.jairo.services.sub_simulator.coin_system.CoinsPowerState;
 import com.jairo.services.sub_simulator.DoorSystem;
 import com.jairo.services.sub_simulator.ItemUseActions;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
 public class Simulator {
@@ -76,7 +78,18 @@ public class Simulator {
         return board;
     }
 
+    private static final int MAP_POWER = 3;
+    private static final int MIN_MAP_EFFECT = 4;
+
     private final int totalCoins;
+
+    private static final Map<ItemType, Double> customVol = Map.of(
+        BasicItemType.MAP, 1.5
+    );
+
+    private double getCustomVol(ItemType item) {
+        return customVol.getOrDefault(item, 1.0);
+    }
 
     public Simulator(Player player, Board board, ItemPlacer placer) {
         this.placer = placer;
@@ -325,8 +338,9 @@ public class Simulator {
         runPickup(type);
 
         String sfx = type.getPickupSoundPath();
+        double vol = getCustomVol(type);
         if (sfx != null && !sfx.isBlank()) {
-            sm.playSfx(sfx);
+            sm.playSfx(sfx, vol);
         }
 
         log.info("Picked up {} at ({},{})", type.getId(), x, y);
@@ -349,6 +363,12 @@ public class Simulator {
 
             case SpecialType.BOOTS:
                 iceSystem.setIceActivated(false);
+                break;
+            
+            case BasicItemType.MAP:
+                // int discovered = board.discoverAroundPowered(player.getX(), player.getY(), MAP_POWER);
+                int discovered = board.discoverUntilMin(player.getX(), player.getY(), MAP_POWER, MIN_MAP_EFFECT);
+                System.out.println(discovered);
                 break;
 
             default:

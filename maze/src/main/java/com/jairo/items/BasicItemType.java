@@ -4,7 +4,8 @@ import com.jairo.app.audio.Sound;
 import com.jairo.app.gfx.Sprite;
 
 public enum BasicItemType implements ItemType {
-    COIN(Sprite.COIN, 0.225, 5, 4, Sound.COIN);
+    COIN(Sprite.COIN, 0.225, 5, 4, Sound.COIN),
+    MAP(Sprite.MAP, 0.005, 40, 20, Sound.MAP_WRITING, Qualities.EPIC); // ? 0.008 40 15
     
     private final Sprite sprite;
     private final double density;
@@ -12,6 +13,10 @@ public enum BasicItemType implements ItemType {
     private final int minBetween;
     private final String pickupSfx;
     private final Qualities quality;
+
+    static {
+        MAP.shouldDuplicatePickup = false;
+    }
 
     private boolean shouldDuplicatePickup = true;
 
@@ -22,6 +27,15 @@ public enum BasicItemType implements ItemType {
         this.minBetween = minBetween;
         this.pickupSfx = pickupSfx.path();
         this.quality = Qualities.COMMON;
+    }
+
+    BasicItemType(Sprite sprite, double density, int minPlayer, int minBetween, Sound pickupSfx, Qualities q) {
+        this.sprite = sprite;
+        this.density = density;
+        this.minPlayer = minPlayer;
+        this.minBetween = minBetween;
+        this.pickupSfx = pickupSfx.path();
+        this.quality = q;
     }
 
     @Override public String getId() { return name(); }

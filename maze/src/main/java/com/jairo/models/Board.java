@@ -402,4 +402,26 @@ public class Board {
         return doorsCount;
     }
 
+    public int discoverAroundPowered(int px, int py, int power) {
+        return BoardDiscovery.discoverAroundPowered(
+                cells, visibility,
+                BOARD_WIDTH, BOARD_HEIGHT,
+                px, py, power,
+                () -> newDiscover = true);
+    }
+
+    public int discoverUntilMin(int px, int py, int initialPower, int minRequired, int maxAttempts) {
+        return BoardDiscovery.discoverUntilMin(
+                cells, visibility,
+                BOARD_WIDTH, BOARD_HEIGHT,
+                px, py,
+                initialPower, minRequired, maxAttempts,
+                () -> newDiscover = true);
+    }
+
+    public int discoverUntilMin(int px, int py, int initialPower, int minRequired) {
+        int maxAttempts = BoardDiscovery.defaultMaxAttempts(initialPower);
+        return discoverUntilMin(px, py, initialPower, minRequired, maxAttempts);
+    }
+
 }

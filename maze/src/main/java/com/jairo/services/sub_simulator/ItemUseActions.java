@@ -338,15 +338,12 @@ public class ItemUseActions {
         }
 
         String path;
-        long delay;
         if (randomWithProbably(JIJI_RATIO)) {
             path = doorSystem.getJiJiPath();
-            delay = DoorSystem.DELAY_MS;
         } else {
             path = Sound.BROKEN_KEY_FAIL.path();
-            delay = DELAY_MS;
         }
 
-        sm.playSfxWithTailDelay(path, 1.0, false, delay);
+        sm.playSfxWithTailDelay(path, 1.0, false, DELAY_MS);
     }
 }
