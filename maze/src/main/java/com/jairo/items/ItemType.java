@@ -1,5 +1,7 @@
 package com.jairo.items;
 
+import com.jairo.utils.map_generator.Cells;
+
 import java.util.List;
 
 import com.jairo.app.gfx.Sprite;
@@ -66,7 +68,7 @@ public interface ItemType {
      * Por defecto, vacío => no filtra nada extra.
      */
     default List<Integer> getSpawnBlackList() {
-        return List.of();
+        return List.of(Cells.CHEAT_WALL);
     }
 
     default boolean shouldFloat() {
@@ -74,6 +76,10 @@ public interface ItemType {
     }
 
     default boolean removeRemaining() {
+        return false;
+    }
+
+    default boolean shouldDuplicatePickup() {
         return false;
     }
 }

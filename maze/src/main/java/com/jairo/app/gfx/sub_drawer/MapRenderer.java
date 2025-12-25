@@ -15,7 +15,6 @@ public class MapRenderer {
 
     private final Board board;
     private final CameraSystem cameraSystem;
-    private final ImageStore images;
     private final GraphicsContext mapGC;
 
     private final double lockedExitRotation;
@@ -30,7 +29,6 @@ public class MapRenderer {
     public MapRenderer(Board board, CameraSystem cameraSystem, ImageStore images, GraphicsContext mapGC) {
         this.board = board;
         this.cameraSystem = cameraSystem;
-        this.images = images;
         this.mapGC = mapGC;
 
         lockedExitRotation = getLockedExitRotation();

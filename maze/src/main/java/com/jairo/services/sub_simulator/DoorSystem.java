@@ -113,7 +113,7 @@ public class DoorSystem {
     // Abrir puerta delante
     // =========================
 
-    public void tryToOpenDoor(Action currentAction, int playerX, int playerY) {
+    public boolean tryToOpenDoor(Action currentAction, int playerX, int playerY, boolean force) {
         int dx = 0;
         int dy = 0;
 
@@ -130,19 +130,19 @@ public class DoorSystem {
         int ny = playerY + dy;
 
         if (nx < 0 || ny < 0 || nx >= Board.BOARD_WIDTH || ny >= Board.BOARD_HEIGHT)
-            return;
+            return false;
 
         int cell = board.getTile(nx, ny);
 
         if (!isDoorClosedButOpenable(cell))
-            return;
+            return false;
 
         boolean canOpen = switch (cell) {
             case DOOR_OPEN_FROM_NORTH -> dy == 1;
             case DOOR_OPEN_FROM_SOUTH -> dy == -1;
             case DOOR_OPEN_FROM_WEST -> dx == 1;
             case DOOR_OPEN_FROM_EAST -> dx == -1;
-            default -> false;
+            default -> force;
         };
 
         if (canOpen) {
@@ -156,16 +156,22 @@ public class DoorSystem {
 
             board.updateTile(nx, ny, opened);
             sm.playSfx(OPEN_DOOR_SOUND);
-            return;
+            return false;
         }
 
         // No se puede abrir: reproducir sonido “locked”
         if (sm.isGroupPlaying("lockedDoor"))
-            return;
+            return false;
 
         String path = getLockedDoorPath();
         long delay = path.equals(TOCTOC_SOUND) ? TOC_TOC_DELAY_MS : DELAY_MS;
         sm.playSfxWithTailDelay(path, 1.0, false, delay);
+
+        return true;
+    }
+
+    public boolean tryToOpenDoor(Action currentAction, int playerX, int playerY) {
+        return tryToOpenDoor(currentAction, playerX, playerY, false);
     }
 
     private boolean randomWithProbably(int probably) {

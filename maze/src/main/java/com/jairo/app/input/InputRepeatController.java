@@ -33,8 +33,7 @@ public final class InputRepeatController {
             InputHandler input,
             long initialDelayNs,
             long repeatEveryNs,
-            double sprintSpeedMultiplier
-    ) {
+            double sprintSpeedMultiplier) {
         this.simulator = simulator;
         this.input = input;
         this.initialDelayNs = initialDelayNs;
@@ -43,9 +42,11 @@ public final class InputRepeatController {
     }
 
     private boolean isActionHeld(KeyBind.Action action) {
-        if (action == null) return false;
+        if (action == null)
+            return false;
         for (KeyCode k : pressed) {
-            if (KeyBind.getAction(k) == action) return true;
+            if (KeyBind.getAction(k) == action)
+                return true;
         }
         return false;
     }
@@ -53,15 +54,22 @@ public final class InputRepeatController {
     private KeyBind.Action findAnyHeldMaintainableAction() {
         for (KeyCode k : pressed) {
             KeyBind.Action a = KeyBind.getAction(k);
-            if (a != null && a.canMaintain) return a;
+            if (a != null && a.canMaintain)
+                return a;
         }
         return null;
     }
 
-    private double sprintFactor() {
+    private double tapFactor() {
+        // Solo afecta al "tap" (la primera pulsación)
         return (sprinting && simulator.getCurrentAction().isAMovement)
                 ? sprintSpeedMultiplier
                 : 1.0;
+    }
+
+    private double holdFactor() {
+        // Mantener pulsado: sprint + monedas
+        return tapFactor() * simulator.getSprintingCooldownMultiplier();
     }
 
     /**
@@ -80,15 +88,22 @@ public final class InputRepeatController {
         }
 
         KeyBind.Action action = KeyBind.getAction(key);
-        if (action == null) return false;
+        if (action == null)
+            return false;
 
         if (action.canMaintain) {
             activeMoveAction = action;
             input.runAction(action);
 
-            long delay = (long) (initialDelayNs * sprintFactor());
-            nextRepeatNs = now + delay;
+            long base = (long) (initialDelayNs * action.cooldownMultiplier);
+            long delay = (long) (base * tapFactor()); // 👈 SIN monedas
 
+            boolean use = action == KeyBind.Action.USE;
+            boolean power = simulator.getInventory().containsPower(simulator.getLastPower());
+            if (use && power)
+                delay *= 1.5;
+
+            nextRepeatNs = now + delay;
             return true;
         }
 
@@ -104,17 +119,19 @@ public final class InputRepeatController {
         }
 
         KeyBind.Action action = KeyBind.getAction(key);
-        if (action == null) return;
+        if (action == null)
+            return;
 
         if (action == activeMoveAction && !isActionHeld(activeMoveAction)) {
             activeMoveAction = findAnyHeldMaintainableAction();
 
             long base = (long) (initialDelayNs * action.cooldownMultiplier);
-            long delay = (long) (base * sprintFactor());
+            long delay = (long) (base * holdFactor()); // 👈 CON monedas
 
             boolean use = action == KeyBind.Action.USE;
             boolean power = simulator.getInventory().containsPower(simulator.getLastPower());
-            if (use && power) delay *= 1.5;
+            if (use && power)
+                delay *= 1.5;
 
             nextRepeatNs = now + delay;
         }
@@ -124,17 +141,28 @@ public final class InputRepeatController {
      * @return true si ejecutó acción (marca drawerDirty)
      */
     public boolean handleRepeatTick(long now) {
-        if (activeMoveAction == null) return false;
-        if (!activeMoveAction.canMaintain) return false;
-        if (!isActionHeld(activeMoveAction)) return false;
-        if (now < nextRepeatNs) return false;
+        if (activeMoveAction == null)
+            return false;
+        if (!activeMoveAction.canMaintain)
+            return false;
+        if (!isActionHeld(activeMoveAction))
+            return false;
+        if (now < nextRepeatNs)
+            return false;
 
         input.runAction(activeMoveAction);
 
-        long interval = (long) (repeatEveryNs * sprintFactor());
-        nextRepeatNs = now + interval;
+        long baseInterval = (long) (repeatEveryNs * activeMoveAction.cooldownMultiplier);
+        long interval = (long) (baseInterval * holdFactor()); // 👈 CON monedas
 
+        boolean use = activeMoveAction == KeyBind.Action.USE;
+        boolean power = simulator.getInventory().containsPower(simulator.getLastPower());
+        if (use && power)
+            interval *= 1.5;
+
+        nextRepeatNs = now + interval;
         return true;
+
     }
 
     /**

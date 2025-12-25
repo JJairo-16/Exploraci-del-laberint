@@ -5,20 +5,22 @@ import com.jairo.app.gfx.Sprite;
 
 import static com.jairo.items.Qualities.*;
 import static com.jairo.utils.map_generator.Cells.ICE;
+import com.jairo.utils.map_generator.Cells;
 
 import java.util.Arrays;
 import java.util.List;
 
 public enum SpecialType implements ItemType {
     CHEATED_BUTTON(Sprite.CHEATED_BUTTON, 50, Sound.CHEATED_BUTTON, EPIC),
-    BOOTS(Sprite.BOOTS, 50, Sound.BOOTS, EPIC);
+    BOOTS(Sprite.BOOTS, 50, Sound.BOOTS, EPIC),
+    COINS_POWER(Sprite.PLAYER, 0, Sound.COIN, COMMON);
 
     private final Sprite sprite;
     private final double density = 1;
     private final int minPlayer;
     private int minBetween = 2;
     private final String pickupSfx;
-    private final Qualities quality;
+    private Qualities quality;
 
     private int minCount = 1;
     private int maxCount = 1;
@@ -45,7 +47,8 @@ public enum SpecialType implements ItemType {
     @Override public boolean removeRemaining() { return removeRemaining; }
 
     static {
-        BOOTS.setSpawnBlacklist(ICE);
+        BOOTS.setSpawnBlacklist(ICE, Cells.CHEAT_WALL);
+        COINS_POWER.updateCount(0, 0, false);
     }
 
     @SuppressWarnings("unused")
@@ -70,5 +73,9 @@ public enum SpecialType implements ItemType {
         this.removeRemaining = removeRemaining;
 
         this.minBetween = 30;
+    }
+
+    public void updateQuality(Qualities q) {
+        this.quality = q;
     }
 }

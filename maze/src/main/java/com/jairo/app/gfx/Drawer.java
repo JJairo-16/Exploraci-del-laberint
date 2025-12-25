@@ -36,6 +36,10 @@ import javafx.scene.image.Image;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 
+import javafx.scene.paint.CycleMethod;
+import javafx.scene.paint.LinearGradient;
+import javafx.scene.paint.Stop;
+
 public class Drawer {
     private static final Logger log = LoggerFactory.getLogger(Drawer.class);
 
@@ -45,6 +49,17 @@ public class Drawer {
             3.5,
             0.12,
             0.75);
+
+    // HUD float (solo COINS_POWER cuando está enabled)
+    private static final double HUD_FLOAT_SPEED_HZ = 1.05;
+    private static final double HUD_FLOAT_AMPLITUDE_PX = 4.0;
+
+    // Suavizado al activar/desactivar (más alto = más rápido converge)
+    private static final double HUD_FLOAT_SMOOTHING = 11.0;
+
+    // Estado persistente del offset del icono (para que vuelva suave)
+    private double coinsHudFloatOffsetPx = 0.0;
+    private double lastHudT = -1.0;
 
     // ---------- FXML ----------
     @FXML
@@ -90,6 +105,7 @@ public class Drawer {
     private final MapRenderer mapRenderer; // (4) nuevo
 
     private boolean renderFps = false;
+
     public void switchFps() {
         renderFps = !renderFps;
     }
@@ -274,7 +290,8 @@ public class Drawer {
         HudModel model = hudLayout.compute(hudOrderedItems);
 
         // ✅ FPS
-        if (renderFps) renderFps();
+        if (renderFps)
+            renderFps();
 
         renderPosition(model);
         renderCoins(model);
@@ -287,7 +304,6 @@ public class Drawer {
         long now = renderLoop.getLastNow(); // mismo "now" que usa el renderLoop
         updateFps(now);
 
-        // Si ya has añadido fpsTextX/fpsTextY en HudLayout:
         String fpsText = "FPS: " + (int) Math.round(fpsValue);
         double margin = 18;
 
@@ -338,7 +354,8 @@ public class Drawer {
                 HUD_GLOW);
 
         hudGC.drawImage(coinImg, r.x, r.y, r.w, r.h);
-        hudGC.fillText("x" + coins, model.coinTextX, model.coinTextBaselineY);
+        hudGC.fillText("x" + coins, model.coinTextX,
+                model.coinTextBaselineY);
     }
 
     private void renderHudOrderedItems(HudModel model) {
@@ -367,18 +384,80 @@ public class Drawer {
 
         Qualities q = type.getQuality();
 
+        // ✅ baseY: posición fija (para barra)
+        // ✅ iconY: posición que puede flotar (solo icono)
+        double baseY = r.y;
+        double iconY = r.y;
+
+        // --- flotación con retorno suave solo para COINS_POWER (solo icono) ---
+        if (type == SpecialType.COINS_POWER) {
+            double dt = 0.0;
+            if (lastHudT >= 0.0) {
+                dt = Math.max(0.0, t - lastHudT);
+            }
+            lastHudT = t;
+
+            boolean enabled = simulator.isCoinsPowerSprintBoostEnabled();
+
+            double target = 0.0;
+            if (enabled) {
+                double omega = 2.0 * Math.PI * HUD_FLOAT_SPEED_HZ;
+                target = Math.sin(t * omega) * HUD_FLOAT_AMPLITUDE_PX;
+            }
+
+            double alpha = 1.0 - Math.exp(-HUD_FLOAT_SMOOTHING * dt);
+            coinsHudFloatOffsetPx = coinsHudFloatOffsetPx + (target - coinsHudFloatOffsetPx) * alpha;
+
+            iconY += coinsHudFloatOffsetPx; // ✅ solo se mueve el icono
+        }
+
+        // Glow + icono (usa iconY)
         GlowEffectRenderer.applyRgb(
                 hudGC,
                 img,
                 r.x,
-                r.y,
+                iconY,
                 r.w,
                 t,
                 0.0,
                 q.red, q.green, q.blue,
                 HUD_GLOW);
 
-        hudGC.drawImage(img, r.x, r.y, r.w, r.h);
+        hudGC.drawImage(img, r.x, iconY, r.w, r.h);
+
+        // Solo COINS_POWER tiene barra
+        if (type != SpecialType.COINS_POWER)
+            return;
+
+        double radar = simulator.getRadar();
+        if (radar == -1.0)
+            return;
+
+        double p = normalizeRadarTo01(radar); // 0..1
+
+        double barH = r.h * RADAR_BAR_H_RATIO;
+
+        // ✅ barY fijo: usa baseY, NO iconY
+        double barY = baseY + (r.h - barH) * 0.5;
+
+        double barX = r.x + r.w + RADAR_BAR_GAP_PX;
+        double barW = RADAR_BAR_W_PX;
+
+        // fondo
+        hudGC.setFill(Color.rgb(0, 0, 0, RADAR_BAR_ALPHA_BG));
+        hudGC.fillRoundRect(barX, barY, barW, barH, 4, 4);
+
+        // relleno (de abajo hacia arriba)
+        double fillH = barH * p;
+        double fillY = barY + (barH - fillH);
+
+        // ✅ gradiente verde abajo -> rojo arriba
+        hudGC.setFill(RADAR_GRADIENT);
+        hudGC.fillRoundRect(barX, fillY, barW, fillH, 4, 4);
+
+        // borde sutil
+        hudGC.setStroke(Color.rgb(255, 255, 255, 0.25));
+        hudGC.strokeRoundRect(barX, barY, barW, barH, 4, 4);
     }
 
     private void renderInventory() {
@@ -425,4 +504,28 @@ public class Drawer {
         }
     }
 
+    // ----- COINS_POWER radar bar -----
+    private static final double RADAR_BAR_GAP_PX = 6.0;
+    private static final double RADAR_BAR_W_PX = 8.0;
+    private static final double RADAR_BAR_H_RATIO = 0.90; // % de la altura del icono
+    private static final double RADAR_BAR_ALPHA_BG = 0.35;
+    private static final double RADAR_BAR_ALPHA_FG = 0.85;
+
+    private static final LinearGradient RADAR_GRADIENT = new LinearGradient(
+            0, 1, 0, 0, // y: 1 (abajo) -> 0 (arriba)
+            true, // proportional al bounding box del shape
+            CycleMethod.NO_CYCLE,
+            new Stop(0.0, Color.rgb(0, 255, 0, RADAR_BAR_ALPHA_FG)), // abajo
+            new Stop(1.0, Color.rgb(255, 0, 0, RADAR_BAR_ALPHA_FG)) // arriba
+    );
+
+    private static double normalizeRadarTo01(double radar) {
+        // radar > -1 significa "activo"
+        // Soporta dos formatos típicos:
+        // - [0..1]
+        // - [0..100]
+        if (radar <= 1.0)
+            return Math.max(0.0, Math.min(1.0, radar));
+        return Math.max(0.0, Math.min(1.0, radar / 100.0));
+    }
 }

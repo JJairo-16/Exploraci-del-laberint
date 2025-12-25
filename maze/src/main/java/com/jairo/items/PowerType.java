@@ -21,6 +21,13 @@ public enum PowerType implements ItemType {
     private final Qualities quality;
     private final int minExitDistance;
 
+    private boolean shouldDuplicatePickup = false;
+
+    static {
+        PICKAXE.updateShouldDuplicatePickup();
+        BLAI_GLASSES.updateShouldDuplicatePickup();
+    }
+
     PowerType(Sprite sprite, double density, int minPlayer, int minBetween, Sound pickupSfx, Qualities q) {
         this.sprite = sprite;
         this.density = density;
@@ -106,38 +113,13 @@ public enum PowerType implements ItemType {
         };
     }
 
-    @SuppressWarnings("unused")
-    private static double[] recommendedDensityRange(int minDistBetween, int minDistFromPlayer) {
-        if (minDistBetween <= 0 || minDistFromPlayer <= 0) {
-            throw new IllegalArgumentException("Distances must be > 0");
-        }
-
-        double minDensity = 1.0 / (minDistBetween * minDistBetween);
-        double maxDensity = 1.0 / (minDistBetween * minDistFromPlayer);
-
-        // Por seguridad, aseguramos orden correcto
-        if (minDensity > maxDensity) {
-            double tmp = minDensity;
-            minDensity = maxDensity;
-            maxDensity = tmp;
-        }
-
-        return new double[] { minDensity, maxDensity };
+    @Override
+    public boolean shouldDuplicatePickup() {
+        return shouldDuplicatePickup;
     }
 
-    @SuppressWarnings("unused")
-    private static double recommendedDensity(
-            int minDistBetween,
-            int minDistFromPlayer) {
-        if (minDistBetween <= 0 || minDistFromPlayer <= 0) {
-            throw new IllegalArgumentException("Distances must be > 0");
-        }
-
-        double min = 1.0 / (minDistBetween * minDistBetween);
-        double max = 1.0 / (minDistBetween * minDistFromPlayer);
-
-        // Centro del rango, sesgado hacia el mínimo (60% seguro)
-        return min + (max - min) * 0.4;
+    private void updateShouldDuplicatePickup() {
+        shouldDuplicatePickup = true;
     }
 
 }

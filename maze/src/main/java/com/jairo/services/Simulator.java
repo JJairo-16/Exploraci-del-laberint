@@ -1,8 +1,10 @@
+// File: src/main/java/com/jairo/services/Simulator.java
 package com.jairo.services;
 
 import com.jairo.models.Board;
 import com.jairo.models.Player;
 import com.jairo.utils.KeyBind.Action;
+import com.jairo.items.BasicItemType;
 import com.jairo.items.ItemType;
 import com.jairo.items.PlacedItem;
 import com.jairo.models.Inventory;
@@ -21,8 +23,11 @@ import org.slf4j.LoggerFactory;
 
 import com.jairo.services.sub_simulator.IceSlideSystem;
 import com.jairo.services.sub_simulator.UseSystem;
+import com.jairo.services.sub_simulator.coin_system.CoinsPowerState;
 import com.jairo.services.sub_simulator.DoorSystem;
 import com.jairo.services.sub_simulator.ItemUseActions;
+
+import java.util.concurrent.ThreadLocalRandom;
 
 public class Simulator {
     private static final Logger log = LoggerFactory.getLogger(Simulator.class);
@@ -54,6 +59,9 @@ public class Simulator {
     // ✅ Extraído: ItemUseActions (lógica de pico/gafas/llave)
     private final ItemUseActions itemUseActions;
 
+    // ✅ Centralizado: Poder de monedas (nivel, toggle, multiplicador)
+    private final CoinsPowerState coinsPower;
+
     public Action getCurrentAction() {
         return currentAction;
     }
@@ -65,6 +73,8 @@ public class Simulator {
     public Board getBoardRef() {
         return board;
     }
+
+    private final int totalCoins;
 
     public Simulator(Player player, Board board, ItemPlacer placer) {
         this.placer = placer;
@@ -81,8 +91,7 @@ public class Simulator {
                 inventory,
                 placer,
                 doorSystem,
-                sm
-        );
+                sm);
 
         // ✅ UseSystem: abre puerta mediante DoorSystem
         this.useSystem = new UseSystem(
@@ -96,6 +105,8 @@ public class Simulator {
                 action -> doorSystem.tryToOpenDoor(action, player.getX(), player.getY()),
                 itemUseActions::playLockedExit);
 
+        this.totalCoins = placer.countPlacedItemsOf(BasicItemType.COIN);
+        this.coinsPower = new CoinsPowerState(placer);
         log.info("Simulator created");
     }
 
@@ -106,7 +117,8 @@ public class Simulator {
     }
 
     public void simulate(Action action) {
-        // Si estamos deslizándonos en hielo, ignorar inputs de movimiento para no “romper” el slide
+        // Si estamos deslizándonos en hielo, ignorar inputs de movimiento para no
+        // “romper” el slide
         if (iceSystem.isSliding() && action.isAMovement) {
             updateCheatedSystem();
             return;
@@ -136,7 +148,9 @@ public class Simulator {
                 int ny = dy + player.getY(); // ✅ fix: era dx + player.getY()
                 int tile = board.getTile(nx, ny);
 
-                if (tile != ICE) Steps.playRandomStep();
+                if (tile != ICE)
+                    Steps.playRandomStep();
+
                 iceSystem.afterManualMove(lasNow, lastMovement);
             }
 
@@ -149,12 +163,14 @@ public class Simulator {
 
         switch (action) {
             case ZOOM_IN:
-                if (drawer != null) drawer.zoomIn();
+                if (drawer != null)
+                    drawer.zoomIn();
                 log.info("Zoom in");
                 break;
 
             case ZOOM_OUT:
-                if (drawer != null) drawer.zoomOut();
+                if (drawer != null)
+                    drawer.zoomOut();
                 log.info("Zoom out");
                 break;
 
@@ -180,6 +196,10 @@ public class Simulator {
 
             case SWITCH_SHOW_FPS:
                 drawer.switchFps();
+                break;
+
+            case SWITCH_COINS_POWER:
+                coinsPower.toggle();
                 break;
 
             default:
@@ -223,19 +243,33 @@ public class Simulator {
             boolean sideY = (y == 0 || y == Board.BOARD_HEIGHT - 1);
 
             if (board.getTile(x, y) == EXIT && (sideX || sideY)) {
-                log.info("Player wins the game.");
-                continuity = false;
+                playerWins();
             }
         }
 
         if (moved) {
+            int x = player.getX();
+            int y = player.getY();
+
+            radar = coinsPower.getRadar(x, y);
+
+            if (board.getTile(x, y) == EXIT) {
+                playerWins();
+            }
+
             tryPickupAtPlayer();
         }
 
         return moved;
     }
 
-    public record Position(int x, int y) {}
+    private void playerWins() {
+        log.info("Player wins the game.");
+        continuity = false;
+    }
+
+    public record Position(int x, int y) {
+    }
 
     public Position getPlayerPosition() {
         return new Position(player.getX(), player.getY());
@@ -260,10 +294,27 @@ public class Simulator {
         int y = player.getY();
 
         PlacedItem picked = placer.pickupAt(x, y);
-        if (picked == null) return;
+        if (picked == null)
+            return;
 
         ItemType type = picked.getType();
         inventory.add(type);
+
+        if (type.shouldDuplicatePickup()) {
+            double chance = coinsPower.getDuplicateChance();
+            if (chance > 0.0 && ThreadLocalRandom.current().nextDouble() < chance) {
+                inventory.add(type);
+
+                if (type == BasicItemType.COIN && coins < totalCoins) coins++;
+
+                log.info("Duplicated pickup of {} (chance={})", type.getId(), chance);
+            }
+        }
+
+        if (type == BasicItemType.COIN) {
+            coins++;
+            updateCoinsPower();
+        }
 
         if (type.removeRemaining()) {
             placer.removeAllOfType(type);
@@ -328,4 +379,38 @@ public class Simulator {
     public double getBlaiNumber() {
         return itemUseActions.getBlaiNumber();
     }
+
+    // =========================
+    // PODER MONEDAS (CENTRALIZADO)
+    // =========================
+
+    /**
+     * Multiplicador del cooldown del poder de monedas.
+     * Solo aplica si está desbloqueado (level>=1) y enabled (toggle).
+     */
+    public double getSprintingCooldownMultiplier() {
+        return coinsPower.getCooldownMultiplier();
+    }
+
+    private int coins = 0;
+
+    private void updateCoinsPower() {
+        coins++;
+        coinsPower.update(coins, totalCoins, inventory);
+    }
+
+    public boolean isCoinsPowerSprintBoostEnabled() {
+        return CoinsPowerState.getLevel() >= 1 && coinsPower.isEnabled();
+    }
+
+    public double getCoinsDuplicateChance() {
+        return coinsPower.getDuplicateChance();
+    }
+
+    private double radar = -1;
+
+    public double getRadar() {
+        return radar;
+    }
+
 }

@@ -530,4 +530,10 @@ public class ItemPlacer {
 
         return removed;
     }
+
+    public int countPlacedItemsOf(ItemType item) {
+        return (int) placedItems.stream()
+                .filter(i -> i.getType() == item)
+                .count();
+    }
 }

@@ -36,7 +36,6 @@ public class Board {
     // Jugador
     private int playerX;
     private int playerY;
-    private static boolean cornerPeek = true;
     private boolean newDiscover = false;
 
     // Salida (EXIT)
@@ -44,8 +43,7 @@ public class Board {
     private int exitY = -1;
 
     // Reachability (BFS rápido sobre grid 1D)
-    private static final BoardReachability REACHABILITY =
-            new BoardReachability(BOARD_WIDTH, BOARD_HEIGHT);
+    private static final BoardReachability REACHABILITY = new BoardReachability(BOARD_WIDTH, BOARD_HEIGHT);
 
     /**
      * Constructor PRIVADO: crea el board a partir de maps ya generados.
@@ -80,7 +78,8 @@ public class Board {
      * Si no lo consigue tras maxRetries, lanza excepción.
      */
     public static Board generateReachable(int spawnX, int spawnY, int maxRetries) {
-        if (maxRetries <= 0) maxRetries = 1;
+        if (maxRetries <= 0)
+            maxRetries = 1;
 
         int tries = 0;
         while (tries++ < maxRetries) {
@@ -119,7 +118,8 @@ public class Board {
     /**
      * Resultado simple para "detectar casos donde es imposible llegar a la salida".
      */
-    public record GenerationResult(Board board, boolean exitReachable) {}
+    public record GenerationResult(Board board, boolean exitReachable) {
+    }
 
     // Generación "una vez" (reutilizable por los wrappers)
     private static Board generateOnce() {
@@ -172,8 +172,13 @@ public class Board {
         log.info("EXIT found at ({},{})", exitX, exitY);
     }
 
-    public int getExitX() { return exitX; }
-    public int getExitY() { return exitY; }
+    public int getExitX() {
+        return exitX;
+    }
+
+    public int getExitY() {
+        return exitY;
+    }
 
     // ------------------------------------------------------------
     // API EXISTENTE (sin cambios relevantes)
@@ -256,7 +261,8 @@ public class Board {
     }
 
     public boolean canMovePlayer(int dx, int dy) {
-        if (dx == 0 && dy == 0) return false;
+        if (dx == 0 && dy == 0)
+            return false;
 
         int newX = playerX + dx;
         int newY = playerY + dy;
@@ -275,72 +281,43 @@ public class Board {
         discoverAroundPlayer();
     }
 
-    public void discoverAroundPlayer() {
-        if (cornerPeek) {
-            discoverAroundPlayerWithCornerPeek();
-        } else {
-            discoverAroundPlayerWithoutCornerPeek();
-        }
+    private int baseMinX = 1;
+    private int baseMaxX = 1;
+    private int baseMinY = 1;
+    private int baseMaxY = 1;
+
+    public void updateDiscoverPower(int[] power) {
+        if (power == null || power.length != 4) return;
+
+        baseMinX = power[0];
+        baseMaxX = power[1];
+        baseMinY = power[2];
+        baseMaxY = power[3];
     }
 
-    private void discoverAroundPlayerWithCornerPeek() {
-        for (int dy = -1; dy <= 1; dy++) {
-            int ny = playerY + dy;
-            List<Integer> visibilityRow = visibility.get(ny);
-            List<Integer> cellsRow = cells.get(ny);
-            for (int dx = -1; dx <= 1; dx++) {
-                int nx = playerX + dx;
-                if (visibilityRow.get(nx) == UNKNOWN) {
-                    visibilityRow.set(nx, cellsRow.get(nx));
+    public void discoverAroundPlayer() {
+        int minX = Math.max(0, playerX - baseMinX);
+        int maxX = Math.min(BOARD_WIDTH - 1, playerX + baseMaxX);
+
+        int minY = Math.max(0, playerY - baseMinY);
+        int maxY = Math.min(BOARD_HEIGHT - 1, playerY + baseMaxY);
+
+        for (int y = minY; y <= maxY; y++) {
+            List<Integer> visibilityRow = visibility.get(y);
+            List<Integer> cellsRow = cells.get(y);
+
+            for (int x = minX; x <= maxX; x++) {
+                if (visibilityRow.get(x) == UNKNOWN) {
+                    visibilityRow.set(x, cellsRow.get(x));
                     newDiscover = true;
                 }
             }
         }
     }
 
-    private void discoverAroundPlayerWithoutCornerPeek() {
-        int py = playerY;
-        int px = playerX;
-
-        for (int dy = -1; dy <= 1; dy++) {
-            int ny = py + dy;
-            if (ny < 0 || ny >= visibility.size()) continue;
-
-            List<Integer> visibilityRow = visibility.get(ny);
-            List<Integer> cellsRow = cells.get(ny);
-
-            for (int dx = -1; dx <= 1; dx++) {
-                int nx = px + dx;
-                if (nx < 0 || nx >= visibilityRow.size()) continue;
-
-                if (visibilityRow.get(nx) != UNKNOWN) continue;
-
-                // Evitar descubrir diagonales si la esquina está bloqueada por ambos lados
-                if (dx != 0 && dy != 0) {
-                    int sideX = px + dx; // (px+dx, py)
-                    int sideY = py + dy; // (px, py+dy)
-
-                    if (sideX >= 0 && sideX < visibilityRow.size()
-                            && sideY >= 0 && sideY < visibility.size()) {
-                        int cellSideX = cells.get(py).get(sideX);
-                        int cellSideY = cells.get(sideY).get(px);
-
-                        boolean blockX = Cells.hasCollision(cellSideX);
-                        boolean blockY = Cells.hasCollision(cellSideY);
-
-                        if (blockX && blockY) {
-                            continue;
-                        }
-                    }
-                }
-
-                visibilityRow.set(nx, cellsRow.get(nx));
-            }
-        }
-    }
-
     public void updateTile(int x, int y, int tile, boolean updateVisibility) {
-        if (x < 0 || x >= BOARD_WIDTH || y < 0 || y >= BOARD_HEIGHT) return;
+        if (x < 0 || x >= BOARD_WIDTH || y < 0 || y >= BOARD_HEIGHT)
+            return;
 
         // actualizar estructuras
         cells.get(y).set(x, tile);

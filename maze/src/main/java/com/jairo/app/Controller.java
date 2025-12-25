@@ -80,7 +80,7 @@ public class Controller {
     private InputRepeatController inputRepeat;
     private static final long INITIAL_DELAY_NS = 240_000_000L;
     private static final long REPEAT_EVERY_NS = 240_000_000L;
-    private static final double SPRINTING_SPEED = 0.55;
+    private static final double SPRINTING_SPEED = 0.65;
 
     private GameStateCoordinator state;
 
@@ -118,6 +118,8 @@ public class Controller {
             sm.setMuted(false);
 
             images.preloadAll();
+            SkinManager skm = SkinManager.get();
+            skm.set(skm.current());
 
             root.setFocusTraversable(true);
             root.requestFocus();

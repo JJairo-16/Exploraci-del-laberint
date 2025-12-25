@@ -8,11 +8,13 @@ import com.jairo.utils.KeyBind.Action;
 
 /**
  * Extrae la lógica de USE + "qué hay delante" (DN: dx/dy/nx/ny/cell).
- * No implementa las acciones en sí: delega en callbacks (pickaxe, blai, key, doors, locked-exit sound).
+ * No implementa las acciones en sí: delega en callbacks (pickaxe, blai, key,
+ * doors, locked-exit sound).
  */
 public class UseSystem {
 
-    public record DnResult(int dx, int dy, int nx, int ny, int cell) {}
+    public record DnResult(int dx, int dy, int nx, int ny, int cell) {
+    }
 
     @FunctionalInterface
     public interface ItemUser {
@@ -21,7 +23,7 @@ public class UseSystem {
 
     @FunctionalInterface
     public interface DoorOpener {
-        void tryOpenDoor(Action currentAction);
+        boolean tryOpenDoor(Action currentAction);
     }
 
     @FunctionalInterface
@@ -43,8 +45,7 @@ public class UseSystem {
             Inventory inventory,
             ItemUser itemUser,
             DoorOpener doorOpener,
-            LockedExitHandler lockedExitHandler
-    ) {
+            LockedExitHandler lockedExitHandler) {
         this.player = player;
         this.board = board;
         this.inventory = inventory;
@@ -61,7 +62,10 @@ public class UseSystem {
      *
      * @return el item usado o null si se ha hecho USE "sin item"
      */
-    public ItemType use(Action lastMovement, Action currentAction, int LOCKED_EXIT) {
+    public ItemType use(Action lastMovement, Action currentAction, int lockedExit) {
+        boolean opened = doorOpener.tryOpenDoor(currentAction);
+        if (opened) return null;
+
         // 1) Intentar usar item seleccionado
         ItemType selected = inventory.getSelectedPower();
         if (selected != null && inventory.has(selected)) {
@@ -72,12 +76,11 @@ public class UseSystem {
 
         // 2) Sin item: interactuar con lo de delante
         DnResult dn = getDN(lastMovement);
-        if (dn.cell == LOCKED_EXIT) {
+        if (dn.cell == lockedExit) {
             lockedExitHandler.onLockedExit();
             return null;
         }
 
-        doorOpener.tryOpenDoor(currentAction);
         return null;
     }
 
@@ -90,7 +93,8 @@ public class UseSystem {
             case DOWN -> dy = 1;
             case LEFT -> dx = -1;
             case RIGHT -> dx = 1;
-            default -> { }
+            default -> {
+            }
         }
 
         int nx = player.getX() + dx;

@@ -13,6 +13,8 @@ public enum BasicItemType implements ItemType {
     private final String pickupSfx;
     private final Qualities quality;
 
+    private boolean shouldDuplicatePickup = true;
+
     BasicItemType(Sprite sprite, double density, int minPlayer, int minBetween, Sound pickupSfx) {
         this.sprite = sprite;
         this.density = density;
@@ -29,6 +31,7 @@ public enum BasicItemType implements ItemType {
     @Override public int getMinDistBetweenItems() { return minBetween; }
     @Override public String getPickupSoundPath() { return pickupSfx; }
     @Override public Qualities getQuality() { return quality; }
+    @Override public boolean shouldDuplicatePickup() { return shouldDuplicatePickup; }
 
     // Opcional: limites
     @Override public int getMaxCount() {

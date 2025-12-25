@@ -9,7 +9,7 @@ public class MapModifier {
     private static final double DOOR_DENSITY = 0.6;
     private static final int MIN_DOOR_SPACING = 20;
 
-    private static boolean useHollowifier = false;
+    private static boolean useHollowifier = true;
 
     public static String modify(String flat, int boardWidth, int boardHeight) {
         String hollowed;

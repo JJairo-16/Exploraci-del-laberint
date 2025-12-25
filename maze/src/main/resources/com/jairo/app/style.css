@@ -264,3 +264,14 @@ Label {
 .visible {
 	-fx-opacity: 1;
 }
+
+/* Créditos (abajo derecha, sin fondo) */
+.credits-text {
+	-fx-font-size: 12px;
+	-fx-text-fill: rgba(230, 241, 255, 0.55);
+	-fx-padding: 10 12 10 12;
+
+	/* solo una sombra muy sutil para legibilidad */
+	-fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.6), 6, 0.2, 0, 1);
+}
+

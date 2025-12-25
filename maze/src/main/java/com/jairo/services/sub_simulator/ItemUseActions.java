@@ -9,6 +9,7 @@ import com.jairo.models.Player;
 import com.jairo.models.Inventory;
 import com.jairo.services.ItemPlacer;
 import com.jairo.services.sub_simulator.UseSystem.DnResult;
+import com.jairo.services.sub_simulator.coin_system.CoinsPowerState;
 import com.jairo.utils.map_generator.Cells;
 
 import static com.jairo.utils.map_generator.Cells.*;
@@ -78,23 +79,12 @@ public class ItemUseActions {
 
         if (!Cells.hasCollision(cell)) return;
 
-        if (doorSystem.isDoorClosed(cell)) {
-            boolean opened = false;
-
-            if (doorSystem.isDoorClosedButOpenable(cell)) {
-                opened = doorSystem.tryOpenDoorAt(nx, ny, dx, dy, cell);
-            }
-
-            if (!opened) playDoorHit();
-            return;
-        }
-
-        if (doorSystem.isDoorOpened(cell)) {
+        if (doorSystem.isAnyDoor(cell)) {
             playDoorHit();
             return;
         }
 
-        if (cell != WALL) {
+        if (!Cells.isBreakable(cell)) {
             if (Cells.playMetalSound(cell)) {
                 playDoorHit();
             }
@@ -254,12 +244,11 @@ public class ItemUseActions {
         int ny = dn.ny();
         int cell = dn.cell();
 
-        if (doorSystem.isDoorClosed(cell) && doorSystem.isDoorClosedButOpenable(cell)) {
-            doorSystem.tryOpenDoorAt(nx, ny, dx, dy, cell);
-            return;
-        }
-
         if (cell != LOCKED_EXIT) return;
+        if (CoinsPowerState.getLevel() < 4) {
+            playLockedExit();
+            return;
+        } 
 
         inventory.consumeOne(PowerType.KEY);
         board.updateTile(nx, ny, EXIT);

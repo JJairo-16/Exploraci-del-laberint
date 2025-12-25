@@ -23,7 +23,9 @@ public enum Sound {
     JIJI_EN(DOORS.get("jiji_en.mp3")),
     
     COIN(ITEMS.get("coin.mp3")),
+    COINS_POWER(ITEMS.get("coins-power.mp3")),
     POWERUP(ITEMS.get("power-pick-up.mp3")),
+
     CHEATED_BUTTON(ITEMS.get("cheated-button.mp3")),
     CHEATED_WALL1(ITEMS.get("cheated-wall-1.mp3")),
     CHEATED_WALL2(ITEMS.get("cheated-wall-2.mp3")),
