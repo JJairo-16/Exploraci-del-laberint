@@ -33,10 +33,10 @@ public final class CoinsPowerState {
     }
 
     private static final int[] LEVEL_THRESHOLDS = {
-            CoinSpeedSystem.getMinPercentage(),
-            CoinDuplicateSystem.getMinPercentage(),
-            40,
-            45
+            CoinSpeedSystem.setMinPercentage(10),
+            CoinDuplicateSystem.setMinPercentage(25),
+            45,
+            55
     };
 
     private static int level = 0;

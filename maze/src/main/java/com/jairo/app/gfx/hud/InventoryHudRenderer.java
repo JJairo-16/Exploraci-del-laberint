@@ -32,9 +32,6 @@ public class InventoryHudRenderer {
 
     private final ImageStore images;
 
-    // Lista base (orden fijo)
-    private final List<ItemType> powers = List.of(PowerType.values());
-
     // Reutiliza la lista visible para evitar alloc por frame
     private final List<ItemType> visible = new ArrayList<>(Math.max(8, PowerType.values().length));
 
@@ -88,6 +85,7 @@ public class InventoryHudRenderer {
     }
 
     public void render(GraphicsContext hudGC, Inventory inventory, long nowNs, double canvasW, Font baseHudFont) {
+        List<ItemType> powers = inventory.snapshotPowers();
         if (powers.isEmpty() || inventory == null || hudGC == null)
             return;
 

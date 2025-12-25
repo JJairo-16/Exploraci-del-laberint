@@ -47,7 +47,8 @@ public class BoardGenerator {
      * @param visibility
      *                   Mapa de visibilitat associat al tauler.
      */
-    public static record Maps(List<List<Integer>> cells, List<List<Integer>> visibility, List<int[]> secretWalls) {
+    public static record Maps(List<List<Integer>> cells, List<List<Integer>> visibility, List<int[]> secretWalls,
+            int doorsCount) {
     }
 
     /**
@@ -89,6 +90,7 @@ public class BoardGenerator {
         List<List<Integer>> cells = new ArrayList<>(height);
         List<List<Integer>> visibility = new ArrayList<>(height);
         List<int[]> secretWalls = new ArrayList<>();
+        int doorsCount = 0;
 
         // * Generar mapes
         int idx = 0;
@@ -104,6 +106,8 @@ public class BoardGenerator {
 
                 if (cell == SECRET_WALL) {
                     secretWalls.add(new int[] { x, y });
+                } else if (isDoor(cell)) {
+                    doorsCount++;
                 }
 
             }
@@ -112,7 +116,7 @@ public class BoardGenerator {
             visibility.add(visRow);
         }
 
-        return new Maps(cells, visibility, secretWalls);
+        return new Maps(cells, visibility, secretWalls, doorsCount);
     }
 
     /**
@@ -243,5 +247,9 @@ public class BoardGenerator {
         // * Selecció aleatòria final
         int[] chosen = candidates.get(RNG.nextInt(candidates.size()));
         return new PlayerPosition(chosen[0], chosen[1]);
+    }
+
+    private static boolean isDoor(int tile) {
+        return (tile >= DOOR_OPEN_FROM_NORTH && tile <= DOOR_OPEN_FROM_EAST);
     }
 }

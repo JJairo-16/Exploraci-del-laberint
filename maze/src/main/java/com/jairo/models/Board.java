@@ -30,6 +30,7 @@ public class Board {
     private final List<List<Integer>> cells;
     private final List<List<Integer>> visibility;
     private final List<int[]> secretWalls;
+    private final int doorsCount;
 
     // Mapa plano 1D (para accesos rápidos / reachability)
     // idx = y*BOARD_WIDTH + x
@@ -56,6 +57,8 @@ public class Board {
         this.visibility = maps.visibility();
         this.secretWalls = maps.secretWalls();
         this.grid = flattenToGrid(this.cells);
+
+        this.doorsCount = maps.doorsCount();
         findExitPositionOrThrow();
     }
 
@@ -393,6 +396,10 @@ public class Board {
             return false;
 
         return walkable >= MIN_WALKABLE_CELLS_RATIO * totalCells;
+    }
+
+    public int getDoorsCount() {
+        return doorsCount;
     }
 
 }

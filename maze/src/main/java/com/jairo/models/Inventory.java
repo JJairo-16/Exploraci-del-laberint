@@ -1,6 +1,7 @@
 package com.jairo.models;
 
 import com.jairo.items.ItemType;
+import com.jairo.items.PowerType;
 
 import java.util.*;
 
@@ -13,11 +14,24 @@ import java.util.*;
  * 1)
  */
 public class Inventory {
+    private static final List<String> order = List.of(
+        PowerType.values()
+    )
+    .stream()
+    .map(PowerType::getId)
+    .toList();
+
+    public Inventory() {
+        setFixedPowerOrderIds(order);
+    }
 
     private final Map<String, Integer> countsByTypeId = new HashMap<>();
 
     // Lista ordenada de poderes/herramientas que se pueden seleccionar
     private final List<ItemType> powers = new ArrayList<>();
+
+    private final List<String> fixedPowerOrderIds = new ArrayList<>();
+    private final Map<String, Integer> orderIndexById = new HashMap<>();
 
     // 0 = nada, 1..N = powers[index-1]
     private int selectedPowerIndex = 0;
@@ -67,16 +81,33 @@ public class Inventory {
                     powers.add(t);
             }
         }
+        reorderPowersToFixedOrder();
         clampSelectionAfterListChange();
     }
 
-    /** Añade un power si no está ya (por id). */
+    /** Añade un power si no está ya (por id) y lo coloca según el orden fijo. */
     public boolean addPower(ItemType type) {
         if (type == null)
             return false;
         if (containsPower(type))
             return false;
-        powers.add(type);
+
+        // Inserta en la posición correcta según fixedPowerOrderIds
+        int insertPos = powers.size(); // por defecto al final
+        int newIdx = getOrderIndex(type);
+
+        if (newIdx != Integer.MAX_VALUE) {
+            // busca el primer elemento cuyo orden sea mayor, e inserta antes
+            for (int i = 0; i < powers.size(); i++) {
+                if (getOrderIndex(powers.get(i)) > newIdx) {
+                    insertPos = i;
+                    break;
+                }
+            }
+        }
+
+        powers.add(insertPos, type);
+
         clampSelectionAfterListChange();
         return true;
     }
@@ -230,6 +261,73 @@ public class Inventory {
 
     public boolean consumeOne(ItemType type) {
         return consume(type, 1);
+    }
+
+    /** Define el orden fijo por IDs. Ej: ["bomb", "hook", "wand"] */
+    public void setFixedPowerOrderIds(List<String> ids) {
+        fixedPowerOrderIds.clear();
+        orderIndexById.clear();
+
+        if (ids != null) {
+            int i = 0;
+            for (String id : ids) {
+                if (id == null)
+                    continue;
+                if (orderIndexById.containsKey(id))
+                    continue; // evita duplicados
+                fixedPowerOrderIds.add(id);
+                orderIndexById.put(id, i++);
+            }
+        }
+
+        // Reordena los powers actuales a ese orden
+        reorderPowersToFixedOrder();
+    }
+
+    /** Reordena la lista powers actual para respetar fixedPowerOrderIds. */
+    private void reorderPowersToFixedOrder() {
+        if (powers.isEmpty())
+            return;
+
+        // Mantén referencia del seleccionado actual para no “cambiar” el power
+        // seleccionado
+        ItemType selected = getSelectedPower();
+
+        powers.sort((a, b) -> Integer.compare(getOrderIndex(a), getOrderIndex(b)));
+
+        // Restaura selección al mismo ItemType (si existe)
+        if (selected != null) {
+            int idx = indexOfPowerById(selected.getId());
+            selectedPowerIndex = (idx >= 0) ? (idx + 1) : 0;
+        } else {
+            clampSelectionAfterListChange();
+        }
+    }
+
+    /**
+     * Devuelve el índice de orden del id; si no está en la lista fija, lo manda al
+     * final.
+     */
+    private int getOrderIndex(ItemType t) {
+        if (t == null || t.getId() == null)
+            return Integer.MAX_VALUE;
+        Integer idx = orderIndexById.get(t.getId());
+        return (idx != null) ? idx : Integer.MAX_VALUE;
+    }
+
+    /**
+     * Busca un power por id y devuelve su índice en powers (0..N-1), o -1 si no
+     * está.
+     */
+    private int indexOfPowerById(String id) {
+        if (id == null)
+            return -1;
+        for (int i = 0; i < powers.size(); i++) {
+            ItemType t = powers.get(i);
+            if (t != null && Objects.equals(t.getId(), id))
+                return i;
+        }
+        return -1;
     }
 
 }

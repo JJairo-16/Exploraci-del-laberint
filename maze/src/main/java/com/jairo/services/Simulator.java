@@ -12,14 +12,12 @@ import com.jairo.items.PowerType;
 import com.jairo.items.SpecialType;
 
 import static com.jairo.app.gfx.Sprite.CHEATED_PATH;
-import static com.jairo.app.gfx.Sprite.HIDDEN_CHEATED_PATH;
 import static com.jairo.utils.map_generator.Cells.*;
 
 import com.jairo.app.audio.SoundManager;
 import com.jairo.app.audio.Steps;
 import com.jairo.app.gfx.Drawer;
 import com.jairo.app.gfx.DrawerParser;
-import com.jairo.app.gfx.Sprite;
 import com.jairo.app.gfx.player_skins.SkinManager;
 
 import org.slf4j.Logger;

@@ -5,10 +5,10 @@ public class CoinSpeedSystem {
     }
 
     // Se activa a partir de x% de monedas
-    private static final int MIN_PERCENTAGE = 10;
+    private static int minPercentage = 10;
 
     // A partir de y% de monedas, ya no mejora más
-    private static final int MAX_PERCENTAGE = 20;
+    private static int maxPercentage = minPercentage + 10;
 
     // Multiplicador mínimo del cooldown (límite inferior).
     // Ej: 0.60 => como mucho reduces el cooldown a un 60% del original (40% menos).
@@ -43,7 +43,7 @@ public class CoinSpeedSystem {
             return false;
 
         double p = coinPercent(currentCoins, maxCoins);
-        double min = MIN_PERCENTAGE / 100.0;
+        double min = minPercentage / 100.0;
 
         return p >= min;
     }
@@ -55,8 +55,8 @@ public class CoinSpeedSystem {
     }
 
     private static double activationT(double p01) {
-        double min = MIN_PERCENTAGE / 100.0;
-        double max = MAX_PERCENTAGE / 100.0;
+        double min = minPercentage / 100.0;
+        double max = maxPercentage / 100.0;
 
         if (max <= min) {
             return (p01 >= min) ? 1.0 : 0.0;
@@ -73,7 +73,13 @@ public class CoinSpeedSystem {
     }
 
     public static int getMinPercentage() {
-        return MIN_PERCENTAGE;
+        return minPercentage;
     }
     
+
+    public static int setMinPercentage(int min) {
+        minPercentage = min;
+        maxPercentage = min + 10;
+        return min;
+    }
 }

@@ -29,7 +29,7 @@ public class DoorSystem {
     private static final String JIJI_SOUND_ES = Sound.JIJI_ES.path();
     private static final String JIJI_SOUND_EN = Sound.JIJI_EN.path();
 
-    private static final long DELAY_MS = 200L;
+    public static final long DELAY_MS = 200L;
     private static final long TOC_TOC_DELAY_MS = 100L;
 
     private static final int TOC_TOC_PROBABLY = 20; // %
@@ -82,7 +82,7 @@ public class DoorSystem {
     // Abrir puerta en (nx,ny)
     // =========================
 
-    public boolean tryOpenDoorAt(int nx, int ny, int dx, int dy, int cell) {
+    public boolean tryOpenDoorAt(int nx, int ny, int dx, int dy, int cell, boolean force) {
         if (!isDoorClosedButOpenable(cell))
             return false;
 
@@ -93,6 +93,8 @@ public class DoorSystem {
             case DOOR_OPEN_FROM_EAST -> dx == -1;
             default -> false;
         };
+
+        canOpen = canOpen || force;
 
         if (!canOpen)
             return false;
@@ -108,6 +110,10 @@ public class DoorSystem {
         board.updateTile(nx, ny, opened);
         sm.playSfx(OPEN_DOOR_SOUND);
         return true;
+    }
+
+    public boolean tryOpenDoorAt(int nx, int ny, int dx, int dy, int cell) {
+        return tryOpenDoorAt(nx, ny, dx, dy, cell, false);
     }
 
     // =========================
@@ -200,7 +206,7 @@ public class DoorSystem {
         return getJiJiPath();
     }
 
-    private String getJiJiPath() {
+    public String getJiJiPath() {
         String lang = LanguageManager.getCurrentLanguageCode();
         return switch (lang) {
             case "ca" -> JIJI_SOUND_CA;

@@ -35,6 +35,7 @@ public enum Sound {
     PICKAXE_WALL(ITEMS.get("pickaxe-wall.mp3")),
 
     BLAI_GLASSES_POWER(ITEMS.get("blai-glasses-power.wav")),
+    BROKEN_KEY_FAIL(ITEMS.get("broken-key-sound.mp3")),
 
     OPEN_LOCK(ITEMS.get("open-lock.mp3")),
     EXIT_LOCK(ITEMS.get("no-open-lock.mp3"));

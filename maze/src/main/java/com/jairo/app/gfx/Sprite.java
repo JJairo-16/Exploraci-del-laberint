@@ -3,26 +3,33 @@ package com.jairo.app.gfx;
 import static com.jairo.app.gfx.SpritesRoot.*;
 
 public enum Sprite {
+    // * 
     NONE(GAME.get("none.png")),
 
+    // * Base map
     WALL(GAME.get("wall.png")),
     PATH(GAME.get("path.png")),
     DESTROYED_PATH(GAME.get("destroyed-path.png")),
 
+    // * Exit
     EXIT(GAME.get("exit.png")),
     EXIT_CONNECTOR(GAME.get("exit.png")),
     LOCKED_EXIT(GAME.get("locked-exit.png")),
 
+    // * Doors
+    // Closed
     DOOR_OPEN_FROM_NORTH(DOORS.get("door_open_from_north.png")),
     DOOR_OPEN_FROM_SOUTH(DOORS.get("door_open_from_south.png")),
     DOOR_OPEN_FROM_WEST(DOORS.get("door_open_from_west.png")),
     DOOR_OPEN_FROM_EAST(DOORS.get("door_open_from_east.png")),
 
+    // Opened
     DOOR_OPENED_FROM_NORTH(DOORS.get("door_opened_from_north.png")),
     DOOR_OPENED_FROM_SOUTH(DOORS.get("door_opened_from_south.png")),
     DOOR_OPENED_FROM_WEST(DOORS.get("door_opened_from_west.png")),
     DOOR_OPENED_FROM_EAST(DOORS.get("door_opened_from_east.png")),
 
+    // * Cheated
     CHEATED_PATH(GAME.get("cheated-path.png")),
     HIDDEN_CHEATED_PATH(Sprite.PATH.path()),
     CHEATED_WALL(Sprite.PATH.path()),
@@ -30,16 +37,25 @@ public enum Sprite {
     CHEATED_WALL_SOLID(Sprite.WALL.path()),
     SECRET_WALL(Sprite.WALL.path()),
     
+    // * Player
     ARROW(GEN.get("arrow.png")),
     PLAYER(PL_SKINS.get("default.png")),
     
+    // * Items
+    // Basic
     COIN(ITEMS.get("coin.png")),
+    
+    // Power
     PICKAXE(ITEMS.get("pickaxe.png")),
     BLAI_GLASSES(ITEMS.get("blai-glasses.png")),
     KEY(ITEMS.get("key.png")),
+    BROKEN_KEY(ITEMS.get("broken-key.png")),
+
+    // Special
     CHEATED_BUTTON(ITEMS.get("cheated-button.png")),
     BOOTS(ITEMS.get("boots.png")),
 
+    // * Other
     ICE(GAME.get("ice.png"));
 
     static {

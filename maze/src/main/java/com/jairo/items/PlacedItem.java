@@ -15,11 +15,6 @@ public final class PlacedItem {
         this.x = x;
         this.y = y;
         this.quality = type.getQuality();
-
-        if (type == PowerType.KEY) {
-            System.out.println("x: " + x);
-            System.out.println("y: " + y);
-        }
     }
 
     public ItemType getType() {

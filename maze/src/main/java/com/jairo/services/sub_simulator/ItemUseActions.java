@@ -14,7 +14,10 @@ import com.jairo.utils.map_generator.Cells;
 
 import static com.jairo.utils.map_generator.Cells.*;
 
+import java.util.Random;
+
 public class ItemUseActions {
+    private final Random random = new Random(); 
 
     private final Player player;
     private final Board board;
@@ -23,45 +26,55 @@ public class ItemUseActions {
     private final DoorSystem doorSystem;
     private final SoundManager sm;
 
+    private static final String SOUND_GROUP_NAME = "brokenKeyFail";
+
     public ItemUseActions(
             Player player,
             Board board,
             Inventory inventory,
             ItemPlacer placer,
             DoorSystem doorSystem,
-            SoundManager soundManager
-    ) {
+            SoundManager soundManager) {
         this.player = player;
         this.board = board;
         this.inventory = inventory;
         this.placer = placer;
         this.doorSystem = doorSystem;
         this.sm = soundManager;
+
+        sm.defineGroup(SOUND_GROUP_NAME, 
+            Sound.JIJI_CA.path(),
+            Sound.JIJI_ES.path(),
+            Sound.JIJI_EN.path(),
+            Sound.BROKEN_KEY_FAIL.path()
+        );
     }
 
     // =========================
     // ENTRYPOINT
     // =========================
     public void onUse(ItemType item, DnResult dn) {
-        if (item == null || dn == null) return;
+        if (item == null || dn == null)
+            return;
 
         switch (item) {
-            case PowerType.PICKAXE -> usePickaxe(item, dn);
+            case PowerType.PICKAXE -> usePickaxe(dn);
             case PowerType.BLAI_GLASSES -> tryToActiveBlaiGlasses(dn);
             case PowerType.KEY -> tryToOpenExit(dn);
-            default -> { /* no-op */ }
+            case PowerType.BROKEN_KEY -> tryToUseBrokenKey(dn);
+            default -> {
+                /* no-op */ }
         }
     }
 
     // =========================
     // PICKAXE (usa DoorSystem)
     // =========================
-    private void usePickaxe(ItemType item, DnResult dn) {
-        if (item != PowerType.PICKAXE) return;
-
+    private void usePickaxe(DnResult dn) {
         int dx = dn.dx();
         int dy = dn.dy();
-        if (dx == 0 && dy == 0) return;
+        if (dx == 0 && dy == 0)
+            return;
 
         int nx = dn.nx();
         int ny = dn.ny();
@@ -78,7 +91,7 @@ public class ItemUseActions {
         int cell = dn.cell();
 
         if (!Cells.hasCollision(cell)) {
-            if(doorSystem.isDoorOpened(cell)) {
+            if (doorSystem.isDoorOpened(cell)) {
                 playDoorHit();
             }
 
@@ -118,7 +131,8 @@ public class ItemUseActions {
             return;
         }
 
-        if (!inventory.consumeOne(item)) return;
+        if (!inventory.consumeOne(PowerType.PICKAXE))
+            return;
 
         board.updateTile(nx, ny, DESTROYED_PATH);
         sm.playSfx(Sound.PICKAXE_WALL.path());
@@ -159,7 +173,8 @@ public class ItemUseActions {
     private void tryToActiveBlaiGlasses(DnResult dn) {
         int dx = dn.dx();
         int dy = dn.dy();
-        if (dx == 0 && dy == 0) return;
+        if (dx == 0 && dy == 0)
+            return;
 
         int nx = dn.nx();
         int ny = dn.ny();
@@ -172,7 +187,8 @@ public class ItemUseActions {
                 opened = doorSystem.tryOpenDoorAt(nx, ny, dx, dy, cell);
             }
 
-            if (opened) return;
+            if (opened)
+                return;
         }
 
         if (cell == LOCKED_EXIT) {
@@ -180,7 +196,8 @@ public class ItemUseActions {
             return;
         }
 
-        if (cell == EXIT) return;
+        if (cell == EXIT)
+            return;
 
         if (!blaiGlassesActive && inventory.has(PowerType.BLAI_GLASSES)) {
             inventory.consumeOne(PowerType.BLAI_GLASSES);
@@ -219,20 +236,23 @@ public class ItemUseActions {
 
         if (!inventory.has(PowerType.KEY)) {
             var keys = placer.getPositionsOf(PowerType.KEY);
-            if (keys.isEmpty()) return -1;
+            if (keys.isEmpty())
+                return -1;
 
             int[] pos = keys.get(0);
             int keyX = pos[0];
             int keyY = pos[1];
 
             distance = getDistance(playerX, playerY, keyX, keyY);
-            if (distance < BLAI_GLASSES_NERF_KEY) distance = -1;
+            if (distance < BLAI_GLASSES_NERF_KEY)
+                distance = -1;
         } else {
             int exitX = board.getExitX();
             int exitY = board.getExitY();
 
             distance = getDistance(playerX, playerY, exitX, exitY);
-            if (distance < BLAI_GLASSES_NERF_EXIT) distance = -1;
+            if (distance < BLAI_GLASSES_NERF_EXIT)
+                distance = -1;
         }
 
         return distance;
@@ -251,17 +271,19 @@ public class ItemUseActions {
     private void tryToOpenExit(DnResult dn) {
         int dx = dn.dx();
         int dy = dn.dy();
-        if (dx == 0 && dy == 0) return;
+        if (dx == 0 && dy == 0)
+            return;
 
         int nx = dn.nx();
         int ny = dn.ny();
         int cell = dn.cell();
 
-        if (cell != LOCKED_EXIT) return;
+        if (cell != LOCKED_EXIT)
+            return;
         if (CoinsPowerState.getLevel() < 4) {
             playLockedExit();
             return;
-        } 
+        }
 
         inventory.consumeOne(PowerType.KEY);
         board.updateTile(nx, ny, EXIT);
@@ -270,5 +292,61 @@ public class ItemUseActions {
 
     public void playLockedExit() {
         sm.playSfxWithTailDelay(Sound.EXIT_LOCK.path(), 1.5, false, 50);
+    }
+
+    // =========================
+    // BROKEN KEY
+    // =========================
+
+    private boolean randomWithProbably(int probably) {
+        return random.nextInt(100) < probably;
+    }
+
+    private static final int BROKEN_KEY_EXIT_RATIO = 35;
+    private static final int JIJI_RATIO = 35;
+    private static final long DELAY_MS = 20L;
+
+    private void tryToUseBrokenKey(DnResult dn) {
+        if (sm.isGroupPlaying(SOUND_GROUP_NAME)) return;
+
+        int dx = dn.dx();
+        int dy = dn.dy();
+        if (dx == 0 && dy == 0)
+            return;
+
+        int nx = dn.nx();
+        int ny = dn.ny();
+        int cell = dn.cell();
+
+        if (!doorSystem.isDoorClosed(cell))
+            return;
+
+        boolean opened = false;
+
+        if (doorSystem.isDoorClosedButOpenable(cell)) {
+            opened = doorSystem.tryOpenDoorAt(nx, ny, dx, dy, cell);
+        }
+
+        if (opened)
+            return;
+
+        inventory.consumeOne(PowerType.BROKEN_KEY);
+
+        if (randomWithProbably(BROKEN_KEY_EXIT_RATIO)) {
+            doorSystem.tryOpenDoorAt(nx, ny, dx, dy, cell, true);
+            return;
+        }
+
+        String path;
+        long delay;
+        if (randomWithProbably(JIJI_RATIO)) {
+            path = doorSystem.getJiJiPath();
+            delay = DoorSystem.DELAY_MS;
+        } else {
+            path = Sound.BROKEN_KEY_FAIL.path();
+            delay = DELAY_MS;
+        }
+
+        sm.playSfxWithTailDelay(path, 1.0, false, delay);
     }
 }

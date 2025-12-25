@@ -4,10 +4,10 @@ public final class CoinDuplicateSystem {
     private CoinDuplicateSystem() {}
 
     // Se activa a partir de x% de monedas
-    private static final int MIN_PERCENTAGE = 25;
+    private static int minPercentage = 25;
 
     // A partir de y% de monedas, ya no mejora más
-    private static final int MAX_PERCENTAGE = 35;
+    private static int maxPercentage = minPercentage + 10;
 
     // Probabilidad máxima de duplicar
     private static final double MAX_DUPLICATE_CHANCE = 0.40; // 40%
@@ -16,7 +16,7 @@ public final class CoinDuplicateSystem {
     private static final double K = 2.0;
 
     public static int getMinPercentage() {
-        return MIN_PERCENTAGE;
+        return minPercentage;
     }
 
     /**
@@ -38,7 +38,7 @@ public final class CoinDuplicateSystem {
         if (maxCoins <= 0) return false;
 
         double p = coinPercent(currentCoins, maxCoins);
-        double min = MIN_PERCENTAGE / 100.0;
+        double min = minPercentage / 100.0;
 
         return p >= min;
     }
@@ -49,8 +49,8 @@ public final class CoinDuplicateSystem {
     }
 
     private static double activationT(double p01) {
-        double min = MIN_PERCENTAGE / 100.0;
-        double max = MAX_PERCENTAGE / 100.0;
+        double min = minPercentage / 100.0;
+        double max = maxPercentage / 100.0;
 
         if (max <= min) {
             return (p01 >= min) ? 1.0 : 0.0;
@@ -64,5 +64,11 @@ public final class CoinDuplicateSystem {
 
     private static double clamp01(double v) {
         return Math.max(0.0, Math.min(1.0, v));
+    }
+
+    public static int setMinPercentage(int min) {
+        minPercentage = min;
+        maxPercentage = min + 10;
+        return min;
     }
 }

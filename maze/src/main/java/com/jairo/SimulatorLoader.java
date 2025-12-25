@@ -24,6 +24,20 @@ public class SimulatorLoader {
     // Default: 50
     private static final int MAX_TRIES = 50;
 
+    private static final List<ItemType> items = List.of(
+            // * Basic
+            BasicItemType.COIN,
+
+            // * Special
+            SpecialType.CHEATED_BUTTON,
+            SpecialType.BOOTS,
+
+            // * Power
+            PowerType.PICKAXE,
+            PowerType.BLAI_GLASSES,
+            PowerType.KEY,
+            PowerType.BROKEN_KEY);
+
     public static Simulator load() {
         Board board = null;
         Player player = null;
@@ -56,24 +70,15 @@ public class SimulatorLoader {
                 }
             }
         }
-        
+
         int exitX = board.getExitX();
         int exitY = board.getExitY();
         cleanRediusOfGhostRoom(board, exitX, exitY);
 
         board.updateTile(exitX, exitY, Cells.LOCKED_EXIT, false);
 
+        setBrokenKeyDensity(board);
         ItemPlacer placer = new ItemPlacer();
-
-        List<ItemType> items = List.of(
-                BasicItemType.COIN,
-
-                SpecialType.CHEATED_BUTTON,
-                SpecialType.BOOTS,
-
-                PowerType.PICKAXE,
-                PowerType.BLAI_GLASSES,
-                PowerType.KEY);
 
         placer.placeObjects(
                 board.getCells(),
@@ -95,27 +100,45 @@ public class SimulatorLoader {
 
         // ───────────── borde superior (y = 0) ─────────────
         for (int x = 0; x < width; x++) {
-            if (exitY == 0 && exitX == x) continue;
+            if (exitY == 0 && exitX == x)
+                continue;
             board.updateTile(x, 0, Cells.WALL, false);
         }
 
         // ───────────── borde inferior (y = height - 1) ─────────────
         for (int x = 0; x < width; x++) {
-            if (exitY == height - 1 && exitX == x) continue;
+            if (exitY == height - 1 && exitX == x)
+                continue;
             board.updateTile(x, height - 1, Cells.WALL, false);
         }
 
         // ───────────── borde izquierdo (x = 0) ─────────────
         for (int y = 1; y < height - 1; y++) {
-            if (exitY == y && exitX == 0) continue;
+            if (exitY == y && exitX == 0)
+                continue;
             board.updateTile(0, y, Cells.WALL, false);
         }
 
         // ───────────── borde derecho (x = width - 1) ─────────────
         for (int y = 1; y < height - 1; y++) {
-            if (exitY == y && exitX == width - 1) continue;
+            if (exitY == y && exitX == width - 1)
+                continue;
             board.updateTile(width - 1, y, Cells.WALL, false);
         }
     }
 
+    private static final double BROKEN_KEY_RATIO = 0.10;
+
+    private static void setBrokenKeyDensity(Board board) {
+        int doors = board.getDoorsCount();
+        double density = parse3((doors * BROKEN_KEY_RATIO) / 100);
+        
+        double totalDensity = PowerType.BROKEN_KEY.getDensity() + density;
+        double avgDensity = parse3(totalDensity / 2);
+        PowerType.BROKEN_KEY.setDensity(avgDensity);
+    }
+
+    private static double parse3(double n) {
+        return Math.floor(n * 1000) / 1000;
+    }
 }
