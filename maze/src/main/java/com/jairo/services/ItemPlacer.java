@@ -1,6 +1,5 @@
 package com.jairo.services;
 
-import com.jairo.items.BasicItemType;
 import com.jairo.items.ItemType;
 import com.jairo.items.PlacedItem;
 import com.jairo.utils.map_generator.Cells;

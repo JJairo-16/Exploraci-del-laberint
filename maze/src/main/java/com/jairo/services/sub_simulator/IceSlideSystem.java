@@ -10,17 +10,22 @@ import static com.jairo.utils.map_generator.Cells.ICE;
 
 /**
  * Encapsula toda la lógica de deslizamiento sobre hielo (estado + ticks + animación forzada).
+ *
+ * Ahora expone eventos mediante SlideSfx (capa de dominio -> capa de app/infrastructure).
  */
 public class IceSlideSystem {
 
     /** Ajusta para más/menos suavidad */
-    private static final long ICE_STEP_NS = 110_000_000L; // 120ms por tile (ojo: comentario original decía 45ms)
+    private static final long ICE_STEP_NS = 110_000_000L;
 
     private final Board board;
     private final Player player;
 
     // Dependencias externas (opcionales)
     private Drawer drawer;
+
+    // Eventos (opcional)
+    private SlideSfx slideSfx;
 
     // Estado
     private boolean iceActivated = true;
@@ -34,8 +39,29 @@ public class IceSlideSystem {
     /** Evita reentradas (iceTick llama a move) */
     private boolean inAutoIceStep = false;
 
+    /** Cuenta los tiles deslizados en esta "sesión" */
+    private int slideTiles = 0;
+
     public interface MoveExecutor {
         boolean move(int dx, int dy);
+    }
+
+    /**
+     * Eventos semánticos del deslizamiento (puerto / port).
+     * Implementación típica: capa de aplicación -> llama a SoundManager/FX/etc.
+     */
+    public interface SlideSfx {
+        /** Se dispara cuando empieza el deslizamiento. */
+        void onSlideStart();
+
+        /** Se dispara tras mover 1 tile durante el deslizamiento (tileIndex empieza en 1). */
+        void onSlideTile(int tileIndex);
+
+        /**
+         * Se dispara al finalizar el deslizamiento.
+         * @param collided true si se ha parado por colisión/bounds/move fallido.
+         */
+        void onSlideEnd(boolean collided);
     }
 
     public IceSlideSystem(Board board, Player player) {
@@ -47,6 +73,10 @@ public class IceSlideSystem {
         this.drawer = drawer;
     }
 
+    public void setSlideSfx(SlideSfx slideSfx) {
+        this.slideSfx = slideSfx;
+    }
+
     public boolean isIceActivated() {
         return iceActivated;
     }
@@ -54,7 +84,7 @@ public class IceSlideSystem {
     public void setIceActivated(boolean iceActivated) {
         this.iceActivated = iceActivated;
         if (!iceActivated) {
-            stopIceSlide();
+            stopIceSlide(false);
         }
     }
 
@@ -94,9 +124,20 @@ public class IceSlideSystem {
 
         if (dx == 0 && dy == 0) return;
 
-        iceSliding = true;
-        iceDx = dx;
-        iceDy = dy;
+        // Si ya estaba deslizando, no reiniciar
+        if (!iceSliding) {
+            iceSliding = true;
+            iceDx = dx;
+            iceDy = dy;
+            slideTiles = 0;
+
+            if (slideSfx != null) slideSfx.onSlideStart();
+        } else {
+            // Si estabas deslizando y el jugador cambia dirección manualmente en hielo,
+            // actualiza dirección (opcional). Si no quieres esto, elimina este bloque.
+            iceDx = dx;
+            iceDy = dy;
+        }
 
         // Empieza ya en el próximo tick
         nextIceStepAtNs = now + ICE_STEP_NS;
@@ -124,9 +165,9 @@ public class IceSlideSystem {
         int nx = player.getX() + iceDx;
         int ny = player.getY() + iceDy;
 
-        // Fuera de bounds => parar
+        // Fuera de bounds => parar (como colisión)
         if (nx < 0 || ny < 0 || nx >= Board.BOARD_WIDTH || ny >= Board.BOARD_HEIGHT) {
-            stopIceSlide();
+            stopIceSlide(true);
             return;
         }
 
@@ -134,7 +175,7 @@ public class IceSlideSystem {
 
         // Colisión => parar (paredes, puertas cerradas, LOCKED_EXIT, etc.)
         if (Cells.hasCollision(nextTile)) {
-            stopIceSlide();
+            stopIceSlide(true);
             return;
         }
 
@@ -148,26 +189,34 @@ public class IceSlideSystem {
         inAutoIceStep = false;
 
         if (!moved) {
-            stopIceSlide();
+            stopIceSlide(true);
             return;
         }
 
-        // Steps.playRandomStep();
+        // Evento: 1 tile deslizado
+        slideTiles++;
+        if (slideSfx != null) slideSfx.onSlideTile(slideTiles);
 
-        // Si ya no está en hielo => parar
+        // Si ya no está en hielo => parar (fin normal)
         int under = board.getTile(player.getX(), player.getY());
         if (!isIceTile(under)) {
-            stopIceSlide();
+            stopIceSlide(false);
             return;
         }
 
         nextIceStepAtNs = now + ICE_STEP_NS;
     }
 
-    private void stopIceSlide() {
+    private void stopIceSlide(boolean collided) {
+        if (iceSliding) {
+            // Solo emitir fin si realmente estaba deslizando
+            if (slideSfx != null) slideSfx.onSlideEnd(collided);
+        }
+
         iceSliding = false;
         iceDx = 0;
         iceDy = 0;
+        slideTiles = 0;
 
         board.discoverAroundPlayer(player.getX(), player.getY());
     }

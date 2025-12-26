@@ -80,6 +80,22 @@
         <Label text="2" styleClass="key-label" GridPane.columnIndex="2" GridPane.rowIndex="2"/>
         <Label text="%controls.nextItem" styleClass="key-description" GridPane.columnIndex="3" GridPane.rowIndex="2"/>
       </GridPane>
+
+      <Separator styleClass="ui-separator"/>
+
+      <GridPane hgap="12" vgap="8" styleClass="key-grid">
+        <columnConstraints>
+          <ColumnConstraints hgrow="NEVER" minWidth="48" prefWidth="64"/>
+          <ColumnConstraints hgrow="ALWAYS" minWidth="120"/>
+          <ColumnConstraints hgrow="NEVER" minWidth="48" prefWidth="64"/>
+          <ColumnConstraints hgrow="ALWAYS" minWidth="120"/>
+        </columnConstraints>
+
+        <Label text="F1" styleClass="key-label" GridPane.columnIndex="0" GridPane.rowIndex="0"/>
+        <Label text="%controls.showFps" styleClass="key-description" GridPane.columnIndex="1" GridPane.rowIndex="0"/>
+        <Label text="F2" styleClass="key-label" GridPane.columnIndex="2" GridPane.rowIndex="0"/>
+        <Label text="%controls.switchPowerCoins" styleClass="key-description" GridPane.columnIndex="3" GridPane.rowIndex="0"/>
+      </GridPane>
     </VBox>
 
     <Separator styleClass="ui-separator"/>

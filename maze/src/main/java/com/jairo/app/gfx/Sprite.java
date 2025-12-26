@@ -2,6 +2,8 @@ package com.jairo.app.gfx;
 
 import static com.jairo.app.gfx.SpritesRoot.*;
 
+import java.util.List;
+
 public enum Sprite {
     // * 
     NONE(GAME.get("none.png")),
@@ -18,16 +20,16 @@ public enum Sprite {
 
     // * Doors
     // Closed
-    DOOR_OPEN_FROM_NORTH(DOORS.get("door_open_from_north.png")),
-    DOOR_OPEN_FROM_SOUTH(DOORS.get("door_open_from_south.png")),
-    DOOR_OPEN_FROM_WEST(DOORS.get("door_open_from_west.png")),
-    DOOR_OPEN_FROM_EAST(DOORS.get("door_open_from_east.png")),
+    DOOR_OPEN_FROM_NORTH(GAME.get("closed-door.png"), 0),
+    DOOR_OPEN_FROM_SOUTH(GAME.get("closed-door.png"), 180),
+    DOOR_OPEN_FROM_EAST(GAME.get("closed-door.png"), 90),
+    DOOR_OPEN_FROM_WEST(GAME.get("closed-door.png"), -90),
 
     // Opened
-    DOOR_OPENED_FROM_NORTH(DOORS.get("door_opened_from_north.png")),
-    DOOR_OPENED_FROM_SOUTH(DOORS.get("door_opened_from_south.png")),
-    DOOR_OPENED_FROM_WEST(DOORS.get("door_opened_from_west.png")),
-    DOOR_OPENED_FROM_EAST(DOORS.get("door_opened_from_east.png")),
+    DOOR_OPENED_FROM_NORTH(GAME.get("opened-door.png"), 180),
+    DOOR_OPENED_FROM_SOUTH(GAME.get("opened-door.png"), 0),
+    DOOR_OPENED_FROM_EAST(GAME.get("opened-door.png"), -90),
+    DOOR_OPENED_FROM_WEST(GAME.get("opened-door.png"), 90),
 
     // * Cheated
     CHEATED_PATH(GAME.get("cheated-path.png")),
@@ -60,26 +62,46 @@ public enum Sprite {
     // * Other
     ICE(GAME.get("ice.png"));
 
-    static {
-        DOOR_OPEN_FROM_NORTH.updateFillTile();
-        DOOR_OPEN_FROM_SOUTH.updateFillTile();
-        DOOR_OPEN_FROM_WEST.updateFillTile();
-        DOOR_OPEN_FROM_EAST.updateFillTile();
+    private static final List<Sprite> doors = List.of(
+        DOOR_OPEN_FROM_NORTH,
+        DOOR_OPEN_FROM_SOUTH,
+        DOOR_OPEN_FROM_WEST,
+        DOOR_OPEN_FROM_EAST,
 
-        DOOR_OPENED_FROM_NORTH.updateFillTile();
-        DOOR_OPENED_FROM_SOUTH.updateFillTile();
-        DOOR_OPENED_FROM_WEST.updateFillTile();
-        DOOR_OPENED_FROM_EAST.updateFillTile();
+        DOOR_OPENED_FROM_NORTH,
+        DOOR_OPENED_FROM_SOUTH,
+        DOOR_OPENED_FROM_WEST,
+        DOOR_OPENED_FROM_EAST
+    );
+
+    private static final List<Sprite> mergeable = List.of(
+        EXIT,
+        EXIT_CONNECTOR,
+        CHEATED_WALL,
+        CHEATED_WALL_SOLID,
+        CHEAT_WALL_ACTIVE,
+        SECRET_WALL
+    );
+
+    static {
+        for (Sprite d : doors) {
+            d.updateFillTile();
+            d.doItMergeable();
+        }
+
+        for (Sprite m : mergeable) {
+            m.doItMergeable();
+        }
 
         LOCKED_EXIT.updateFillTile(Sprite.EXIT);
-
-        CHEATED_PATH.updateFillTile(Sprite.PATH);
+        CHEATED_PATH.updateFillTile();
     }
     
     private String resourcePath;
     public final double rotation;
     private boolean fullTile = true;
     private Sprite back;
+    private boolean canMerge = false;
 
     Sprite(String resourcePath, double rotation) {
         this.resourcePath = resourcePath;
@@ -115,5 +137,13 @@ public enum Sprite {
 
     public Sprite getBack() {
         return back;
+    }
+
+    private void doItMergeable() {
+        this.canMerge = true;
+    }
+
+    public boolean isMergeable() {
+        return canMerge;
     }
 }

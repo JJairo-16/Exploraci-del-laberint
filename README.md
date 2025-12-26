@@ -17,21 +17,22 @@ L’objectiu del joc és explorar un laberint fins a trobar la sortida. Al comen
 
 ### Controls
 
-| **Tecla principal** | **Tecla secundària** | **Acció**             |
-| ------------------- | -------------------- | --------------------- |
-| W                   | Fletxa amunt         | Anar cap amunt        |
-| A                   | Fletxa esquerra      | Anar cap a l’esquerra |
-| S                   | Fletxa avall         | Anar cap avall        |
-| D                   | Fletxa dreta         | Anar cap a la dreta   |
-| E                   | Enter                | Utilitzar             |
-| Shift               |                      | Esprintar             |
-| Més                 |                      | Augmentar el zoom     |
-| Menys               |                      | Disminuir el zoom     |
-| Z                   |                      | Skin anterior         |
-| X                   |                      | Següent skin          |
-| 1                   |                      | Objecte anterior      |
-| 2                   | Q                    | Següent objecte       |
-| F1                  |                      | Alternar mostrar FPS  |
+| **Tecla principal** | **Tecla secundària** | **Acció**               |
+| ------------------- | -------------------- | ----------------------- |
+| W                   | Fletxa amunt         | Anar cap amunt          |
+| A                   | Fletxa esquerra      | Anar cap a l’esquerra   |
+| S                   | Fletxa avall         | Anar cap avall          |
+| D                   | Fletxa dreta         | Anar cap a la dreta     |
+| E                   | Enter                | Utilitzar               |
+| Shift               |                      | Esprintar               |
+| Més                 |                      | Augmentar el zoom       |
+| Menys               |                      | Disminuir el zoom       |
+| Z                   |                      | Skin anterior           |
+| X                   |                      | Següent skin            |
+| 1                   |                      | Objecte anterior        |
+| 2                   | Q                    | Següent objecte         |
+| F1                  |                      | Alternar mostrar FPS    |
+| F2                  |                      | Alternar poder monetari |
 
 ---
 

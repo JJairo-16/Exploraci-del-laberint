@@ -1,5 +1,9 @@
 package com.jairo.app;
 
+import static com.jairo.utils.map_generator.Cells.DOOR_OPENED_FROM_EAST;
+import static com.jairo.utils.map_generator.Cells.DOOR_OPEN_FROM_EAST;
+import static com.jairo.utils.map_generator.Cells.DOOR_OPEN_FROM_NORTH;
+
 import java.util.List;
 
 import org.slf4j.Logger;
@@ -89,8 +93,7 @@ public class Controller {
     private final FxTimeSource time = new FxTimeSource();
 
     private static final List<String> THEMES = List.of(
-        Sound.THEME.path(),
-        Sound.ECHOS.path()
+        Sound.THEME.path()
     );
 
     // Punto crítico: drawer.update en un único sitio
@@ -119,9 +122,10 @@ public class Controller {
                 simulator = SimulatorLoader.load();
 
             sm.preload(Sound.values());
-            sm.setBgmPlaylist(THEMES, true);
+            sm.setBgmPlaylist(THEMES, false);
+            sm.playBgm();
             sm.setMasterVolume(0.9);
-            sm.setBgmVolume(0.30);
+            sm.setBgmVolume(0.60);
             sm.setMuted(false);
 
             images.preloadAll();
@@ -229,6 +233,11 @@ public class Controller {
 
                 long now = time.now();
                 KeyCode key = event.getCode();
+
+                if (key == KeyCode.F) {
+                    Simulator.Position pos = simulator.getPlayerPosition();
+                    simulator.getBoardRef().updateTile(pos.x(), pos.y()-1, DOOR_OPEN_FROM_NORTH);
+                }
 
                 Inventory inv = simulator.getInventory();
                 HeldItemTuningAdjuster.adjust(key, inv, (PowerType) inv.getSelectedPower());

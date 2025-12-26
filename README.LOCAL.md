@@ -290,6 +290,10 @@ L’objectiu del joc és explorar un laberint fins a trobar la sortida. Al comen
     <td></td>
     <td>Alternar mostrar FPS</td>
     </tr>
+    <td>F2</td>
+    <td></td>
+    <td>Alternar poder monetari</td>
+    </tr>
   </tbody>
 </table>
 

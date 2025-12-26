@@ -14,6 +14,7 @@ import com.jairo.items.SpecialType;
 import static com.jairo.app.gfx.Sprite.CHEATED_PATH;
 import static com.jairo.utils.map_generator.Cells.*;
 
+import com.jairo.app.audio.Sound;
 import com.jairo.app.audio.SoundManager;
 import com.jairo.app.audio.Steps;
 import com.jairo.app.gfx.Drawer;
@@ -96,11 +97,29 @@ public class Simulator {
         this.placer = placer;
         this.player = player;
         this.board = board;
-        
+
         this.iceSystem = new IceSlideSystem(board, player);
         this.doorSystem = new DoorSystem(board);
         this.cheatWallSystem = new CheatWallActivationSystem(board);
         this.teleportPadSystem = new TeleportPadSystem(board, player, placer);
+
+        iceSystem.setSlideSfx(new IceSlideSystem.SlideSfx() {
+            @Override
+            public void onSlideStart() {
+                SoundManager.get().startIceSlideLoop(1.1);
+            }
+
+            @Override
+            public void onSlideTile(int tileIndex) {
+            }
+
+            @Override
+            public void onSlideEnd(boolean collided) {
+                SoundManager.get().stopIceSlideLoop();
+                if (collided)
+                    SoundManager.get().playSfx(Sound.ICE_SLIDE_BUMP.path(), 0.9);
+            }
+        });
 
         this.itemUseActions = new ItemUseActions(
                 player,
@@ -165,7 +184,11 @@ public class Simulator {
                 int ny = dy + player.getY(); // ✅ fix: era dx + player.getY()
                 int tile = board.getTile(nx, ny);
 
-                if (tile != ICE)
+                if (tile == ICE) {
+                    boolean activated = iceSystem.isIceActivated();
+                    if (!activated)
+                        Steps.playRandomIceStep();
+                } else
                     Steps.playRandomStep();
 
                 iceSystem.afterManualMove(lasNow, lastMovement);
@@ -377,7 +400,8 @@ public class Simulator {
 
             case BasicItemType.PORTAL_GUN:
                 TeleportPadSystem.Destination dest = teleportPadSystem.findAndPrintDestination();
-                if (!dest.found()) return;
+                if (!dest.found())
+                    return;
 
                 int x = dest.x();
                 int y = dest.y();

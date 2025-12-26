@@ -16,10 +16,6 @@ import org.slf4j.LoggerFactory;
  * SoundManager (JavaFX)
  * - BGM: MediaPlayer (playlist)
  * - SFX simultanis: AudioClip
- *
- * Requisits:
- * - Dependència: javafx-media
- * - Recursos a src/main/resources (ex: /music/theme.mp3, /sfx/click.wav)
  */
 public final class SoundManager {
 
@@ -44,17 +40,20 @@ public final class SoundManager {
 
     private MediaPlayer bgmPlayer;
 
+    /** Ruta REAL actualmente cargada en el MediaPlayer (no depende del índice de playlist). */
+    private String currentBgmPath;
+
     private final List<String> bgmPlaylist = new ArrayList<>();
     private int bgmIndex = -1;
 
     private boolean bgmShuffle = false;
-    private RepeatMode bgmRepeatMode = RepeatMode.ALL; // por defecto: playlist en bucle
+    private RepeatMode bgmRepeatMode = RepeatMode.ALL;
     private final Random rng = new Random();
 
     private volatile boolean muted = false;
     private volatile double masterVolume = 1.0; // 0..1
-    private volatile double bgmVolume = 0.45;   // 0..1 (relatiu)
-    private volatile double sfxVolume = 0.8;    // 0..1 (relatiu)
+    private volatile double bgmVolume = 0.45;   // 0..1
+    private volatile double sfxVolume = 0.8;    // 0..1
 
     private SoundManager() {}
 
@@ -66,9 +65,15 @@ public final class SoundManager {
 
     public void setMuted(boolean muted) {
         this.muted = muted;
+
         Platform.runLater(() -> {
             if (bgmPlayer != null) bgmPlayer.setMute(muted);
         });
+
+        if (muted) {
+            // Si muteas, para loops persistentes (como el slide)
+            stopIceSlideLoop();
+        }
 
         if (log.isDebugEnabled()) log.debug("Mute set to {}", muted);
     }
@@ -79,6 +84,10 @@ public final class SoundManager {
     public void setMasterVolume(double volume) {
         this.masterVolume = clamp01(volume);
         Platform.runLater(this::applyBgmVolume);
+
+        // Nota: AudioClip no actualiza volumen del loop ya sonando automáticamente.
+        // Si quieres, podrías reiniciar loops aquí.
+
         if (log.isDebugEnabled()) log.debug("Master volume set to {}", this.masterVolume);
     }
 
@@ -105,7 +114,6 @@ public final class SoundManager {
      * =======================
      */
 
-    /** Reemplaza la playlist completa. No empieza a reproducir automáticamente. */
     public void setBgmPlaylist(List<String> resourcePaths, boolean startAtFirst) {
         Objects.requireNonNull(resourcePaths, "resourcePaths");
         Platform.runLater(() -> {
@@ -119,14 +127,13 @@ public final class SoundManager {
                 log.info("BGM playlist set ({} tracks)", bgmPlaylist.size());
 
             if (startAtFirst && bgmIndex >= 0) {
-                playBgm(); // play current index
+                playBgm();
             } else {
                 stopBgmInternal();
             }
         });
     }
 
-    /** Añade pistas al final de la playlist. */
     public void addToBgmPlaylist(String... resourcePaths) {
         if (resourcePaths == null) return;
         Platform.runLater(() -> {
@@ -140,9 +147,7 @@ public final class SoundManager {
     }
 
     public List<String> getBgmPlaylistSnapshot() {
-        synchronized (bgmPlaylist) {
-            return new ArrayList<>(bgmPlaylist);
-        }
+        return new ArrayList<>(bgmPlaylist);
     }
 
     public void setBgmShuffle(boolean shuffle) {
@@ -159,7 +164,6 @@ public final class SoundManager {
 
     public RepeatMode getBgmRepeatMode() { return bgmRepeatMode; }
 
-    /** Reproduce la pista actual del índice (no fuerza loop infinito). */
     public void playBgm() {
         Platform.runLater(() -> {
             if (bgmPlaylist.isEmpty()) {
@@ -168,25 +172,22 @@ public final class SoundManager {
                 return;
             }
             if (bgmIndex < 0) bgmIndex = 0;
-            startBgmTrack(bgmPlaylist.get(bgmIndex), /*fromStart=*/false);
+            startBgmTrack(bgmPlaylist.get(bgmIndex), false);
         });
     }
 
-    /** Reproduce la pista actual desde el inicio. */
     public void playBgmFromStart() {
         Platform.runLater(() -> {
             if (bgmPlaylist.isEmpty()) return;
             if (bgmIndex < 0) bgmIndex = 0;
-            startBgmTrack(bgmPlaylist.get(bgmIndex), /*fromStart=*/true);
+            startBgmTrack(bgmPlaylist.get(bgmIndex), true);
         });
     }
 
-    /** Salta a la siguiente pista (respetando shuffle/repeat). */
     public void nextBgm() {
         Platform.runLater(() -> advanceBgm(true));
     }
 
-    /** Vuelve a la pista anterior (si no hay, se queda en 0 o va al final según repeat). */
     public void prevBgm() {
         Platform.runLater(() -> {
             if (bgmPlaylist.isEmpty()) return;
@@ -204,12 +205,10 @@ public final class SoundManager {
                 return;
             }
 
-            // prev < 0
             if (bgmRepeatMode == RepeatMode.ALL) {
                 bgmIndex = bgmPlaylist.size() - 1;
                 startBgmTrack(bgmPlaylist.get(bgmIndex), true);
             } else {
-                // NONE/ONE: se queda en 0
                 bgmIndex = 0;
                 startBgmTrack(bgmPlaylist.get(bgmIndex), true);
             }
@@ -219,8 +218,7 @@ public final class SoundManager {
     public int getBgmIndex() { return bgmIndex; }
 
     public String getCurrentBgmPath() {
-        if (bgmIndex < 0 || bgmIndex >= bgmPlaylist.size()) return null;
-        return bgmPlaylist.get(bgmIndex);
+        return currentBgmPath;
     }
 
     public void pauseBgm() {
@@ -251,8 +249,7 @@ public final class SoundManager {
     private void startBgmTrack(String resourcePath, boolean fromStart) {
         Objects.requireNonNull(resourcePath, "resourcePath");
 
-        // Si ya es la misma pista y existe player, solo resume / seek.
-        if (bgmPlayer != null && resourcePath.equals(getCurrentBgmPath())) {
+        if (bgmPlayer != null && resourcePath.equals(currentBgmPath)) {
             if (fromStart) {
                 try { bgmPlayer.stop(); } catch (Exception ignored) {}
                 bgmPlayer.play();
@@ -272,14 +269,13 @@ public final class SoundManager {
 
         Media media = new Media(url.toExternalForm());
         bgmPlayer = new MediaPlayer(media);
+        currentBgmPath = resourcePath;
 
         bgmPlayer.setMute(muted);
         applyBgmVolume();
 
-        // Autopaso a la siguiente pista
         bgmPlayer.setOnEndOfMedia(() -> Platform.runLater(() -> advanceBgm(false)));
 
-        // Si hay error, lo registramos y pasamos a la siguiente
         bgmPlayer.setOnError(() -> {
             log.warn("BGM error on track {}: {}", resourcePath,
                     (bgmPlayer.getError() != null ? bgmPlayer.getError().getMessage() : "unknown"));
@@ -288,21 +284,15 @@ public final class SoundManager {
 
         if (log.isInfoEnabled()) log.info("Started BGM track: {}", resourcePath);
 
-        if (fromStart) {
-            bgmPlayer.play();
-        } else {
-            bgmPlayer.play(); // MediaPlayer empieza desde 0 por defecto
-        }
+        bgmPlayer.play();
     }
 
-    /** Avanza según repeat/shuffle. Called on FX thread. */
     private void advanceBgm(boolean userInitiated) {
         if (bgmPlaylist.isEmpty()) {
             stopBgmInternal();
             return;
         }
 
-        // Repeat ONE: si terminó sola, repetir misma pista. Si el usuario pide next, sí avanza.
         if (bgmRepeatMode == RepeatMode.ONE && !userInitiated) {
             startBgmTrack(bgmPlaylist.get(bgmIndex), true);
             return;
@@ -322,12 +312,10 @@ public final class SoundManager {
             return;
         }
 
-        // Hemos llegado al final
         if (bgmRepeatMode == RepeatMode.ALL) {
             bgmIndex = 0;
             startBgmTrack(bgmPlaylist.get(bgmIndex), true);
         } else {
-            // NONE: parar al final
             stopBgmInternal();
         }
     }
@@ -345,7 +333,10 @@ public final class SoundManager {
                     log.debug("Error while disposing BGM player.", e);
                 }
                 bgmPlayer = null;
+                currentBgmPath = null;
             }
+        } else {
+            currentBgmPath = null;
         }
     }
 
@@ -353,6 +344,36 @@ public final class SoundManager {
         if (bgmPlayer != null) {
             bgmPlayer.setVolume(clamp01(masterVolume * bgmVolume));
         }
+    }
+
+    /*
+     * =======================
+     * Ice Slide Loop (SFX persistente)
+     * =======================
+     */
+
+    /** Inicia (si no está sonando) el loop de deslizamiento. */
+    public void startIceSlideLoop(double volumeMultiplier) {
+        if (muted) return;
+
+        AudioClip loop = getOrLoadSfx(Sound.ICE_SLIDE_LOOP.path());
+        loop.setCycleCount(AudioClip.INDEFINITE);
+
+        if (loop.isPlaying()) return;
+
+        double v = clamp01(masterVolume * sfxVolume * Math.max(0.0, volumeMultiplier));
+        loop.play(v);
+    }
+
+    /** Overload con volumen por defecto. */
+    public void startIceSlideLoop() {
+        startIceSlideLoop(0.55);
+    }
+
+    /** Para el loop de deslizamiento si está sonando. */
+    public void stopIceSlideLoop() {
+        AudioClip loop = sfxCache.get(Sound.ICE_SLIDE_LOOP.path());
+        if (loop != null) loop.stop();
     }
 
     /*
@@ -446,6 +467,7 @@ public final class SoundManager {
     }
 
     public void dispose() {
+        stopIceSlideLoop();
         stopBgm();
         clearSfxCache();
         clearGroups();

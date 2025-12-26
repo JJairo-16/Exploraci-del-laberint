@@ -16,6 +16,17 @@ public enum Sound {
     STEP6(STEPS.get("step6.mp3")),
     STEP7(STEPS.get("step7.mp3")),
 
+    ICE_STEP1(ICE.get("step1.mp3")),
+    ICE_STEP2(ICE.get("step2.mp3")),
+    ICE_STEP3(ICE.get("step3.mp3")),
+    ICE_STEP4(ICE.get("step4.mp3")),
+    ICE_STEP5(ICE.get("step5.mp3")),
+    ICE_STEP6(ICE.get("step6.mp3")),
+
+    ICE_SLIDE_START(ICE.get("slide_start.mp3")),
+    ICE_SLIDE_LOOP(ICE.get("slide_loop.mp3")),
+    ICE_SLIDE_BUMP(ICE.get("bump.mp3")),
+
     TOCTOC(DOORS.get("toc_toc.wav")),
     LOCKED_DOOR(DOORS.get("doorLocked.mp3")),
     OPEN_DOOR(DOORS.get("openDoor.mp3")),
