@@ -2,6 +2,8 @@ package com.jairo.services;
 
 import com.jairo.items.ItemType;
 import com.jairo.items.PlacedItem;
+import com.jairo.items.placement.Constraint;
+import com.jairo.items.placement.RelaxPlan;
 import com.jairo.utils.map_generator.Cells;
 
 import java.util.ArrayDeque;
@@ -76,32 +78,26 @@ public class ItemPlacer {
             return Collections.emptyList();
         }
 
-        // Normalizar por si vienen invertidos
         int loX = Math.min(minX, maxX);
         int hiX = Math.max(minX, maxX);
         int loY = Math.min(minY, maxY);
         int hiY = Math.max(minY, maxY);
 
-        // Evitar overflow al calcular área
         long width = (long) hiX - (long) loX + 1L;
         long height = (long) hiY - (long) loY + 1L;
         long area = (width <= 0 || height <= 0) ? 0 : width * height;
 
-        // Heurística: si el rectángulo es pequeño, es más rápido consultar el mapa por
-        // celdas.
         if (area > 0 && area <= placedItems.size() * 2L) {
             List<PlacedItem> res = new ArrayList<>();
             for (int y = loY; y <= hiY; y++) {
                 for (int x = loX; x <= hiX; x++) {
                     PlacedItem it = itemsByPos.get(pack(x, y));
-                    if (it != null)
-                        res.add(it);
+                    if (it != null) res.add(it);
                 }
             }
             return Collections.unmodifiableList(res);
         }
 
-        // Si el rectángulo es grande, filtrar la lista suele ser mejor.
         List<PlacedItem> res = new ArrayList<>();
         for (PlacedItem it : placedItems) {
             int x = it.getX();
@@ -119,6 +115,58 @@ public class ItemPlacer {
 
     /* ===================== Core placement ===================== */
 
+    private static final class ConstraintsState {
+        int minPlayer;
+        int minBetween;
+        int minExit;
+        int minBorder;
+
+        // Contadores de rondas desde la última relajación de cada restricción
+        int sincePlayer;
+        int sinceBetween;
+        int sinceExit;
+        int sinceBorder;
+
+        ConstraintsState(int player, int between, int exit, int border) {
+            this.minPlayer = player;
+            this.minBetween = between;
+            this.minExit = exit;
+            this.minBorder = border;
+
+            // Inicialmente permitimos relajar en la primera ronda si hace falta:
+            this.sincePlayer = Integer.MAX_VALUE / 4;
+            this.sinceBetween = Integer.MAX_VALUE / 4;
+            this.sinceExit = Integer.MAX_VALUE / 4;
+            this.sinceBorder = Integer.MAX_VALUE / 4;
+        }
+
+        void tickRound() {
+            // Evitar overflow (no es crítico, pero limpio)
+            if (sincePlayer < Integer.MAX_VALUE / 2) sincePlayer++;
+            if (sinceBetween < Integer.MAX_VALUE / 2) sinceBetween++;
+            if (sinceExit < Integer.MAX_VALUE / 2) sinceExit++;
+            if (sinceBorder < Integer.MAX_VALUE / 2) sinceBorder++;
+        }
+
+        boolean canRelax(Constraint c, int cooldown) {
+            return switch (c) {
+                case PLAYER -> sincePlayer >= cooldown;
+                case BETWEEN -> sinceBetween >= cooldown;
+                case EXIT -> sinceExit >= cooldown;
+                case BORDER -> sinceBorder >= cooldown;
+            };
+        }
+
+        void markRelaxed(Constraint c) {
+            switch (c) {
+                case PLAYER -> sincePlayer = 0;
+                case BETWEEN -> sinceBetween = 0;
+                case EXIT -> sinceExit = 0;
+                case BORDER -> sinceBorder = 0;
+            }
+        }
+    }
+
     private void placeTypeGuaranteeing(
             List<List<Integer>> cells,
             int[][] distFromPlayer,
@@ -126,61 +174,59 @@ public class ItemPlacer {
             ItemType type,
             int amount) {
 
-        int minPlayer = Math.max(0, type.getMinDistFromPlayer());
-        int minBetween = Math.max(0, type.getMinDistBetweenItems());
-        int minExit = Math.max(0, type.getMinDistFromExit());
-        int minBorder = Math.max(0, type.getMinDistFromBorder());
+        ConstraintsState s = new ConstraintsState(
+                Math.max(0, type.getMinDistFromPlayer()),
+                Math.max(0, type.getMinDistBetweenItems()),
+                Math.max(0, type.getMinDistFromExit()),
+                Math.max(0, type.getMinDistFromBorder())
+        );
 
         int placed = 0;
 
+        // Primer intento con restricciones completas
         placed += placeWithConstraints(
                 cells, distFromPlayer, distFromExit,
                 type, amount - placed,
-                minPlayer, minExit, minBetween, minBorder);
+                s.minPlayer, s.minExit, s.minBetween, s.minBorder);
 
-        int phase = 0; // 0=player,1=between,2=exit,3=border
+        if (placed >= amount) return;
 
-        while (placed < amount &&
-                (minPlayer > 0 || minBetween > 0 || minExit > 0 || minBorder > 0)) {
+        RelaxPlan plan = type.getRelaxPlan();
+        List<Constraint> order = plan.order();
+        int idx = 0;
 
-            int tries = 0;
-            while (tries < 4) {
-                switch (phase) {
-                    case 0 -> {
-                        if (minPlayer > 0) {
-                            minPlayer--;
-                            break;
-                        }
-                    }
-                    case 1 -> {
-                        if (minBetween > 0) {
-                            minBetween--;
-                            break;
-                        }
-                    }
-                    case 2 -> {
-                        if (minExit > 0) {
-                            minExit--;
-                            break;
-                        }
-                    }
-                    case 3 -> {
-                        if (minBorder > 0) {
-                            minBorder--;
-                            break;
-                        }
+        for (int round = 0; placed < amount && round < plan.maxRounds(); round++) {
+
+            // Avanza contadores (para cooldown)
+            s.tickRound();
+
+            boolean changed = false;
+
+            if (plan.mode() == RelaxPlan.Mode.ONE_PER_ROUND) {
+                // Relaja SOLO 1 restricción por ronda (cíclico según order)
+                for (int tries = 0; tries < order.size(); tries++) {
+                    Constraint c = order.get(idx);
+                    idx = (idx + 1) % order.size();
+
+                    if (relaxOne(c, plan, s)) {
+                        changed = true;
+                        break;
                     }
                 }
-                phase = (phase + 1) % 4;
-                tries++;
+            } else {
+                // Relaja TODAS las que pueda en cada ronda (en el order dado)
+                for (Constraint c : order) {
+                    changed |= relaxOne(c, plan, s);
+                }
             }
 
-            phase = (phase + 1) % 4;
+            if (!changed) break; // ya no se puede relajar más (o todo en cooldown/floor)
 
             placed += placeWithConstraints(
                     cells, distFromPlayer, distFromExit,
                     type, amount - placed,
-                    minPlayer, minExit, minBetween, minBorder);
+                    s.minPlayer, s.minExit, s.minBetween, s.minBorder
+            );
         }
     }
 
@@ -195,33 +241,28 @@ public class ItemPlacer {
             int minBetween,
             int minBorder) {
 
-        if (need <= 0)
-            return 0;
+        if (need <= 0) return 0;
 
         List<Long> candidates = collectCandidatesPacked(
                 cells, distFromPlayer, distFromExit,
                 type.getSpawnBlacklist(),
                 minPlayer, minExit, minBetween, minBorder);
 
-        if (candidates.isEmpty())
-            return 0;
+        if (candidates.isEmpty()) return 0;
 
         Collections.shuffle(candidates, RNG);
 
         int placedNow = 0;
         for (Long k : candidates) {
-            if (placedNow >= need)
-                break;
+            if (placedNow >= need) break;
 
             long key = k;
-            if (occupied.contains(key))
-                continue;
+            if (occupied.contains(key)) continue;
 
             int x = (int) key;
             int y = (int) (key >>> 32);
 
-            if (!respectsMinDistBetween(x, y, minBetween))
-                continue;
+            if (!respectsMinDistBetween(x, y, minBetween)) continue;
 
             place(type, x, y);
             placedNow++;
@@ -236,6 +277,63 @@ public class ItemPlacer {
         long key = pack(x, y);
         occupied.add(key);
         itemsByPos.put(key, it);
+    }
+
+    /* ===================== Relaxation helpers ===================== */
+
+    private boolean relaxOne(Constraint c, RelaxPlan plan, ConstraintsState s) {
+        int step = plan.step(c);
+        int floor = plan.floor(c);
+        int cooldown = plan.cooldown(c);
+
+        // Si está en cooldown, se salta este turno
+        if (!s.canRelax(c, cooldown)) return false;
+
+        boolean changed = switch (c) {
+            case PLAYER -> decPlayer(s, step, floor);
+            case BETWEEN -> decBetween(s, step, floor);
+            case EXIT -> decExit(s, step, floor);
+            case BORDER -> decBorder(s, step, floor);
+        };
+
+        // Solo consume cooldown si realmente se relajó (cambió el valor)
+        if (changed) {
+            s.markRelaxed(c);
+        }
+
+        return changed;
+    }
+
+    private boolean decPlayer(ConstraintsState s, int step, int floor) {
+        if (s.minPlayer <= floor) return false;
+        int next = Math.max(floor, s.minPlayer - step);
+        if (next == s.minPlayer) return false;
+        s.minPlayer = next;
+        return true;
+    }
+
+    private boolean decBetween(ConstraintsState s, int step, int floor) {
+        if (s.minBetween <= floor) return false;
+        int next = Math.max(floor, s.minBetween - step);
+        if (next == s.minBetween) return false;
+        s.minBetween = next;
+        return true;
+    }
+
+    private boolean decExit(ConstraintsState s, int step, int floor) {
+        if (s.minExit <= floor) return false;
+        int next = Math.max(floor, s.minExit - step);
+        if (next == s.minExit) return false;
+        s.minExit = next;
+        return true;
+    }
+
+    private boolean decBorder(ConstraintsState s, int step, int floor) {
+        if (s.minBorder <= floor) return false;
+        int next = Math.max(floor, s.minBorder - step);
+        if (next == s.minBorder) return false;
+        s.minBorder = next;
+        return true;
     }
 
     /* ===================== Candidate collection ===================== */
@@ -262,32 +360,26 @@ public class ItemPlacer {
             int y = (int) (pos >>> 32);
 
             int cellValue = cells.get(y).get(x);
-            if (black.contains(cellValue))
-                continue;
+            if (black.contains(cellValue)) continue;
 
-            if (occupied.contains(pos))
-                continue;
+            if (occupied.contains(pos)) continue;
 
             int dp = distFromPlayer[y][x];
-            if (dp == -1 || dp < minDistPlayer)
-                continue;
+            if (dp == -1 || dp < minDistPlayer) continue;
 
             if (minDistExit > 0) {
                 int de = distFromExit[y][x];
-                if (de == -1 || de < minDistExit)
-                    continue;
+                if (de == -1 || de < minDistExit) continue;
             }
 
             if (minDistBorder > 0) {
                 int distToBorder = Math.min(
                         Math.min(x, y),
                         Math.min(cachedW - 1 - x, cachedH - 1 - y));
-                if (distToBorder < minDistBorder)
-                    continue;
+                if (distToBorder < minDistBorder) continue;
             }
 
-            if (!respectsMinDistBetween(x, y, minDistBetween))
-                continue;
+            if (!respectsMinDistBetween(x, y, minDistBetween)) continue;
 
             res.add(pos);
         }
@@ -296,14 +388,12 @@ public class ItemPlacer {
     }
 
     private boolean respectsMinDistBetween(int x, int y, int minDistBetween) {
-        if (minDistBetween <= 0)
-            return true;
+        if (minDistBetween <= 0) return true;
 
         for (PlacedItem it : placedItems) {
             int dx = Math.abs(it.getX() - x);
             int dy = Math.abs(it.getY() - y);
-            if (dx + dy < minDistBetween)
-                return false;
+            if (dx + dy < minDistBetween) return false;
         }
         return true;
     }
@@ -340,43 +430,32 @@ public class ItemPlacer {
         int w = cells.get(0).size();
 
         int[][] dist = new int[h][w];
-        for (int y = 0; y < h; y++)
-            Arrays.fill(dist[y], -1);
+        for (int y = 0; y < h; y++) Arrays.fill(dist[y], -1);
 
-        if (sx < 0 || sy < 0 || sx >= w || sy >= h)
-            return dist;
-        if (!Cells.isPath(cells.get(sy).get(sx)))
-            return dist;
+        if (sx < 0 || sy < 0 || sx >= w || sy >= h) return dist;
+        if (!Cells.isPath(cells.get(sy).get(sx))) return dist;
 
         ArrayDeque<int[]> q = new ArrayDeque<>();
         dist[sy][sx] = 0;
-        q.add(new int[] { sx, sy });
+        q.add(new int[]{sx, sy});
 
-        int[][] dirs = { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } };
+        int[][] dirs = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
 
         while (!q.isEmpty()) {
             int[] p = q.poll();
             for (int[] d : dirs) {
                 int nx = p[0] + d[0];
                 int ny = p[1] + d[1];
-                if (nx < 0 || ny < 0 || nx >= w || ny >= h)
-                    continue;
-                if (dist[ny][nx] != -1)
-                    continue;
-                if (!Cells.isPath(cells.get(ny).get(nx)))
-                    continue;
+                if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+                if (dist[ny][nx] != -1) continue;
+                if (!Cells.isPath(cells.get(ny).get(nx))) continue;
                 dist[ny][nx] = dist[p[1]][p[0]] + 1;
-                q.add(new int[] { nx, ny });
+                q.add(new int[]{nx, ny});
             }
         }
         return dist;
     }
 
-    /**
-     * BFS "desde la salida" robusto:
-     * - Si (exitX,exitY) es PATH => BFS directo.
-     * - Si no lo es => busca el PATH más cercano a la salida y BFS desde ahí.
-     */
     private int[][] bfsFromExit(List<List<Integer>> cells, int exitX, int exitY) {
         if (exitX >= 0 && exitY >= 0 &&
                 exitY < cells.size() &&
@@ -388,18 +467,13 @@ public class ItemPlacer {
         int[] start = findNearestPathCell(cells, exitX, exitY);
         if (start == null) {
             int[][] dist = new int[cells.size()][cells.get(0).size()];
-            for (int[] row : dist)
-                Arrays.fill(row, -1);
+            for (int[] row : dist) Arrays.fill(row, -1);
             return dist;
         }
 
         return bfsFrom(cells, start[0], start[1]);
     }
 
-    /**
-     * Encuentra el PATH más cercano (por expansión ortogonal) a (sx,sy).
-     * Si no hay ninguno, devuelve null.
-     */
     private int[] findNearestPathCell(List<List<Integer>> cells, int sx, int sy) {
         int h = cells.size();
         int w = cells.get(0).size();
@@ -410,25 +484,22 @@ public class ItemPlacer {
         int cx = Math.max(0, Math.min(w - 1, sx));
         int cy = Math.max(0, Math.min(h - 1, sy));
 
-        q.add(new int[] { cx, cy });
+        q.add(new int[]{cx, cy});
         vis[cy][cx] = true;
 
-        int[][] dirs = { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } };
+        int[][] dirs = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
 
         while (!q.isEmpty()) {
             int[] p = q.poll();
-            if (Cells.isPath(cells.get(p[1]).get(p[0])))
-                return p;
+            if (Cells.isPath(cells.get(p[1]).get(p[0]))) return p;
 
             for (int[] d : dirs) {
                 int nx = p[0] + d[0];
                 int ny = p[1] + d[1];
-                if (nx < 0 || ny < 0 || nx >= w || ny >= h)
-                    continue;
-                if (vis[ny][nx])
-                    continue;
+                if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+                if (vis[ny][nx]) continue;
                 vis[ny][nx] = true;
-                q.add(new int[] { nx, ny });
+                q.add(new int[]{nx, ny});
             }
         }
         return null;
@@ -438,19 +509,11 @@ public class ItemPlacer {
         return (((long) y) << 32) ^ (x & 0xffffffffL);
     }
 
-    /**
-     * Elimina del mapa (estructuras internas) tod0s los items del tipo indicado.
-     *
-     * @param type Tipo a eliminar
-     * @return cuántos se han eliminado
-     */
     public int removeAllOfType(ItemType type) {
-        if (type == null || placedItems.isEmpty())
-            return 0;
+        if (type == null || placedItems.isEmpty()) return 0;
 
         int removed = 0;
 
-        // Iteramos al revés para poder borrar de placedItems por índice sin líos
         for (int i = placedItems.size() - 1; i >= 0; i--) {
             PlacedItem it = placedItems.get(i);
             if (it.getType() == type) {
@@ -465,31 +528,18 @@ public class ItemPlacer {
         return removed;
     }
 
-    /**
-     * Elimina del mapa tod0s los items del tipo indicado EXCEPTO el que esté en
-     * (keepX, keepY).
-     * Útil para "quitar el resto" después de hacer pickup/activar uno.
-     *
-     * @param type  Tipo a eliminar
-     * @param keepX X a conservar
-     * @param keepY Y a conservar
-     * @return cuántos se han eliminado
-     */
     public int removeAllOfTypeExcept(ItemType type, int keepX, int keepY) {
-        if (type == null || placedItems.isEmpty())
-            return 0;
+        if (type == null || placedItems.isEmpty()) return 0;
 
         long keepKey = pack(keepX, keepY);
         int removed = 0;
 
         for (int i = placedItems.size() - 1; i >= 0; i--) {
             PlacedItem it = placedItems.get(i);
-            if (it.getType() != type)
-                continue;
+            if (it.getType() != type) continue;
 
             long key = pack(it.getX(), it.getY());
-            if (key == keepKey)
-                continue;
+            if (key == keepKey) continue;
 
             placedItems.remove(i);
             itemsByPos.remove(key);
@@ -510,7 +560,7 @@ public class ItemPlacer {
         List<int[]> res = new ArrayList<>();
         for (PlacedItem it : placedItems) {
             if (it.getType() == type) {
-                res.add(new int[] { it.getX(), it.getY() });
+                res.add(new int[]{it.getX(), it.getY()});
             }
         }
         return res;
@@ -520,8 +570,7 @@ public class ItemPlacer {
         long key = pack(x, y);
         PlacedItem it = getItemAt(x, y);
 
-        if (it == null)
-            return null;
+        if (it == null) return null;
 
         if (it.getType().getIfRemovePlaced()) {
             itemsByPos.remove(key);
@@ -535,5 +584,4 @@ public class ItemPlacer {
     public PlacedItem peekAt(int x, int y) {
         return itemsByPos.get(pack(x, y));
     }
-
 }

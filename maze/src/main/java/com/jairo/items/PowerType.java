@@ -2,6 +2,9 @@ package com.jairo.items;
 
 import com.jairo.app.audio.Sound;
 import com.jairo.app.gfx.Sprite;
+import com.jairo.items.placement.Constraint;
+import com.jairo.items.placement.RelaxPlan;
+
 import static com.jairo.items.Qualities.*;
 
 /**
@@ -127,4 +130,24 @@ public enum PowerType implements ItemType {
         this.density = d;
     }
 
+    @Override
+    public RelaxPlan getRelaxPlan() {
+        return switch(this) {
+            case KEY -> keyRelaxPlan();
+            default -> defaultRelaxPlan();
+        };
+    }
+
+    private RelaxPlan defaultRelaxPlan() {
+        return RelaxPlan.builder().build();
+    }
+
+    private RelaxPlan keyRelaxPlan() {
+        return RelaxPlan.builder()
+                .cooldown(Constraint.PLAYER, 2)
+                .floor(Constraint.PLAYER, 30)
+                .cooldown(Constraint.EXIT, 1)
+                .floor(Constraint.EXIT, 50)
+                .build();
+    }
 }

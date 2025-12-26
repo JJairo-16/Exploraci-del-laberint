@@ -5,6 +5,9 @@ import java.util.List;
 
 import com.jairo.app.audio.Sound;
 import com.jairo.app.gfx.Sprite;
+import com.jairo.items.placement.Constraint;
+import com.jairo.items.placement.RelaxPlan;
+
 import static com.jairo.utils.map_generator.Cells.*;
 
 public enum BasicItemType implements ItemType {
@@ -103,5 +106,24 @@ public enum BasicItemType implements ItemType {
     private void setMaxUses(int n) {
         this.maxUses = n;
         this.pick = false;
+    }
+
+    @Override
+    public RelaxPlan getRelaxPlan() {
+        return switch(this) {
+            case PORTAL_GUN -> portalGunRelaxPlan();
+            default -> defaultRelaxPlan();
+        };
+
+    }
+
+    private RelaxPlan defaultRelaxPlan() {
+        return RelaxPlan.builder().build();
+    }
+
+    private RelaxPlan portalGunRelaxPlan() {
+        return RelaxPlan.builder()
+                .floor(Constraint.BETWEEN, 20)
+                .build();
     }
 }

@@ -1,10 +1,10 @@
 package com.jairo.items;
 
+import com.jairo.app.gfx.Sprite;
+import com.jairo.items.placement.RelaxPlan;
 import com.jairo.utils.map_generator.Cells;
 
 import java.util.List;
-
-import com.jairo.app.gfx.Sprite;
 
 public interface ItemType {
 
@@ -89,5 +89,14 @@ public interface ItemType {
 
     default boolean getIfRemovePlaced() {
         return true;
+    }
+
+    /**
+     * Control fino del sistema cíclico de relajación de restricciones.
+     * Por defecto replica el comportamiento típico: PLAYER -> BETWEEN -> EXIT -> BORDER,
+     * relajando 1 por ronda, step=1, floor=0, maxRounds=64.
+     */
+    default RelaxPlan getRelaxPlan() {
+        return RelaxPlan.builder().build();
     }
 }
