@@ -45,6 +45,7 @@ public enum Sprite {
     // Basic
     COIN(ITEMS.get("coin.png")),
     MAP(ITEMS.get("map.png")),
+    PORTAL_GUN(ITEMS.get("portal-gun.png")),
     
     // Power
     PICKAXE(ITEMS.get("pickaxe.png")),

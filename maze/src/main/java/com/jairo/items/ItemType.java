@@ -67,7 +67,7 @@ public interface ItemType {
      *
      * Por defecto, vacío => no filtra nada extra.
      */
-    default List<Integer> getSpawnBlackList() {
+    default List<Integer> getSpawnBlacklist() {
         return List.of(Cells.CHEAT_WALL);
     }
 
@@ -85,5 +85,9 @@ public interface ItemType {
 
     default int getMinDistFromBorder() {
         return 0;
+    }
+
+    default boolean getIfRemovePlaced() {
+        return true;
     }
 }

@@ -1,5 +1,6 @@
 package com.jairo.services;
 
+import com.jairo.items.BasicItemType;
 import com.jairo.items.ItemType;
 import com.jairo.items.PlacedItem;
 import com.jairo.utils.map_generator.Cells;
@@ -87,7 +88,8 @@ public class ItemPlacer {
         long height = (long) hiY - (long) loY + 1L;
         long area = (width <= 0 || height <= 0) ? 0 : width * height;
 
-        // Heurística: si el rectángulo es pequeño, es más rápido consultar el mapa por celdas.
+        // Heurística: si el rectángulo es pequeño, es más rápido consultar el mapa por
+        // celdas.
         if (area > 0 && area <= placedItems.size() * 2L) {
             List<PlacedItem> res = new ArrayList<>();
             for (int y = loY; y <= hiY; y++) {
@@ -145,10 +147,30 @@ public class ItemPlacer {
             int tries = 0;
             while (tries < 4) {
                 switch (phase) {
-                    case 0 -> { if (minPlayer > 0) { minPlayer--; break; } }
-                    case 1 -> { if (minBetween > 0) { minBetween--; break; } }
-                    case 2 -> { if (minExit > 0) { minExit--; break; } }
-                    case 3 -> { if (minBorder > 0) { minBorder--; break; } }
+                    case 0 -> {
+                        if (minPlayer > 0) {
+                            minPlayer--;
+                            break;
+                        }
+                    }
+                    case 1 -> {
+                        if (minBetween > 0) {
+                            minBetween--;
+                            break;
+                        }
+                    }
+                    case 2 -> {
+                        if (minExit > 0) {
+                            minExit--;
+                            break;
+                        }
+                    }
+                    case 3 -> {
+                        if (minBorder > 0) {
+                            minBorder--;
+                            break;
+                        }
+                    }
                 }
                 phase = (phase + 1) % 4;
                 tries++;
@@ -179,7 +201,7 @@ public class ItemPlacer {
 
         List<Long> candidates = collectCandidatesPacked(
                 cells, distFromPlayer, distFromExit,
-                type.getSpawnBlackList(),
+                type.getSpawnBlacklist(),
                 minPlayer, minExit, minBetween, minBorder);
 
         if (candidates.isEmpty())
@@ -260,8 +282,7 @@ public class ItemPlacer {
             if (minDistBorder > 0) {
                 int distToBorder = Math.min(
                         Math.min(x, y),
-                        Math.min(cachedW - 1 - x, cachedH - 1 - y)
-                );
+                        Math.min(cachedW - 1 - x, cachedH - 1 - y));
                 if (distToBorder < minDistBorder)
                     continue;
             }
@@ -330,9 +351,9 @@ public class ItemPlacer {
 
         ArrayDeque<int[]> q = new ArrayDeque<>();
         dist[sy][sx] = 0;
-        q.add(new int[]{sx, sy});
+        q.add(new int[] { sx, sy });
 
-        int[][] dirs = {{1,0},{-1,0},{0,1},{0,-1}};
+        int[][] dirs = { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } };
 
         while (!q.isEmpty()) {
             int[] p = q.poll();
@@ -346,7 +367,7 @@ public class ItemPlacer {
                 if (!Cells.isPath(cells.get(ny).get(nx)))
                     continue;
                 dist[ny][nx] = dist[p[1]][p[0]] + 1;
-                q.add(new int[]{nx, ny});
+                q.add(new int[] { nx, ny });
             }
         }
         return dist;
@@ -390,10 +411,10 @@ public class ItemPlacer {
         int cx = Math.max(0, Math.min(w - 1, sx));
         int cy = Math.max(0, Math.min(h - 1, sy));
 
-        q.add(new int[]{cx, cy});
+        q.add(new int[] { cx, cy });
         vis[cy][cx] = true;
 
-        int[][] dirs = {{1,0},{-1,0},{0,1},{0,-1}};
+        int[][] dirs = { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } };
 
         while (!q.isEmpty()) {
             int[] p = q.poll();
@@ -408,7 +429,7 @@ public class ItemPlacer {
                 if (vis[ny][nx])
                     continue;
                 vis[ny][nx] = true;
-                q.add(new int[]{nx, ny});
+                q.add(new int[] { nx, ny });
             }
         }
         return null;
@@ -446,7 +467,8 @@ public class ItemPlacer {
     }
 
     /**
-     * Elimina del mapa tod0s los items del tipo indicado EXCEPTO el que esté en (keepX, keepY).
+     * Elimina del mapa tod0s los items del tipo indicado EXCEPTO el que esté en
+     * (keepX, keepY).
      * Útil para "quitar el resto" después de hacer pickup/activar uno.
      *
      * @param type  Tipo a eliminar
@@ -485,7 +507,7 @@ public class ItemPlacer {
                 .count();
     }
 
-        public List<int[]> getPositionsOf(ItemType type) {
+    public List<int[]> getPositionsOf(ItemType type) {
         List<int[]> res = new ArrayList<>();
         for (PlacedItem it : placedItems) {
             if (it.getType() == type) {
@@ -495,14 +517,24 @@ public class ItemPlacer {
         return res;
     }
 
-        public PlacedItem pickupAt(int x, int y) {
+    public PlacedItem pickupAt(int x, int y) {
         long key = pack(x, y);
-        PlacedItem it = itemsByPos.remove(key);
+        PlacedItem it = getItemAt(x, y);
+
         if (it == null)
             return null;
 
-        placedItems.removeIf(pi -> pi.getX() == x && pi.getY() == y);
-        occupied.remove(key);
+        if (it.getType().getIfRemovePlaced()) {
+            itemsByPos.remove(key);
+            placedItems.removeIf(pi -> pi.getX() == x && pi.getY() == y);
+            occupied.remove(key);
+        }
+
         return it;
     }
+
+    public PlacedItem peekAt(int x, int y) {
+        return itemsByPos.get(pack(x, y));
+    }
+
 }

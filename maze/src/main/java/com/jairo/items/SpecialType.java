@@ -43,7 +43,7 @@ public enum SpecialType implements ItemType {
     @Override public Qualities getQuality() { return quality; }
     @Override public int getMinCount() { return minCount; }
     @Override public int getMaxCount() { return maxCount; }
-    @Override public List<Integer> getSpawnBlackList() { return spawnBlacklist; }
+    @Override public List<Integer> getSpawnBlacklist() { return spawnBlacklist; }
     @Override public boolean removeRemaining() { return removeRemaining; }
 
     static {

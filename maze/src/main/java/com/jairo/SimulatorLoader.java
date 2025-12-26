@@ -28,6 +28,7 @@ public class SimulatorLoader {
             // * Basic
             BasicItemType.COIN,
             BasicItemType.MAP,
+            BasicItemType.PORTAL_GUN,
 
             // * Special
             SpecialType.CHEATED_BUTTON,

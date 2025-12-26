@@ -47,7 +47,6 @@ public class Cells {
             case '6' -> DOOR_OPEN_FROM_WEST;
             case '7' -> DOOR_OPEN_FROM_EAST;
             case '8' -> SECRET_WALL;
-            case 'h' -> ICE;
             default -> PATH;
         };
     }

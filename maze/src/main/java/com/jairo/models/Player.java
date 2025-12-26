@@ -88,4 +88,10 @@ public class Player {
     public int getY() {
         return y;
     }
+
+    public void teleport(int nx, int ny) {
+        x = nx;
+        y = ny;
+        board.movePlayer(nx, ny);
+    }
 }

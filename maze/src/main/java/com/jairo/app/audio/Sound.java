@@ -37,6 +37,8 @@ public enum Sound {
     BLAI_GLASSES_POWER(ITEMS.get("blai-glasses-power.wav")),
     BROKEN_KEY_FAIL(ITEMS.get("broken-key-sound.mp3")),
 
+    PORTAL_GUN(ITEMS.get("portal-gun.mp3")),
+
     OPEN_LOCK(ITEMS.get("open-lock.mp3")),
     EXIT_LOCK(ITEMS.get("no-open-lock.mp3")),
 

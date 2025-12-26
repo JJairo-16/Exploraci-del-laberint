@@ -32,12 +32,15 @@ import com.jairo.services.sub_simulator.ItemUseActions;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
+import com.jairo.services.sub_simulator.TeleportPadSystem;
+
 public class Simulator {
     private static final Logger log = LoggerFactory.getLogger(Simulator.class);
 
     private Player player;
     private ItemPlacer placer;
     private final Inventory inventory = new Inventory();
+    private final TeleportPadSystem teleportPadSystem;
 
     private Board board;
     private Drawer drawer;
@@ -83,8 +86,7 @@ public class Simulator {
     private final int totalCoins;
 
     private static final Map<ItemType, Double> customVol = Map.of(
-        BasicItemType.MAP, 1.5
-    );
+            BasicItemType.MAP, 1.5);
 
     private double getCustomVol(ItemType item) {
         return customVol.getOrDefault(item, 1.0);
@@ -94,10 +96,11 @@ public class Simulator {
         this.placer = placer;
         this.player = player;
         this.board = board;
-        this.cheatWallSystem = new CheatWallActivationSystem(board);
-
+        
         this.iceSystem = new IceSlideSystem(board, player);
         this.doorSystem = new DoorSystem(board);
+        this.cheatWallSystem = new CheatWallActivationSystem(board);
+        this.teleportPadSystem = new TeleportPadSystem(board, player, placer);
 
         this.itemUseActions = new ItemUseActions(
                 player,
@@ -319,7 +322,8 @@ public class Simulator {
             if (chance > 0.0 && ThreadLocalRandom.current().nextDouble() < chance) {
                 inventory.add(type);
 
-                if (type == BasicItemType.COIN && coins < totalCoins) coins++;
+                if (type == BasicItemType.COIN && coins < totalCoins)
+                    coins++;
 
                 log.info("Duplicated pickup of {} (chance={})", type.getId(), chance);
             }
@@ -363,11 +367,23 @@ public class Simulator {
             case SpecialType.BOOTS:
                 iceSystem.setIceActivated(false);
                 break;
-            
+
             case BasicItemType.MAP:
-                // int discovered = board.discoverAroundPowered(player.getX(), player.getY(), MAP_POWER);
+                // int discovered = board.discoverAroundPowered(player.getX(), player.getY(),
+                // MAP_POWER);
                 int discovered = board.discoverUntilMin(player.getX(), player.getY(), MAP_POWER, MIN_MAP_EFFECT);
                 System.out.println(discovered);
+                break;
+
+            case BasicItemType.PORTAL_GUN:
+                TeleportPadSystem.Destination dest = teleportPadSystem.findAndPrintDestination();
+                if (!dest.found()) return;
+
+                int x = dest.x();
+                int y = dest.y();
+                player.teleport(x, y);
+                tryPickupAtPlayer();
+                drawer.update();
                 break;
 
             default:

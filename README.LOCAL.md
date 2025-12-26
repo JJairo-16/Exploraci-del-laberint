@@ -392,6 +392,8 @@ Per sortir de la <em>Ghost Room</em>, només cal <strong>reiniciar el programa</
 
 ---
 
-## Llicència
+## Llicència i avisos
 
 Aquest programa està baix la llicencia [MIT](LICENSE).
+
+ > Aquest projecte conté una petita referència visual inspirada en còmics de ciència-ficció populars. No s'hi pretén cap afiliació ni cap avaluació.
