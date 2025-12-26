@@ -1,5 +1,7 @@
 package com.jairo.app;
 
+import java.util.List;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -86,6 +88,11 @@ public class Controller {
 
     private final FxTimeSource time = new FxTimeSource();
 
+    private static final List<String> THEMES = List.of(
+        Sound.THEME.path(),
+        Sound.ECHOS.path()
+    );
+
     // Punto crítico: drawer.update en un único sitio
     private boolean drawerDirty = true;
 
@@ -112,7 +119,7 @@ public class Controller {
                 simulator = SimulatorLoader.load();
 
             sm.preload(Sound.values());
-            sm.playBgmLoop(Sound.THEME.path());
+            sm.setBgmPlaylist(THEMES, true);
             sm.setMasterVolume(0.9);
             sm.setBgmVolume(0.30);
             sm.setMuted(false);
