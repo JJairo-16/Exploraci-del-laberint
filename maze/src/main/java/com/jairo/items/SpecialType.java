@@ -2,6 +2,8 @@ package com.jairo.items;
 
 import com.jairo.app.audio.Sound;
 import com.jairo.app.gfx.Sprite;
+import com.jairo.items.placement.Constraint;
+import com.jairo.items.placement.RelaxPlan;
 
 import static com.jairo.items.Qualities.*;
 import static com.jairo.utils.map_generator.Cells.ICE;
@@ -80,5 +82,22 @@ public enum SpecialType implements ItemType {
 
     public void updateQuality(Qualities q) {
         this.quality = q;
+    }
+
+        @Override
+    public RelaxPlan getRelaxPlan() {
+        return switch (this) {
+            default -> defaultRelaxPlan();
+        };
+    }
+
+    private RelaxPlan defaultRelaxPlan() {
+        return RelaxPlan.builder()
+                .cooldown(Constraint.PLAYER, 1)
+                .floor(Constraint.PLAYER, 30)
+                .cooldown(Constraint.BETWEEN, 1)
+                .floor(Constraint.BETWEEN, 25)
+                .weightDecay(0.75)
+                .build();
     }
 }

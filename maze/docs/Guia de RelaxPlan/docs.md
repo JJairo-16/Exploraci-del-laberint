@@ -79,6 +79,20 @@ Defineix **com** es relaxa en cada ronda:
 
 ---
 
+### `scanMode(RelaxPlan.ScanMode)`
+Defineix el tipus d'escàner que es realitza en les comprovacions locals (àrea 3x3) al voltant d'una posició candidata:
+
+- `NONE`: no es realitza cap escaneig; només s'apliquen les restriccions de distància.
+- `SAME_TYPE_EXACT`: impedeix la col·locació si hi ha un item adjacent del mateix tipus exacte (mateix `id`).
+- `SAME_TYPE_GENERAL`: impedeix la col·locació si hi ha un item adjacent del mateix tipus general (`BasicItemType`, `PowerType` o `SpecialType`).
+- `ANY_TYPE`: impedeix la col·locació si hi ha qualsevol item adjacent, independentment del seu tipus.
+
+```java
+.scanMode(ScanMode.SAME_TYPE_EXACT)
+```
+
+---
+
 ### `maxRounds(int)`
 Defineix el **màxim de rondes** de relaxació. Evita bucles llargs si el mapa és molt restrictiu.
 
@@ -88,12 +102,51 @@ Defineix el **màxim de rondes** de relaxació. Evita bucles llargs si el mapa �
 
 ---
 
+### `maxStallRounds(int)`
+Defineix el màxim de rondes consecutives sense canvis abans d’abandonar la relaxació.
+
+- Serveix per evitar tallar massa aviat quan totes les restriccions estan temporalment en `cooldown`.
+- No pot provocar bucles infinits perquè `maxRounds` continua sent el límit superior.
+
+```java
+.maxStallRounds(2)
+```
+
+Interpretació:
+
+- `0` → comportament estricte (es talla a la primera ronda sense canvis)
+- `1-2` → recomanat
+- `>= cooldown màxim - 1` o `-1` (càlcul automàtic) → evita pràcticament tots els “talls falsos”
+
+---
+
+### `weightDecay(double)`
+Defineix el pes de les rondes al decidir (a major quantitat de rondes, menys estrictes són).
+
+
+```java
+.weightDecay(0.5)
+```
+
+---
+
+### `weightFunction(IntToDoubleFunction)`
+Defineix la formula amb la qual es calcularà el pes.
+
+```java
+.weightFunction(r -> {
+  return Math.pow(0.5, Math.max(0, r)) * (r * 0.9);
+})
+```
+
+---
+
 ## 3. Com es construeix un `RelaxPlan` complet
 
 Flux correcte:
 
 1. `RelaxPlan.builder()`
-2. Configures opcions (`order`, `step`, `floor`, `cooldown`, `mode`, `maxRounds`)
+2. Configures opcions (`order`, `step`, `floor`, `cooldown`, `mode`, `scanMode`, `maxStallRounds`, `maxRounds`, `weightDecay`/`weightFunction`)
 3. `build()`
 
 ```java
@@ -108,7 +161,10 @@ public RelaxPlan getRelaxPlan() {
             .cooldown(Constraint.PLAYER, 1)
             .cooldown(Constraint.EXIT, 4)
             .mode(RelaxPlan.Mode.ONE_PER_ROUND)
+            .scanMode(ScanMode.SAME_TYPE_EXACT)
+            .maxStallRounds(2)
             .maxRounds(30)
+            .weightDecay(0.5)
             .build();
 }
 ```
@@ -130,7 +186,11 @@ Aleshores el comportament per defecte és:
 - `floor`: 0
 - `cooldown`: 1
 - `mode`: `ONE_PER_ROUND`
+- `scanMode`: `NONE`
+- `maxStallRounds`: 2
 - `maxRounds`: 64
+- `weightDecay`: 0.9
+- `weightFunction`: r -> $\text{weightDecay}^{\max(0, r)}$
 
 ---
 
@@ -148,9 +208,17 @@ Aleshores el comportament per defecte és:
 - **Vols relaxació agressiva?**  
   `mode(ALL_EACH_ROUND)` + `step` més grans (amb cura).
 
+- **No vols tallar per una ronda buida?**
+  Usa `maxStallRounds(1)` o `maxStallRounds(2)`.
+
+- **Vols relaxació agressiva però controlada?**
+  `ALL_EACH_ROUND` + `maxStallRounds petit` + `maxRounds limitat`.
+
 ---
 
 ## 6. Patró recomanat per mantenir-ho net
+
+### Patró 1
 
 Si tens molts ítems amb plans semblants, pots definir un `RelaxPlan` reutilitzable (constant) i retornar-lo:
 
@@ -166,3 +234,30 @@ public RelaxPlan getRelaxPlan() {
 ```
 
 Això evita repetir configuració i manté el codi més clar.
+
+### Patró 2
+
+Si tens molts ítems amb patrons personalitzats cada un o varis agrupacions, pots definir un mètode privat amb el pla predeterminat i la serie de configuracions com a mètodes per gestionar-los en un switch (com `Override`):
+
+```java
+@Override
+public RelaxPlan getRelaxPlan() {
+    return switch(this) {
+        case PORTAL_GUN -> portalGunRelaxPlan();
+        default -> defaultRelaxPlan();
+    };
+
+}
+
+private RelaxPlan defaultRelaxPlan() {
+    return RelaxPlan.builder().build();
+}
+
+private RelaxPlan portalGunRelaxPlan() {
+    return RelaxPlan.builder()
+            .floor(Constraint.BETWEEN, 20)
+            .build();
+}
+```
+
+Això permet canviar la configuració amb major fluides sense sacrificar la legibilitat.
