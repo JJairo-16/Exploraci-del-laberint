@@ -7,6 +7,7 @@ public enum Sound {
     ECHOS("/music/Echoes%20of%20Time.mp3"),
 
     VICTORY(GEN.get("victory.mp3")),
+    KONAMI(GEN.get("konami.mp3")),
 
     STEP1(STEPS.get("step1.mp3")),
     STEP2(STEPS.get("step2.mp3")),

@@ -5,17 +5,18 @@ import com.jairo.app.gfx.Sprite;
 import com.jairo.app.gfx.player_skins.HeldItemTuning;
 import com.jairo.app.gfx.player_skins.HeldItemTuningStore;
 import com.jairo.app.gfx.player_skins.SkinManager;
+import com.jairo.app.gfx.sub_drawer.GlowEffectRenderer.GlowParams;
 import com.jairo.items.PowerType;
 import com.jairo.items.Qualities;
 import com.jairo.models.Inventory;
 import com.jairo.services.Simulator;
+import com.jairo.services.sub_simulator.coin_system.CoinsPowerState;
 import com.jairo.utils.KeyBind.Action;
 
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.image.Image;
 
 public class PlayerRenderer {
-    // #region Player and others
     private final Simulator simulator;
     private final GraphicsContext entitiesGC;
     private final GraphicsContext hudGC;
@@ -31,19 +32,33 @@ public class PlayerRenderer {
 
     private long now;
 
-    // ---------- Tiempo estable de animación (independiente de FPS) ----------
-    private static final long MAX_DT_NS = 100_000_000L; // 0.10s clamp por stutter/alt-tab
+    private static final long MAX_DT_NS = 100_000_000L;
     private long lastNowNs = 0L;
     private double animTimeSec = 0.0;
 
-    // Glow params para held item (sin new DropShadow por frame)
-    private static final GlowEffectRenderer.GlowParams HELD_ITEM_GLOW =
-            new GlowEffectRenderer.GlowParams(
-                    0.55, 0.20,
-                    3.5,
-                    0.06,
-                    0.65
-            );
+    private static final GlowParams HELD_ITEM_GLOW = new GlowParams(
+            0.55, 0.20,
+            3.5,
+            0.06,
+            0.65);
+
+    private static final GlowParams TRANSCENDENT_HELD_ITEM_GLOW = new GlowParams(
+            0.72,
+            0.28,
+            5.0,
+            0.075,
+            0.78);
+
+    // ✅ Aura del jugador: parpadeo visible
+    // baseAlpha = brillo base
+    // pulseAlpha = cuánto sube/baja el brillo (más alto => más parpadeo)
+    // pulseSpeed = velocidad
+    private static final GlowParams PLAYER_AURA_BLINK = new GlowParams(
+            0.18, // base (bajo)
+            0.85, // pulso (alto => parpadea)
+            2.0,  // velocidad del parpadeo
+            0.30, // radio relativo al size
+            0.55);
 
     public PlayerRenderer(Simulator simulator, GraphicsContext entitiesGC, GraphicsContext hudGC, ImageStore images) {
         this.simulator = simulator;
@@ -67,48 +82,71 @@ public class PlayerRenderer {
         animTimeSec += dt / 1_000_000_000.0;
     }
 
+    // ✅ helper: rota un vector (x,y) en grados
+    private static double[] rotateVec(double x, double y, double deg) {
+        double rad = Math.toRadians(deg);
+        double cos = Math.cos(rad);
+        double sin = Math.sin(rad);
+        return new double[] { x * cos - y * sin, x * sin + y * cos };
+    }
+
+    // ✅ misma rotación que usa el jugador al dibujarse rotado
+    private double getPlayerRotationDeg() {
+        return switch (simulator.getLastMovement()) {
+            case UP -> 180;
+            case RIGHT -> -90;
+            case LEFT -> 90;
+            default -> 0;
+        };
+    }
+
     public void renderPlayer(double size, double cameraX, double cameraY) {
         cleanArrow();
-        Simulator.Position pos = simulator.getPlayerPosition();
 
+        // ✅ IMPORTANTE: si esto está comentado, el aura NO “late” a menos que se
+        // renderice la flecha
+        updateAnimClock(now);
+
+        Simulator.Position pos = simulator.getPlayerPosition();
         screenX = (pos.x() - cameraX) * size;
         screenY = (pos.y() - cameraY) * size;
         this.size = size;
 
-        // Player
-        entitiesGC.drawImage(images.get(Sprite.PLAYER), screenX, screenY, size, size);
+        Image playerImg = images.get(Sprite.PLAYER);
+        if (playerImg == null) return;
+
+        double t = animTimeSec;
+
+        // ✅ rotación actual del jugador (solo si tu skin rota al jugador)
+        boolean playerUsesRotation = (Sprite.PLAYER.getRotation() == 180);
+        double playerRotDeg = playerUsesRotation ? getPlayerRotationDeg() : 0.0;
+
+        // Player + aura parpadeante
+        if (playerUsesRotation) drawPlayerWithRotation(playerImg, t);
+        else entitiesGC.drawImage(playerImg, screenX, screenY, size, size);
 
         boolean hasCursor = SkinManager.get().current().needArrow();
-
-        if (hasCursor) {
-            direction = simulator.getCurrentAction();
-        }
+        if (hasCursor) direction = simulator.getCurrentAction();
 
         Inventory inv = simulator.getInventory();
         PowerType item = (PowerType) inv.getSelectedPower();
-        if (item == null || !inv.has(item))
-            return;
+        if (item == null || !inv.has(item)) return;
 
-        // ---- TUNING base (por skin+item) + override (por jugador+item) ----
         HeldItemTuning baseTuning = SkinManager.get().heldItemTuning(item);
         HeldItemTuning helItemTuning = HeldItemTuningStore.get().get(inv, item, baseTuning);
 
-        // Tamaño
         double baseItemSize = size * helItemTuning.baseScale();
         double itemSize = hasCursor ? baseItemSize : (baseItemSize * helItemTuning.noCursorScaleMul());
 
-        // Centro del jugador
         double cx = screenX + size / 2.0;
         double cy = screenY + size / 2.0;
 
-        // Offset base
         double offset = size * 0.16;
 
-        // Base: centrado por tamaño REAL
+        // Posición "sin rotar" (como estaba antes)
         double ox = cx - itemSize / 2.0;
         double oy = cy - itemSize / 2.0;
 
-        // Offset según modo
         if (hasCursor) {
             ox += offset * helItemTuning.cursorOffsetMulX();
             oy += offset * helItemTuning.cursorOffsetMulY();
@@ -117,43 +155,60 @@ public class PlayerRenderer {
             oy += offset * helItemTuning.noCursorOffsetMulY();
         }
 
-        // Rotación según modo (grados)
-        double rotation = hasCursor ? helItemTuning.rotationDeg() : helItemTuning.noCursorRotationDeg();
+        // Rotación "sin rotar" del item (como estaba antes)
+        double itemRotDeg = hasCursor ? helItemTuning.rotationDeg() : helItemTuning.noCursorRotationDeg();
+
+        // ✅ Adaptar posición y rotación del ítem si el jugador está rotado
+        if (playerUsesRotation && playerRotDeg != 0.0) {
+            // Centro del item
+            double itemCx = ox + itemSize / 2.0;
+            double itemCy = oy + itemSize / 2.0;
+
+            // Vector desde el centro del jugador al centro del item
+            double vx = itemCx - cx;
+            double vy = itemCy - cy;
+
+            // Rotar ese vector según la rotación del jugador
+            double[] rv = rotateVec(vx, vy, playerRotDeg);
+
+            // Nuevo centro del item (ya rotado alrededor del jugador)
+            double newItemCx = cx + rv[0];
+            double newItemCy = cy + rv[1];
+
+            // Recalcular esquina superior izq
+            ox = newItemCx - itemSize / 2.0;
+            oy = newItemCy - itemSize / 2.0;
+
+            // El item acompaña la rotación del jugador
+            itemRotDeg += playerRotDeg;
+        }
 
         Image itemImg = images.get(item.getSprite());
         if (itemImg == null) return;
 
-        // ✅ Tiempo estable (NO System.nanoTime)
-        // animTimeSec se actualiza desde renderArrow(now) (o desde el loop que le pase now)
-        double t = animTimeSec;
         double phase = item.hashCode() * 0.001;
 
-        // --- BORDE CUANDO ESTÁ EN LA MANO (ROTADO) ---
         drawHeldItemBorder(
                 entitiesGC,
                 itemImg,
                 ox,
                 oy,
                 itemSize,
-                rotation,
+                itemRotDeg,
                 t,
                 phase,
-                item.getQuality()
-        );
+                item.getQuality());
 
-        // --- SPRITE NORMAL ENCIMA (ROTADO) ---
         entitiesGC.save();
         entitiesGC.translate(ox + itemSize / 2.0, oy + itemSize / 2.0);
-        entitiesGC.rotate(rotation);
+        entitiesGC.rotate(itemRotDeg);
         entitiesGC.drawImage(itemImg, -itemSize / 2.0, -itemSize / 2.0, itemSize, itemSize);
         entitiesGC.restore();
     }
-    // #endregion
 
-    // #region Arrow
+    // Arrow (sin cambios)
     private static final double ANIM_SPEED_HZ = 1.2;
     private static final double ANIM_OFFSET_MAX = 0.05;
-
     private static final double OPACITY_MIN = 0.8;
     private static final double OPACITY_MAX = 0.95;
 
@@ -167,12 +222,9 @@ public class PlayerRenderer {
     }
 
     public void renderArrow(long now) {
-        if (direction == null)
-            return;
+        if (direction == null) return;
 
         this.now = now;
-
-        // ✅ Actualiza reloj estable usando dt
         updateAnimClock(now);
 
         double t = animTimeSec;
@@ -229,11 +281,8 @@ public class PlayerRenderer {
         double clearY = arrowY - padding;
         double clearW = arrowSize + padding * 2;
         double clearH = arrowSize + padding * 2;
-
         hudGC.clearRect(clearX, clearY, clearW, clearH);
     }
-
-    // #endregion
 
     private void drawHeldItemBorder(
             GraphicsContext gc,
@@ -244,16 +293,15 @@ public class PlayerRenderer {
             double rotationDeg,
             double t,
             double phase,
-            Qualities q
-    ) {
+            Qualities q) {
         if (img == null || q == null) return;
 
-        // Dibujo rotado del "borde"
         gc.save();
         gc.translate(x + size / 2.0, y + size / 2.0);
         gc.rotate(rotationDeg);
 
-        // ✅ Glow optimizado (sin new DropShadow)
+        GlowParams glow = (CoinsPowerState.getLevel() == 5) ? TRANSCENDENT_HELD_ITEM_GLOW : HELD_ITEM_GLOW;
+
         GlowEffectRenderer.applyRgb(
                 gc,
                 img,
@@ -263,9 +311,43 @@ public class PlayerRenderer {
                 t,
                 phase,
                 q.red, q.green, q.blue,
-                HELD_ITEM_GLOW
-        );
+                glow);
 
         gc.restore();
+    }
+
+    private void drawPlayerWithRotation(Image playerImg, double t) {
+        double rotationDeg = getPlayerRotationDeg();
+
+        // Centro del jugador
+        double cx = screenX + size / 2.0;
+        double cy = screenY + size / 2.0;
+
+        entitiesGC.save();
+        entitiesGC.translate(cx, cy);
+        entitiesGC.rotate(rotationDeg);
+
+        // Dibuja en coords locales centradas
+        double x = -size / 2.0;
+        double y = -size / 2.0;
+
+        // Aura parpadeante (detrás)
+        Qualities q = Qualities.TRANSCENDENT;
+        double phase = 1.234;
+
+        GlowEffectRenderer.applyRgb(
+                entitiesGC,
+                playerImg,
+                x, y,
+                size,
+                t,
+                phase,
+                q.red, q.green, q.blue,
+                PLAYER_AURA_BLINK);
+
+        // Sprite normal encima
+        entitiesGC.drawImage(playerImg, x, y, size, size);
+
+        entitiesGC.restore();
     }
 }

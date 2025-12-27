@@ -728,4 +728,9 @@ public class ItemPlacer {
         return true;
     }
 
+    public boolean anyPlaced(ItemType item) {
+        return placedItems.stream()
+                .anyMatch(it -> it.getType() == item);
+    }
+
 }

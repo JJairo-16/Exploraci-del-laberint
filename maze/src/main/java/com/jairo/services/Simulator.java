@@ -19,6 +19,7 @@ import com.jairo.app.audio.SoundManager;
 import com.jairo.app.audio.Steps;
 import com.jairo.app.gfx.Drawer;
 import com.jairo.app.gfx.DrawerParser;
+import com.jairo.app.gfx.Sprite;
 import com.jairo.app.gfx.player_skins.SkinManager;
 
 import org.slf4j.Logger;
@@ -29,6 +30,7 @@ import com.jairo.services.sub_simulator.UseSystem;
 import com.jairo.services.sub_simulator.coin_system.CoinsPowerState;
 import com.jairo.services.sub_simulator.DoorSystem;
 import com.jairo.services.sub_simulator.ItemUseActions;
+import com.jairo.services.sub_simulator.KonamiDetector;
 
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
@@ -46,6 +48,7 @@ public class Simulator {
     private Board board;
     private Drawer drawer;
     private static final SoundManager sm = SoundManager.get();
+    private final KonamiDetector konami = new KonamiDetector();
 
     private boolean continuity = true;
     private Action lastMovement = Action.UP;
@@ -153,6 +156,12 @@ public class Simulator {
     }
 
     public void simulate(Action action) {
+        if (konami.push(action)) {
+            sm.playSfx(Sound.KONAMI.path());
+            Sprite.PLAYER.rotate();
+            konami.reset();
+        }
+
         // Si estamos deslizándonos en hielo, ignorar inputs de movimiento para no
         // “romper” el slide
         if (iceSystem.isSliding() && action.isAMovement) {
@@ -473,6 +482,10 @@ public class Simulator {
 
     public double getRadar() {
         return radar;
+    }
+
+    public Action getLastMovement() {
+        return lastMovement;
     }
 
 }

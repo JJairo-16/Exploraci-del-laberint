@@ -17,6 +17,7 @@ import com.jairo.services.ItemPlacer;
 
 public final class CoinsPowerState {
     private final Searcher searcher;
+    private final ItemPlacer placer;
 
     private static final Map<ItemType, Integer> priorities = Map.of(
             SpecialType.CHEATED_BUTTON, 100,
@@ -29,6 +30,7 @@ public final class CoinsPowerState {
     private static final String SOUND_PATH = Sound.COINS_POWER.path();
 
     public CoinsPowerState(ItemPlacer placer) {
+        this.placer = placer;
         searcher = new Searcher(placer);
     }
 
@@ -132,6 +134,13 @@ public final class CoinsPowerState {
 
             SpecialType.COINS_POWER.updateQuality(qs.get(i));
             playSound();
+            return;
+        }
+
+        if (!placer.anyPlaced(BasicItemType.COIN)) {
+            SpecialType.COINS_POWER.updateQuality(TRANSCENDENT);
+            priorities.put(PowerType.KEY, 150);
+            playSound();
         }
     }
 
@@ -143,7 +152,7 @@ public final class CoinsPowerState {
         sm.playSfx(SOUND_PATH);
     }
 
-    public static void applyGlobalMultiplierWithCapInPlace(
+    private static void applyGlobalMultiplierWithCapInPlace(
             int[] values,
             double initialMultiplier,
             int maxLastValue) {

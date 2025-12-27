@@ -98,7 +98,7 @@ public enum Sprite {
     }
     
     private String resourcePath;
-    public final double rotation;
+    private double rotation;
     private boolean fullTile = true;
     private Sprite back;
     private boolean canMerge = false;
@@ -145,5 +145,14 @@ public enum Sprite {
 
     public boolean isMergeable() {
         return canMerge;
+    }
+
+    public void rotate() {
+        if (this != PLAYER) return;
+        rotation = 180 - rotation;
+    }
+
+    public double getRotation() {
+        return rotation;
     }
 }

@@ -13,7 +13,7 @@ import static com.jairo.items.Qualities.*;
  */
 public enum PowerType implements ItemType {
     PICKAXE(Sprite.PICKAXE, 0.0225, 3, 6, Sound.POWERUP, EPIC), // ? 0.0125 3 6
-    BLAI_GLASSES(Sprite.BLAI_GLASSES, 0.006, 10, 20, Sound.POWERUP, LEGENDARY), // ? 0.006 10 20
+    BLAI_GLASSES(Sprite.BLAI_GLASSES, 0.008, 10, 20, Sound.POWERUP, LEGENDARY), // ? 0.006 10 20
     KEY(Sprite.KEY, 0, 40, 1, Sound.COIN, LEGENDARY, 90), // ? 0 40 1 90
     BROKEN_KEY(Sprite.BROKEN_KEY, 0.01, 10, 20, Sound.POWERUP, COMMON);
 

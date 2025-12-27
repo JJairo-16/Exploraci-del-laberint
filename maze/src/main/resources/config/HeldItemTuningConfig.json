@@ -252,5 +252,50 @@
 				"noCursorRotationDeg": 26.0
 			}
 		}
+	},
+	{
+		"id": "jordi",
+		"items": {
+			"PICKAXE": {
+				"baseScale": 0.85,
+				"noCursorScaleMul": 1.1,
+				"cursorOffsetMulX": 2.8,
+				"cursorOffsetMulY": 1.5,
+				"noCursorOffsetMulX": 1.6,
+				"noCursorOffsetMulY": 0.0,
+				"rotationDeg": 0.0,
+				"noCursorRotationDeg": 0.0
+			},
+			"BLAI_GLASSES": {
+				"baseScale": 0.75,
+				"noCursorScaleMul": 1.1,
+				"cursorOffsetMulX": 3.3,
+				"cursorOffsetMulY": 2.4,
+				"noCursorOffsetMulX": 1.8,
+				"noCursorOffsetMulY": 1.3,
+				"rotationDeg": 0.0,
+				"noCursorRotationDeg": 0.0
+			},
+			"KEY": {
+				"baseScale": 0.85,
+				"noCursorScaleMul": 1.1,
+				"cursorOffsetMulX": 2.4,
+				"cursorOffsetMulY": 2.3,
+				"noCursorOffsetMulX": 1.1,
+				"noCursorOffsetMulY": 0.8,
+				"rotationDeg": 24.0,
+				"noCursorRotationDeg": 34.0
+			},
+			"BROKEN_KEY": {
+				"baseScale": 0.7,
+				"noCursorScaleMul": 1.1,
+				"cursorOffsetMulX": 2.5,
+				"cursorOffsetMulY": 2.1,
+				"noCursorOffsetMulX": 1.2,
+				"noCursorOffsetMulY": 0.6,
+				"rotationDeg": 24.0,
+				"noCursorRotationDeg": 26.0
+			}
+		}
 	}
 ]

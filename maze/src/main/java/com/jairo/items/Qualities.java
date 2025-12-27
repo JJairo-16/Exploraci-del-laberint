@@ -4,7 +4,8 @@ public enum Qualities {
     COMMON(120, 200, 255),
     EPIC(175, 95, 255),
     LEGENDARY(255, 210, 90),
-    UNIQUE(210, 40, 40);
+    UNIQUE(210, 40, 40),
+    TRANSCENDENT(245, 245, 255);
 
     public final int red;
     public final int green;

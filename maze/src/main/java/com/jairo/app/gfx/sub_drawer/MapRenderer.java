@@ -45,7 +45,7 @@ public class MapRenderer {
             spriteImgCache[i] = images.get(s);
             backImgCache[i] = images.get(s.getBack());
             fullTileCache[i] = s.getIfIsFullTile();
-            baseRotationCache[i] = s.rotation;
+            baseRotationCache[i] = s.getRotation();
         }
     }
 

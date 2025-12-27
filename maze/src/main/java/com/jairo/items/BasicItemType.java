@@ -33,7 +33,7 @@ public enum BasicItemType implements ItemType {
         MAP.minDistFromBorder = 3;
 
         PORTAL_GUN.shouldDuplicatePickup = false;
-        PORTAL_GUN.setMaxUses(2);
+        PORTAL_GUN.setMaxUses(3);
         PORTAL_GUN.setSpawnBlacklist(
             CHEAT_PATH,
             HIDDEN_CHEAT_PATH,
@@ -105,7 +105,7 @@ public enum BasicItemType implements ItemType {
     }
 
     private void setMaxUses(int n) {
-        this.maxUses = n;
+        this.maxUses = n - 1;
         this.pick = false;
     }
 

@@ -43,6 +43,8 @@ public final class KeyBind {
 
         KEY_BINDS.put(KeyCode.F1, Action.SWITCH_SHOW_FPS);
         KEY_BINDS.put(KeyCode.F2, Action.SWITCH_COINS_POWER);
+
+        KEY_BINDS.put(KeyCode.SPACE, Action.ACTIVE_KONAMI);
     }
 
     public static Action getAction(KeyCode key) {
@@ -64,6 +66,7 @@ public final class KeyBind {
         NEXT_ITEM(),
         SWITCH_SHOW_FPS(),
         SWITCH_COINS_POWER(),
+        ACTIVE_KONAMI(),
         NONE();
 
         public final boolean canMaintain;
