@@ -12,19 +12,10 @@ public final class PostFxRenderer {
     // =======================
     // Reglas HARDCODEADAS
     // =======================
-    // Si true -> siempre renderiza (equivale al comportamiento "cada frame")
-    // Si false -> usa estrategia por intervalos (one-shot o cada N frames).
     private static final boolean ALWAYS_UPDATE = false;
-
-    // Intervalo por defecto cuando NO es ALWAYS_UPDATE:
-    //  0  -> one-shot (solo 1 vez)
-    //  1  -> cada frame
-    //  N>1-> cada N frames
     private static final int DEFAULT_EVERY_N_FRAMES = 0;
 
     // Override custom:
-    //  -1 -> igual que el resto (usa ALWAYS_UPDATE + DEFAULT_EVERY_N_FRAMES)
-    //  N  -> fuerza a renderizar cada N frames (incluye 0 one-shot, 1 cada frame)
     private static int customEveryNFrames = -1;
 
     // =======================
@@ -40,86 +31,128 @@ public final class PostFxRenderer {
             new Stop(1.0, Color.rgb(0, 0, 0, 0.45))
     );
 
+    // Para dim (se crea dinámico según alpha, así no hardcodeas)
+    private static final int DIM_RGB = 0; // negro
+
     // =======================
     // Estado interno
     // =======================
     private long frameCounter = 0;
     private boolean renderedOnce = false;
 
-    // Si el tamaño cambia, forzamos redibujar aunque fuera one-shot o cada N
     private double lastW = -1;
     private double lastH = -1;
 
+    // Si el usuario cambia dim entre renders y estás en one-shot,
+    // con esto forzamos redraw cuando el dim cambia.
+    private double lastDimAlpha = 0.0;
+
+    // -----------------------
+    // API pública
+    // -----------------------
+
+    /** Render normal: NO oscurece (por defecto). */
     public void render(GraphicsContext postFxGC, double width, double height) {
+        render(postFxGC, width, height, 0.0);
+    }
+
+    /**
+     * Render con dim opcional encima del postfx.
+     * @param dimAlpha 0..1 (0 = nada, 1 = negro completo)
+     */
+    public void render(GraphicsContext postFxGC, double width, double height, double dimAlpha) {
         if (postFxGC == null) return;
+
+        dimAlpha = clamp01(dimAlpha);
 
         // Contamos "frames" como llamadas a render()
         frameCounter++;
 
-        // Si cambió el tamaño, invalida (muy importante si usas one-shot o intervalos)
         boolean sizeChanged = (width != lastW) || (height != lastH);
         if (sizeChanged) {
             lastW = width;
             lastH = height;
             renderedOnce = false;
-            // no reseteo frameCounter: no hace falta
         }
 
-        // Decide cada cuánto renderizar
+        // Si cambió el dim y estabas en one-shot o intervalos, forzar redraw
+        boolean dimChanged = Math.abs(dimAlpha - lastDimAlpha) > 0.0001;
+        if (dimChanged) {
+            lastDimAlpha = dimAlpha;
+            renderedOnce = false;
+        }
+
         int everyN = resolveEveryNFrames();
 
-        // 0 => one-shot (renderiza solo si nunca se renderizó o si cambió el size)
         if (everyN == 0) {
-            if (renderedOnce && !sizeChanged) return;
-            doRender(postFxGC, width, height);
+            if (renderedOnce && !sizeChanged && !dimChanged) return;
+            doRender(postFxGC, width, height, dimAlpha);
             renderedOnce = true;
             return;
         }
 
-        // 1 => cada frame
         if (everyN == 1) {
-            doRender(postFxGC, width, height);
+            doRender(postFxGC, width, height, dimAlpha);
             renderedOnce = true;
             return;
         }
 
-        // N>1 => renderiza cada N frames (y siempre en resize)
-        if (sizeChanged || (frameCounter % everyN == 0)) {
-            doRender(postFxGC, width, height);
+        if (sizeChanged || dimChanged || (frameCounter % everyN == 0)) {
+            doRender(postFxGC, width, height, dimAlpha);
             renderedOnce = true;
         }
     }
 
+    public void invalidate() {
+        renderedOnce = false;
+    }
+
+    // =======================
+    // Internals
+    // =======================
+
     private static int resolveEveryNFrames() {
-        // Custom override manda si no es -1
         if (customEveryNFrames != -1) {
             return clampEveryN(customEveryNFrames);
         }
-
-        // Si ALWAYS_UPDATE, equivale a 1 (cada frame)
         if (ALWAYS_UPDATE) return 1;
-
-        // Si no, usa el default
         return clampEveryN(DEFAULT_EVERY_N_FRAMES);
     }
 
     private static int clampEveryN(int n) {
-        // - Valores raros: lo llevamos a rango [0..]
         if (n < 0) return 0;
         return n;
     }
 
-    private static void doRender(GraphicsContext postFxGC, double width, double height) {
+    private static void doRender(GraphicsContext postFxGC, double width, double height, double dimAlpha) {
         postFxGC.clearRect(0, 0, width, height);
 
+        // Base postfx
         postFxGC.setFill(TINT);
         postFxGC.fillRect(0, 0, width, height);
 
         postFxGC.setFill(VIGNETTE);
         postFxGC.fillRect(0, 0, width, height);
+
+        // ✅ Dim encima del postfx (opcional)
+        if (dimAlpha > 0.0) {
+            postFxGC.setFill(Color.rgb(DIM_RGB, DIM_RGB, DIM_RGB, dimAlpha));
+            postFxGC.fillRect(0, 0, width, height);
+        }
     }
 
-    public void invalidate() {
-        renderedOnce = false; // ? force
+    private static double clamp01(double v) {
+        if (v < 0) return 0;
+        if (v > 1) return 1;
+        return v;
+    }
+
+    // (Opcional) si quieres exponer el override:
+    public static void setCustomEveryNFrames(int n) {
+        customEveryNFrames = n;
+    }
+
+    public static void clearCustomEveryNFrames() {
+        customEveryNFrames = -1;
     }
 }

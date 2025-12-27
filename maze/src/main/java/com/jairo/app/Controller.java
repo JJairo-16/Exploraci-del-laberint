@@ -63,7 +63,7 @@ public class Controller {
     @FXML private ChoiceBox<String> languageSelector;
     @FXML private Label blaiGlassesPowerText;
 
-    // ===== Ajustes (solo refs FXML; lógica fuera) =====
+    // ===== Ajustes =====
     @FXML private StackPane settingsOverlay;
 
     @FXML private Slider masterSlider;
@@ -78,6 +78,7 @@ public class Controller {
 
     @FXML private Button closeSettingsBtn;
     @FXML private Button resetSettingsBtn;
+    @FXML private Button saveSettingsBtn;
 
     private final Dimensions dims = new Dimensions();
     private final ImageStore images = ImageStore.getInstance();
@@ -196,14 +197,16 @@ public class Controller {
                     muteCheck,
                     closeSettingsBtn,
                     resetSettingsBtn,
-                    () -> readKeys = false,     // pause
-                    () -> readKeys = true,      // resume
-                    () -> Platform.runLater(root::requestFocus) // refocus
+                    saveSettingsBtn,
+                    () -> readKeys = false,                 // pause
+                    () -> readKeys = true,                  // resume
+                    () -> Platform.runLater(root::requestFocus), // refocus
+                    drawer
             );
 
             // ---- key handlers ----
             root.setOnKeyPressed(event -> {
-                if (event.getCode() == KeyCode.ESCAPE) {
+                if (event.getCode() == KeyCode.ESCAPE && !simulator.isSliding() && !simulator.isBlaiGlassesPowerActive()) {
                     if (settings != null) settings.toggle();
                     event.consume();
                     return;
@@ -341,11 +344,16 @@ public class Controller {
     // ===== Métodos llamados desde FXML =====
     @FXML
     private void closeSettings() {
-        if (settings != null) settings.close();
+        if (settings != null) settings.closeDiscard();
     }
 
     @FXML
     private void resetSettings() {
-        if (settings != null) settings.resetToDefaults();
+        if (settings != null) settings.resetPendingToDefaults();
+    }
+
+    @FXML
+    private void saveSettings() {
+        if (settings != null) settings.saveApplyAndClose();
     }
 }

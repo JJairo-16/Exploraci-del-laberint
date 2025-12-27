@@ -528,4 +528,9 @@ public class Drawer {
             return Math.max(0.0, Math.min(1.0, radar));
         return Math.max(0.0, Math.min(1.0, radar / 100.0));
     }
+
+    public void darkOverlay(boolean load) {
+        double alpha = load ? 0.55 : 0;
+        postFxRenderer.render(postFxGC, postFx.getWidth(), postFx.getHeight(), alpha);
+    }
 }

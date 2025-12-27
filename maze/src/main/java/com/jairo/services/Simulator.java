@@ -488,4 +488,8 @@ public class Simulator {
         return lastMovement;
     }
 
+    public boolean isSliding() {
+        return iceSystem.isSliding();
+    }
+
 }

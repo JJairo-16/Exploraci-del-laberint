@@ -1,10 +1,13 @@
 package com.jairo.app.settings;
 
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Objects;
-import java.util.function.Consumer;
 
 import com.jairo.app.audio.ConfigHelper;
 import com.jairo.app.audio.SoundManager;
+import com.jairo.app.gfx.Drawer;
+import com.jairo.app.settings.AudioConfigLoader.AudioConfig;
 
 import javafx.beans.binding.Bindings;
 import javafx.scene.control.Button;
@@ -15,7 +18,7 @@ import javafx.scene.layout.StackPane;
 
 public final class SettingsOverlay {
 
-    // Valores UI (0..1) por defecto
+    // Defaults UI (0..1)
     private static final double DEFAULT_MASTER_UI = 0.90;
     private static final double DEFAULT_BGM_UI = 0.60;
     private static final double DEFAULT_SFX_UI = 0.80;
@@ -36,14 +39,39 @@ public final class SettingsOverlay {
     private Label sfxPct;
 
     private CheckBox muteCheck;
+
     private Button closeBtn;
     private Button resetBtn;
+    private Button saveBtn;
 
-    private Runnable pauseGame = () -> {};
-    private Runnable resumeGame = () -> {};
-    private Runnable refocusRoot = () -> {};
+    private Runnable pauseGame = () -> {
+    };
+    private Runnable resumeGame = () -> {
+    };
+    private Runnable refocusRoot = () -> {
+    };
 
     private boolean open = false;
+
+    // --- AppData ---
+    private static final String APP_NAME = "JairoApp"; // <-- cambia esto si quieres
+    private static final Path SETTINGS_FILE = getAppDataConfigPath(APP_NAME, "config.json");
+
+    // ---- Aplicados ----
+    private double appliedMasterUi = DEFAULT_MASTER_UI;
+    private double appliedBgmUi = DEFAULT_BGM_UI;
+    private double appliedSfxUi = DEFAULT_SFX_UI;
+    private boolean appliedMuted = DEFAULT_MUTED;
+
+    // ---- Pendientes ----
+    private double pendingMasterUi = DEFAULT_MASTER_UI;
+    private double pendingBgmUi = DEFAULT_BGM_UI;
+    private double pendingSfxUi = DEFAULT_SFX_UI;
+    private boolean pendingMuted = DEFAULT_MUTED;
+
+    private boolean internalChange = false;
+
+    private Drawer drawer;
 
     public SettingsOverlay(SoundManager sm) {
         this.sm = Objects.requireNonNull(sm, "SoundManager");
@@ -57,10 +85,11 @@ public final class SettingsOverlay {
             CheckBox muteCheck,
             Button closeBtn,
             Button resetBtn,
+            Button saveBtn,
             Runnable pauseGame,
             Runnable resumeGame,
-            Runnable refocusRoot
-    ) {
+            Runnable refocusRoot,
+            Drawer drawer) {
         this.overlay = overlay;
 
         this.masterSlider = masterSlider;
@@ -72,51 +101,54 @@ public final class SettingsOverlay {
         this.sfxPct = sfxPct;
 
         this.muteCheck = muteCheck;
+
         this.closeBtn = closeBtn;
         this.resetBtn = resetBtn;
+        this.saveBtn = saveBtn;
 
-        if (pauseGame != null) this.pauseGame = pauseGame;
-        if (resumeGame != null) this.resumeGame = resumeGame;
-        if (refocusRoot != null) this.refocusRoot = refocusRoot;
+        if (pauseGame != null)
+            this.pauseGame = pauseGame;
+        if (resumeGame != null)
+            this.resumeGame = resumeGame;
+        if (refocusRoot != null)
+            this.refocusRoot = refocusRoot;
 
-        // Overlay hidden por defecto
         if (this.overlay != null) {
             this.overlay.setVisible(false);
             this.overlay.setManaged(false);
         }
 
-        // UI defaults
-        if (this.masterSlider != null) this.masterSlider.setValue(DEFAULT_MASTER_UI);
-        if (this.bgmSlider != null) this.bgmSlider.setValue(DEFAULT_BGM_UI);
-        if (this.sfxSlider != null) this.sfxSlider.setValue(DEFAULT_SFX_UI);
-
-        // Percent labels (90%, 60%, ...)
         bindPercentLabel(this.masterSlider, this.masterPct);
         bindPercentLabel(this.bgmSlider, this.bgmPct);
         bindPercentLabel(this.sfxSlider, this.sfxPct);
 
-        // Bind sliders -> SoundManager (con curva ConfigHelper)
-        bindVolumeSlider(this.masterSlider, sm::setMasterVolume);
-        bindVolumeSlider(this.bgmSlider, sm::setBgmVolume);
-        bindVolumeSlider(this.sfxSlider, sm::setSfxVolume);
+        this.drawer = drawer;
 
-        if (this.muteCheck != null) {
-            this.muteCheck.setSelected(DEFAULT_MUTED);
-            this.muteCheck.selectedProperty().addListener((obs, o, v) -> sm.setMuted(v));
-        }
+        installPendingListeners();
 
-        // Aplicar defaults al motor también
-        applyDefaultsToEngine();
+        // Cargar aplicados desde AppData (o defaults) + aplicar al motor
+        loadSettings();
+        loadAppliedIntoUi();
     }
 
+    // =====================
+    // Ciclo overlay
+    // =====================
+
     public void toggle() {
-        if (open) close();
-        else open();
+        if (open)
+            closeDiscard();
+        else
+            open();
+
+        drawer.darkOverlay(open);
     }
 
     public void open() {
         open = true;
         pauseGame.run();
+
+        loadAppliedIntoUi();
 
         if (overlay != null) {
             overlay.setManaged(true);
@@ -124,11 +156,31 @@ public final class SettingsOverlay {
             overlay.toFront();
         }
 
-        if (closeBtn != null) closeBtn.requestFocus();
+        if (saveBtn != null)
+            saveBtn.requestFocus();
+        else if (closeBtn != null)
+            closeBtn.requestFocus();
     }
 
-    public void close() {
+    public void closeDiscard() {
+        drawer.darkOverlay(false);
         open = false;
+
+        appliedMasterUi = pendingMasterUi;
+        appliedBgmUi = pendingBgmUi;
+        appliedSfxUi = pendingSfxUi;
+        appliedMuted = pendingMuted;
+
+        applyAppliedToEngine();
+
+        AudioConfigLoader.saveToFile(
+                SETTINGS_FILE,
+                new AudioConfig(appliedMasterUi, appliedBgmUi, appliedSfxUi, appliedMuted));
+
+        pendingMasterUi = appliedMasterUi;
+        pendingBgmUi = appliedBgmUi;
+        pendingSfxUi = appliedSfxUi;
+        pendingMuted = appliedMuted;
 
         if (overlay != null) {
             overlay.setVisible(false);
@@ -139,44 +191,139 @@ public final class SettingsOverlay {
         refocusRoot.run();
     }
 
-    public void resetToDefaults() {
-        // UI
-        if (masterSlider != null) masterSlider.setValue(DEFAULT_MASTER_UI);
-        if (bgmSlider != null) bgmSlider.setValue(DEFAULT_BGM_UI);
-        if (sfxSlider != null) sfxSlider.setValue(DEFAULT_SFX_UI);
-        if (muteCheck != null) muteCheck.setSelected(DEFAULT_MUTED);
-
-        // Engine
-        applyDefaultsToEngine();
-
-        if (resetBtn != null) resetBtn.requestFocus();
+    /** Aplica al motor Y guarda en AppData. */
+    public void saveApplyAndClose() {
+        closeDiscard();
+        drawer.darkOverlay(false);
     }
 
-    private void applyDefaultsToEngine() {
-        sm.setMasterVolume(ConfigHelper.getVolum(DEFAULT_MASTER_UI));
-        sm.setBgmVolume(ConfigHelper.getVolum(DEFAULT_BGM_UI));
-        sm.setSfxVolume(ConfigHelper.getVolum(DEFAULT_SFX_UI));
-        sm.setMuted(DEFAULT_MUTED);
+    public void resetPendingToDefaults() {
+        setUiValues(DEFAULT_MASTER_UI, DEFAULT_BGM_UI, DEFAULT_SFX_UI, DEFAULT_MUTED);
+
+        pendingMasterUi = DEFAULT_MASTER_UI;
+        pendingBgmUi = DEFAULT_BGM_UI;
+        pendingSfxUi = DEFAULT_SFX_UI;
+        pendingMuted = DEFAULT_MUTED;
+
+        if (resetBtn != null)
+            resetBtn.requestFocus();
+    }
+
+    // =====================
+    // Internals
+    // =====================
+
+    private void applyAppliedToEngine() {
+        sm.setMasterVolume(ConfigHelper.getVolum(appliedMasterUi));
+        sm.setBgmVolume(ConfigHelper.getVolum(appliedBgmUi));
+        sm.setSfxVolume(ConfigHelper.getVolum(appliedSfxUi));
+        sm.setMuted(appliedMuted);
+    }
+
+    private void loadAppliedIntoUi() {
+        setUiValues(appliedMasterUi, appliedBgmUi, appliedSfxUi, appliedMuted);
+
+        pendingMasterUi = appliedMasterUi;
+        pendingBgmUi = appliedBgmUi;
+        pendingSfxUi = appliedSfxUi;
+        pendingMuted = appliedMuted;
+    }
+
+    private void setUiValues(double masterUi, double bgmUi, double sfxUi, boolean muted) {
+        internalChange = true;
+        try {
+            if (masterSlider != null)
+                masterSlider.setValue(masterUi);
+            if (bgmSlider != null)
+                bgmSlider.setValue(bgmUi);
+            if (sfxSlider != null)
+                sfxSlider.setValue(sfxUi);
+            if (muteCheck != null)
+                muteCheck.setSelected(muted);
+        } finally {
+            internalChange = false;
+        }
+    }
+
+    private void installPendingListeners() {
+        if (masterSlider != null) {
+            masterSlider.valueProperty().addListener((obs, oldVal, newVal) -> {
+                if (internalChange)
+                    return;
+                pendingMasterUi = normalizeUiSlider(masterSlider, newVal.doubleValue());
+            });
+        }
+
+        if (bgmSlider != null) {
+            bgmSlider.valueProperty().addListener((obs, oldVal, newVal) -> {
+                if (internalChange)
+                    return;
+                pendingBgmUi = normalizeUiSlider(bgmSlider, newVal.doubleValue());
+            });
+        }
+
+        if (sfxSlider != null) {
+            sfxSlider.valueProperty().addListener((obs, oldVal, newVal) -> {
+                if (internalChange)
+                    return;
+                pendingSfxUi = normalizeUiSlider(sfxSlider, newVal.doubleValue());
+            });
+        }
+
+        if (muteCheck != null) {
+            muteCheck.selectedProperty().addListener((obs, o, v) -> {
+                if (internalChange)
+                    return;
+                pendingMuted = v;
+            });
+        }
+    }
+
+    private double normalizeUiSlider(Slider slider, double ui) {
+        double mapped = ConfigHelper.getVolum(ui);
+        if (Math.abs(mapped - ui) > EPS) {
+            internalChange = true;
+            try {
+                slider.setValue(mapped);
+            } finally {
+                internalChange = false;
+            }
+            return mapped;
+        }
+        return ui;
     }
 
     private void bindPercentLabel(Slider slider, Label label) {
-        if (slider == null || label == null) return;
+        if (slider == null || label == null)
+            return;
         label.textProperty().bind(Bindings.format("%.0f%%", slider.valueProperty().multiply(100)));
         label.setMouseTransparent(true);
     }
 
-    private void bindVolumeSlider(Slider slider, Consumer<Double> setter) {
-        if (slider == null || setter == null) return;
+    /** Carga desde AppData si existe; si no existe (o falla), defaults. */
+    private void loadSettings() {
+        AudioConfig cfg = AudioConfigLoader.loadPreferFile(SETTINGS_FILE);
 
-        slider.valueProperty().addListener((obs, oldVal, newVal) -> {
-            double mapped = ConfigHelper.getVolum(newVal.doubleValue());
+        appliedMasterUi = cfg.masterUi;
+        appliedBgmUi = cfg.bgmUi;
+        appliedSfxUi = cfg.sfxUi;
+        appliedMuted = cfg.muted;
 
-            // Si quieres que el thumb “salte” al valor mapeado (como pediste):
-            if (Math.abs(mapped - newVal.doubleValue()) > EPS) {
-                slider.setValue(mapped);
-            }
+        pendingMasterUi = appliedMasterUi;
+        pendingBgmUi = appliedBgmUi;
+        pendingSfxUi = appliedSfxUi;
+        pendingMuted = appliedMuted;
 
-            setter.accept(mapped);
-        });
+        applyAppliedToEngine();
+    }
+
+    // ------- helper AppData -------
+    private static Path getAppDataConfigPath(String appName, String fileName) {
+        String appData = System.getenv("APPDATA"); // Roaming
+        if (appData == null || appData.isBlank()) {
+            // fallback por si no existe APPDATA (raro en Windows, pero posible)
+            appData = System.getProperty("user.home");
+        }
+        return Paths.get(appData, appName, fileName);
     }
 }

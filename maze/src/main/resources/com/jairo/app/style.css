@@ -281,11 +281,6 @@ Label {
 
 .settings-overlay {
 	-fx-alignment: center;
-	-fx-padding: 28; /* evita pegarse a bordes sup/inf en ventanas pequeñas */
-}
-
-.settings-dim {
-	-fx-background-color: rgba(0, 0, 0, 0.55);
 }
 
 .settings-panel {
@@ -394,4 +389,6 @@ Label {
 	);
 }
 
-
+.button.save {
+	-fx-font-weight: 900;
+}

@@ -14,7 +14,6 @@
 <?import javafx.scene.control.CheckBox?>
 <?import javafx.scene.control.Button?>
 <?import javafx.scene.layout.Pane?>
-<?import javafx.scene.control.ScrollPane?>
 
 <HBox fx:id="root"
       xmlns="http://javafx.com/javafx/21"
@@ -47,7 +46,6 @@
 
             <Separator styleClass="ui-separator"/>
 
-            <!-- Título de sección más grande SOLO en Ajustes -->
             <Label text="%settings.audio" styleClass="settings-section-title"/>
 
             <!-- MASTER -->
@@ -93,7 +91,12 @@
 
                 <Button fx:id="closeSettingsBtn"
                         text="%settings.close"
-                        onAction="#closeSettings"/>
+                        onAction="#closeSettings"
+                        styleClass="secondary"/>
+
+                <Button fx:id="saveSettingsBtn"
+                        text="%settings.save"
+                        onAction="#saveSettings"/>
             </HBox>
         </VBox>
     </StackPane>
