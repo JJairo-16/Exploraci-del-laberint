@@ -1,13 +1,14 @@
 package com.jairo.app.gfx.player_skins;
 
 public enum Skin {
-    DEFAULT(getRoot("default.png")),
+    DEFAULT(getRoot("default.png"), true),
     BLAI(getRoot("blai.png"), true),
     CRISTIAN(getRoot("cristian.png"), true),
     RUBEN(getRoot("ruben.png"), true),
     LAIA_C(getRoot("laia-c.png"), true),
     LAIA_V(getRoot("laia-v.png"), true),
-    JORDI(getRoot("jordi.png"), true);
+    JORDI(getRoot("jordi.png"), true),
+    DEV(getRoot("dev.png"));
 
     private static final String BASE_ROOT = "/com/jairo/app/img/game/playerSkins/";
 

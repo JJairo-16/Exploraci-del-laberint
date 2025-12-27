@@ -57,14 +57,16 @@ public final class SkinManager {
 
     public void next() {
         Skin[] skins = Skin.values();
+        int max = skins.length - 1;
         int i = current.ordinal();
-        set(skins[(i + 1) % skins.length]);
+        set(skins[(i + 1) % max]);
     }
 
     public void previous() {
         Skin[] skins = Skin.values();
+        int max = skins.length - 1;
         int i = current.ordinal();
-        set(skins[(i - 1 + skins.length) % skins.length]);
+        set(skins[(i - 1 + max) % max]);
     }
 
     // -------------------------------

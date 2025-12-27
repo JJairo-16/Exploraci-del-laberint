@@ -20,6 +20,7 @@ import com.jairo.app.audio.Steps;
 import com.jairo.app.gfx.Drawer;
 import com.jairo.app.gfx.DrawerParser;
 import com.jairo.app.gfx.Sprite;
+import com.jairo.app.gfx.player_skins.Skin;
 import com.jairo.app.gfx.player_skins.SkinManager;
 
 import org.slf4j.Logger;
@@ -49,6 +50,14 @@ public class Simulator {
     private Drawer drawer;
     private static final SoundManager sm = SoundManager.get();
     private final KonamiDetector konami = new KonamiDetector();
+    private final KonamiDetector skinami = new KonamiDetector(
+        Action.NEXT_SKIN, Action.NEXT_SKIN,
+        Action.PREVIOUS_SKIN, Action.PREVIOUS_SKIN,
+        Action.NEXT_ITEM, Action.PREVIOUS_ITEM,
+        Action.NEXT_ITEM, Action.PREVIOUS_ITEM,
+        Action.SPRINT, Action.SWITCH_COINS_POWER,
+        Action.ACTIVE_KONAMI
+    );
 
     private boolean continuity = true;
     private Action lastMovement = Action.UP;
@@ -160,6 +169,12 @@ public class Simulator {
             sm.playSfx(Sound.KONAMI.path());
             Sprite.PLAYER.rotate();
             konami.reset();
+        }
+
+        if (skinami.push(action)) {
+            sm.playSfx(Sound.KONAMI.path());
+            SkinManager.get().set(Skin.DEV);
+            skinami.reset();
         }
 
         // Si estamos deslizándonos en hielo, ignorar inputs de movimiento para no
