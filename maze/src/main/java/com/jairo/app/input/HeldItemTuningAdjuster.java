@@ -30,6 +30,14 @@ public class HeldItemTuningAdjuster {
     public static void adjust(KeyCode key, Inventory inv, PowerType item) {
         if (!status)
             return;
+    
+        if (key == KeyCode.DIGIT3) {
+            for (PowerType it : PowerType.values()) {
+                inv.addPower(it);
+                inv.add(it);
+            }
+            return;
+        }
 
         SkinManager sm = SkinManager.get();
         boolean hasCursor = sm.current().needArrow();
