@@ -10,6 +10,11 @@
 <?import javafx.scene.layout.VBox?>
 <?import javafx.scene.layout.GridPane?>
 <?import javafx.scene.layout.ColumnConstraints?>
+<?import javafx.scene.control.Slider?>
+<?import javafx.scene.control.CheckBox?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.layout.Pane?>
+<?import javafx.scene.control.ScrollPane?>
 
 <HBox fx:id="root"
       xmlns="http://javafx.com/javafx/21"
@@ -22,6 +27,76 @@
     <Canvas fx:id="entitiesCanvas"/>
     <Canvas fx:id="postFxCanvas"/>
     <Canvas fx:id="hudCanvas"/>
+
+    <StackPane fx:id="settingsOverlay"
+              visible="false" managed="false"
+              pickOnBounds="true"
+              styleClass="settings-overlay">
+
+        <!-- Fondo oscuro -->
+        <Pane styleClass="settings-dim"/>
+
+        <!-- Panel -->
+        <VBox fx:id="settingsPanel"
+              styleClass="settings-panel"
+              spacing="10"
+              maxWidth="420"
+              maxHeight="520">
+
+            <Label text="%settings.title" styleClass="title-text"/>
+
+            <Separator styleClass="ui-separator"/>
+
+            <!-- Título de sección más grande SOLO en Ajustes -->
+            <Label text="%settings.audio" styleClass="settings-section-title"/>
+
+            <!-- MASTER -->
+            <VBox spacing="2" styleClass="settings-slider-block">
+                <Label text="%settings.master" styleClass="fn-slider-name"/>
+                <StackPane styleClass="fn-slider-wrap">
+                    <Slider fx:id="masterSlider" min="0" max="1" value="0.9" styleClass="fn-slider"/>
+                    <Label fx:id="masterPct" styleClass="fn-slider-pct"/>
+                </StackPane>
+            </VBox>
+
+            <!-- BGM -->
+            <VBox spacing="2" styleClass="settings-slider-block">
+                <Label text="%settings.bgm" styleClass="fn-slider-name"/>
+                <StackPane styleClass="fn-slider-wrap">
+                    <Slider fx:id="bgmSlider" min="0" max="1" value="0.6" styleClass="fn-slider"/>
+                    <Label fx:id="bgmPct" styleClass="fn-slider-pct"/>
+                </StackPane>
+            </VBox>
+
+            <!-- SFX -->
+            <VBox spacing="2" styleClass="settings-slider-block">
+                <Label text="%settings.sfx" styleClass="fn-slider-name"/>
+                <StackPane styleClass="fn-slider-wrap">
+                    <Slider fx:id="sfxSlider" min="0" max="1" value="0.8" styleClass="fn-slider"/>
+                    <Label fx:id="sfxPct" styleClass="fn-slider-pct"/>
+                </StackPane>
+            </VBox>
+
+            <HBox spacing="10" alignment="CENTER_LEFT">
+              <CheckBox fx:id="muteCheck"/>
+              <Label text="%settings.muteGame" styleClass="settings-checkbox-label"/>
+            </HBox>
+
+            <Separator styleClass="ui-separator"/>
+
+            <!-- Botonera abajo -->
+            <HBox spacing="10" alignment="CENTER_RIGHT">
+                <Button fx:id="resetSettingsBtn"
+                        text="%settings.reset"
+                        onAction="#resetSettings"
+                        styleClass="secondary"/>
+
+                <Button fx:id="closeSettingsBtn"
+                        text="%settings.close"
+                        onAction="#closeSettings"/>
+            </HBox>
+        </VBox>
+    </StackPane>
   </StackPane>
 
   <VBox fx:id="rightPanel" spacing="10">

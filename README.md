@@ -33,6 +33,7 @@ L’objectiu del joc és explorar un laberint fins a trobar la sortida. Al comen
 | 2                   | Q                    | Següent objecte         |
 | F1                  |                      | Alternar mostrar FPS    |
 | F2                  |                      | Alternar poder monetari |
+| ESC                 |                      | Obrir configuració      |
 
 ---
 

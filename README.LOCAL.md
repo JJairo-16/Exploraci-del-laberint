@@ -294,6 +294,11 @@ L’objectiu del joc és explorar un laberint fins a trobar la sortida. Al comen
     <td></td>
     <td>Alternar poder monetari</td>
     </tr>
+    </tr>
+    <td>ESC</td>
+    <td></td>
+    <td>Obrir configuració</td>
+    </tr>
   </tbody>
 </table>
 

@@ -275,3 +275,123 @@ Label {
 	-fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.6), 6, 0.2, 0, 1);
 }
 
+/* =======================
+   AJUSTES (OVERLAY)
+   ======================= */
+
+.settings-overlay {
+	-fx-alignment: center;
+	-fx-padding: 28; /* evita pegarse a bordes sup/inf en ventanas pequeñas */
+}
+
+.settings-dim {
+	-fx-background-color: rgba(0, 0, 0, 0.55);
+}
+
+.settings-panel {
+	-fx-padding: 18 18 14 18;
+	-fx-background-color: rgba(45, 45, 45, 0.96);
+	-fx-background-radius: 14;
+
+	-fx-border-color: rgba(255, 255, 255, 0.12);
+	-fx-border-radius: 14;
+	-fx-border-width: 1.2;
+
+	-fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.45), 16, 0.25, 0, 6);
+}
+
+/* Título de sección dentro de Ajustes (Audio) */
+.settings-section-title {
+	-fx-font-size: 20px;      /* antes ~16–18 */
+	-fx-font-weight: 800;
+	-fx-text-fill: #e6f1ff;
+	-fx-padding: 4 0 6 0;
+}
+
+/* Bloque label + barra: reduce el “aire” entre texto y slider */
+.settings-slider-block {
+	-fx-padding: 0 0 2 0;
+}
+
+/* Nombre de la barra (Master/BGM/SFX) más grande */
+.fn-slider-name {
+	-fx-font-size: 15px;
+	-fx-font-weight: 800;
+	-fx-text-fill: rgba(230, 241, 255, 0.96);
+	-fx-padding: 0;
+}
+
+/* Texto externo del checkbox (si lo pones como Label aparte) */
+.settings-checkbox-label {
+	-fx-text-fill: #e6f1ff;
+	-fx-font-size: 13px;
+	-fx-font-weight: 600;
+}
+
+/* =======================
+   SLIDERS TIPO "FORTNITE"
+   ======================= */
+
+.fn-slider-wrap {
+	/* antes: 4 0 10 0  -> menos separación label/barra y menos “aire” debajo */
+	-fx-padding: 0 0 8 0;
+}
+
+/* Control alto */
+.fn-slider {
+	-fx-pref-height: 40px;
+}
+
+/* Track (barra) */
+.fn-slider .track {
+	-fx-background-radius: 12;
+	-fx-background-insets: 0;
+
+	/* MÁS GROSOR */
+	-fx-pref-height: 18px;
+
+	/* Base más elegante */
+	-fx-background-color: linear-gradient(
+		to bottom,
+		rgba(255, 255, 255, 0.22),
+		rgba(255, 255, 255, 0.12)
+	);
+
+	/* Color de relleno */
+	-fx-accent: rgba(101, 173, 255, 0.95);
+}
+
+/* Thumb */
+.fn-slider .thumb {
+	-fx-background-radius: 999;
+	-fx-pref-width: 22px;
+	-fx-pref-height: 22px;
+
+	/* Transparencia base */
+	-fx-background-color: rgba(255, 255, 255, 0.65);
+
+	-fx-effect: dropshadow(
+		gaussian,
+		rgba(0, 0, 0, 0.45),
+		12, 0.25, 0, 2
+	);
+}
+
+.fn-slider:pressed .thumb,
+.fn-slider:hover .thumb {
+	-fx-background-color: rgba(255, 255, 255, 0.95);
+}
+
+/* % encima de la barra */
+.fn-slider-pct {
+	-fx-text-fill: rgba(255, 255, 255, 0.95);
+	-fx-font-weight: 900;
+
+	-fx-effect: dropshadow(
+		gaussian,
+		rgba(0, 0, 0, 0.75),
+		12, 0.35, 0, 1
+	);
+}
+
+
