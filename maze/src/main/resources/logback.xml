@@ -13,14 +13,12 @@
         </encoder>
     </appender>
 
-    <!-- ===== APPENDER FILE ===== -->
+    <!-- ===== APPENDER FILE (GENERAL) ===== -->
     <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>${LOG_DIR}/app.log</file>
 
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <!-- un fitxer per dia -->
             <fileNamePattern>${LOG_DIR}/app.%d{yyyy-MM-dd}.log</fileNamePattern>
-            <!-- quantitat de días de conserva -->
             <maxHistory>14</maxHistory>
         </rollingPolicy>
 
@@ -30,6 +28,28 @@
             </pattern>
         </encoder>
     </appender>
+
+    <!-- ===== APPENDER FILE (ITEMS) ===== -->
+    <appender name="ITEM_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_DIR}/items.log</file>
+
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_DIR}/items.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>14</maxHistory>
+        </rollingPolicy>
+
+        <encoder>
+            <pattern>
+                %d{yyyy-MM-dd HH:mm:ss.SSS} %-5level %msg%n
+            </pattern>
+        </encoder>
+    </appender>
+
+    <!-- ===== LOGGER EXCLUSIVO PARA ItemLogger ===== -->
+    <!-- additivity="false" evita que también vaya a ROOT (app.log/console) -->
+    <logger name="com.jairo.utils.ItemLogger" level="INFO" additivity="false">
+        <appender-ref ref="ITEM_FILE"/>
+    </logger>
 
     <!-- ===== ROOT LOGGER ===== -->
     <root level="INFO">

@@ -3,6 +3,33 @@
 Aquesta guia explica com configurar un `RelaxPlan` amb el patró *builder* per controlar com es relaxen les restriccions durant la col·locació d’items.
 
 > Nota: `RelaxPlan` és **immutable**. Has de configurar-ho tot al *builder* i després fer `build()`.
+>
+> ---
+
+## Índex
+- [Guia d’ús del builder de `RelaxPlan`](#guia-dús-del-builder-de-relaxplan)
+  - [Índex](#índex)
+  - [1. Com s’aplica a un `ItemType`](#1-com-saplica-a-un-itemtype)
+  - [2. Paràmetres del builder (què fa cadascun)](#2-paràmetres-del-builder-què-fa-cadascun)
+    - [`order(List<Constraint>)`](#orderlistconstraint)
+    - [`step(Constraint, int)`](#stepconstraint-int)
+    - [`floor(Constraint, int)`](#floorconstraint-int)
+    - [`cooldown(Constraint, int)`](#cooldownconstraint-int)
+    - [`mode(RelaxPlan.Mode)`](#moderelaxplanmode)
+    - [`scanMode(RelaxPlan.ScanMode)`](#scanmoderelaxplanscanmode)
+    - [`customScanAgainst(ItemType...)`](#customscanagainstitemtype)
+    - [`distComparisonMode(RelaxPlan.DistComparisonMode)`](#distcomparisonmoderelaxplandistcomparisonmode)
+    - [`customDistAgainst(ItemType...)`](#customdistagainstitemtype)
+    - [`maxRounds(int)`](#maxroundsint)
+    - [`maxStallRounds(int)`](#maxstallroundsint)
+    - [`weightDecay(double)`](#weightdecaydouble)
+    - [`weightFunction(IntToDoubleFunction)`](#weightfunctioninttodoublefunction)
+  - [3. Com es construeix un `RelaxPlan` complet](#3-com-es-construeix-un-relaxplan-complet)
+  - [4. Valors per defecte (si no configures res)](#4-valors-per-defecte-si-no-configures-res)
+  - [5. Regles pràctiques (per no embolicar-te)](#5-regles-pràctiques-per-no-embolicar-te)
+  - [6. Patró recomanat per mantenir-ho net](#6-patró-recomanat-per-mantenir-ho-net)
+    - [Patró 1](#patró-1)
+    - [Patró 2](#patró-2)
 
 ---
 
@@ -93,6 +120,50 @@ Defineix el tipus d'escàner que es realitza en les comprovacions locals (àrea 
 
 ---
 
+### `customScanAgainst(ItemType...)`
+Defineix el conjunt d’<code>ItemType</code> contra els quals s’aplica l’escaneig local quan el
+<code>scanMode</code> és <code>CUSTOM</code>. Només es considera conflicte si un item adjacent
+pertany a aquest conjunt explícitament definit.
+
+- Només és vàlid quan `scanMode` és `CUSTOM`.
+- La llista d’<code>ItemType</code> ha de ser no buida.
+- Si no es proporciona cap tipus, la construcció del <code>RelaxPlan</code> falla.
+
+```java
+.customScanAgainst(BasicItemType.MAP, BasicItemType.PORTAL_GUN)
+```
+
+---
+
+### `distComparisonMode(RelaxPlan.DistComparisonMode)`
+Defineix com s’aplica la restricció de distància mínima entre items (`minDistBetween`). Determina **contra quins items** es compara aquesta distància quan es valida una posició candidata:
+
+- `NONE`: no es realitza cap comparació de distància entre items; la restricció `minDistBetween` s’ignora.
+- `SAME_TYPE_EXACT`: la distància mínima només s’aplica contra items del mateix tipus exacte (mateix `id`).
+- `SAME_TYPE_GENERAL`: la distància mínima només s’aplica contra items del mateix tipus general (`BasicItemType`, `PowerType` o `SpecialType`).
+- `ANY_TYPE`: la distància mínima s’aplica contra qualsevol item, independentment del seu tipus.
+
+```java
+.distComparisonMode(DistComparisonMode.SAME_TYPE_EXACT)
+```
+
+---
+
+### `customDistAgainst(ItemType...)`
+Defineix el conjunt d’<code>ItemType</code> contra els quals s’aplica la restricció de distància
+mínima entre items (`minDistBetween`) quan el <code>distComparisonMode</code> és
+<code>CUSTOM</code>.
+
+- Només és vàlid quan `distComparisonMode` és `CUSTOM`.
+- La llista d’<code>ItemType</code> ha de ser no buida.
+- La distància mínima només es comprova contra items del conjunt especificat.
+
+```java
+.customDistAgainst(BasicItemType.MAP)
+```
+
+---
+
 ### `maxRounds(int)`
 Defineix el **màxim de rondes** de relaxació. Evita bucles llargs si el mapa és molt restrictiu.
 
@@ -146,7 +217,7 @@ Defineix la formula amb la qual es calcularà el pes.
 Flux correcte:
 
 1. `RelaxPlan.builder()`
-2. Configures opcions (`order`, `step`, `floor`, `cooldown`, `mode`, `scanMode`, `maxStallRounds`, `maxRounds`, `weightDecay`/`weightFunction`)
+2. Configures opcions (`order`, `step`, `floor`, `cooldown`, `mode`, `scanMode`, `distComparisonMode`, `maxStallRounds`, `maxRounds`, `weightDecay`/`weightFunction`)
 3. `build()`
 
 ```java
@@ -161,7 +232,10 @@ public RelaxPlan getRelaxPlan() {
             .cooldown(Constraint.PLAYER, 1)
             .cooldown(Constraint.EXIT, 4)
             .mode(RelaxPlan.Mode.ONE_PER_ROUND)
-            .scanMode(ScanMode.SAME_TYPE_EXACT)
+            .scanMode(ScanMode.CUSTOM)
+            .customScanAgainst(Items.ITEM1, Items.ITEM2)
+            .distComparisonMode(DistComparisonMode.CUSTOM)
+            .customDistAgainst(Items.ITEM1, Items.ITEM2)
             .maxStallRounds(2)
             .maxRounds(30)
             .weightDecay(0.5)
@@ -187,6 +261,7 @@ Aleshores el comportament per defecte és:
 - `cooldown`: 1
 - `mode`: `ONE_PER_ROUND`
 - `scanMode`: `NONE`
+- `SAME_TYPE_GENERAL`: `ANY_TYPE`
 - `maxStallRounds`: 2
 - `maxRounds`: 64
 - `weightDecay`: 0.9
@@ -237,27 +312,27 @@ Això evita repetir configuració i manté el codi més clar.
 
 ### Patró 2
 
-Si tens molts ítems amb patrons personalitzats cada un o varis agrupacions, pots definir un mètode privat amb el pla predeterminat i la serie de configuracions com a mètodes per gestionar-los en un switch (com `Override`):
+Si tens molts ítems amb patrons personalitzats (individuals o en grup), es recomana **definir els `RelaxPlan` com a constants immutables** i retornar-les des del `switch` dins del `override`.  
+Això evita crear objectes repetidament i manté una estructura clara i eficient.
 
 ```java
 @Override
 public RelaxPlan getRelaxPlan() {
-    return switch(this) {
-        case PORTAL_GUN -> portalGunRelaxPlan();
-        default -> defaultRelaxPlan();
+    return switch (this) {
+        case PORTAL_GUN -> PORTAL_GUN_RELAX_PLAN;
+        default -> DEFAULT_RELAX_PLAN;
     };
-
 }
 
-private RelaxPlan defaultRelaxPlan() {
-    return RelaxPlan.builder().build();
-}
+private static final RelaxPlan DEFAULT_RELAX_PLAN = RelaxPlan.builder().build();
 
-private RelaxPlan portalGunRelaxPlan() {
-    return RelaxPlan.builder()
+private static final RelaxPlan PORTAL_GUN_RELAX_PLAN = RelaxPlan.builder()
             .floor(Constraint.BETWEEN, 20)
             .build();
-}
 ```
 
-Això permet canviar la configuració amb major fluides sense sacrificar la legibilitat.
+Aquest patró:
+- evita la creació innecessària d’objectes,
+- deixa clar que el `RelaxPlan` és configuració immutable i no estat,
+- millora el rendiment en bucles de col·locació,
+- facilita la lectura, el manteniment i l’extensió del codi.

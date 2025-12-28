@@ -3,8 +3,10 @@ package com.jairo.items.placement;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.IntToDoubleFunction;
 
 import com.jairo.items.BasicItemType;
@@ -40,16 +42,39 @@ import com.jairo.items.SpecialType;
  * candidata para evitar conflictos con items ya colocados:
  * <ul>
  * <li><code>NONE</code>: no se realiza ningún escaneo.</li>
- * <li><code>SAME_TYPE_EXACT</code>: evita items con el mismo identificador
- * exacto.</li>
- * <li><code>SAME_TYPE_GENERAL</code>: evita items del mismo tipo general
+ * <li><code>SAME_TYPE_EXACT</code>: evita items amb el mateix tipus exacte.</li>
+ * <li><code>SAME_TYPE_GENERAL</code>: evita items del mateix tipus general
  * (<code>BasicItemType</code>, <code>PowerType</code> o
  * <code>SpecialType</code>).</li>
- * <li><code>ANY_TYPE</code>: evita cualquier item adyacente.</li>
+ * <li><code>ANY_TYPE</code>: evita qualsevol item adjacent, independentment
+ * del seu tipus.</li>
+ * <li><code>CUSTOM</code>: evita items adjacents únicament si el seu
+ * <code>ItemType</code> es troba dins del conjunt definit explícitament mitjançant
+ * la configuració del <code>RelaxPlan</code>. Aquest mode requereix proporcionar
+ * una llista no buida d’<code>ItemType</code>.</li>
  * </ul>
  * </li>
- * <li><b>weightDecay</b>: peso de cada ronda.</li>
- * <li><b>weightFn</b>: formula para calcular el peso.</li>
+ * <li><b>distComparisonMode</b>: política de comparació per a la restricció
+ * <b>BETWEEN</b> (distància mínima entre items). Determina contra quins items
+ * s’aplica <code>minDistBetween</code>:
+ * <ul>
+ * <li><code>NONE</code>: no s’aplica cap comparació de distància (equivalent a
+ * ignorar la restricció BETWEEN).</li>
+ * <li><code>SAME_TYPE_EXACT</code>: aplica la distància mínima únicament contra
+ * items del mateix tipus exacte.</li>
+ * <li><code>SAME_TYPE_GENERAL</code>: aplica la distància mínima únicament contra
+ * items del mateix tipus general (<code>BasicItemType</code>,
+ * <code>PowerType</code> o <code>SpecialType</code>).</li>
+ * <li><code>ANY_TYPE</code>: aplica la distància mínima contra qualsevol item,
+ * independentment del seu tipus.</li>
+ * <li><code>CUSTOM</code>: aplica la distància mínima únicament contra els
+ * <code>ItemType</code> definits explícitament a la configuració del
+ * <code>RelaxPlan</code>. Aquest mode requereix proporcionar una llista no buida
+ * d’<code>ItemType</code>.</li>
+ * </ul>
+ * </li>
+ * <li><b>weightDecay</b>: pes de cada ronda.</li>
+ * <li><b>weightFn</b>: fórmula per calcular el pes.</li>
  * </ul>
  */
 public final class RelaxPlan {
@@ -63,7 +88,16 @@ public final class RelaxPlan {
         NONE,
         SAME_TYPE_EXACT,
         SAME_TYPE_GENERAL,
-        ANY_TYPE
+        ANY_TYPE,
+        CUSTOM
+    }
+
+    public enum DistComparisonMode {
+        NONE,
+        SAME_TYPE_EXACT,
+        SAME_TYPE_GENERAL,
+        ANY_TYPE,
+        CUSTOM
     }
 
     private final List<Constraint> order;
@@ -75,6 +109,9 @@ public final class RelaxPlan {
     private final int maxStallRounds;
     private final Mode mode;
     private final ScanMode scanMode;
+    private final Set<ItemType> customScanTypes;
+    private final DistComparisonMode distComparisonMode;
+    private final Set<ItemType> customDistTypes;
 
     private final double weightDecay;
     private final IntToDoubleFunction weightFn;
@@ -88,6 +125,9 @@ public final class RelaxPlan {
             int maxStallRounds,
             Mode mode,
             ScanMode scan,
+            Set<ItemType> customScanTypes,
+            DistComparisonMode distComparisonMode,
+            Set<ItemType> customDistTypes,
             double weightDecay,
             IntToDoubleFunction weightFn) {
 
@@ -100,6 +140,9 @@ public final class RelaxPlan {
         this.maxStallRounds = maxStallRounds;
         this.mode = mode;
         this.scanMode = scan;
+        this.customScanTypes = customScanTypes;
+        this.distComparisonMode = distComparisonMode;
+        this.customDistTypes = customDistTypes;
 
         this.weightDecay = weightDecay;
         this.weightFn = Objects.requireNonNull(weightFn, "weightFn");
@@ -137,6 +180,10 @@ public final class RelaxPlan {
         return scanMode;
     }
 
+    public DistComparisonMode distComparisonMode() {
+        return distComparisonMode;
+    }
+
     public double weightDecay() {
         return weightDecay;
     }
@@ -159,6 +206,29 @@ public final class RelaxPlan {
 
             case SAME_TYPE_GENERAL ->
                 sameGeneralType(self, neighbor);
+
+            case CUSTOM ->
+                customScanTypes != null && customScanTypes.contains(neighbor);
+        };
+    }
+
+    public boolean distConflicts(ItemType self, ItemType neighbor) {
+        if (distComparisonMode == DistComparisonMode.NONE || neighbor == null) {
+            return false;
+        }
+
+        return switch (distComparisonMode) {
+            case NONE -> false;
+            case ANY_TYPE -> true;
+
+            case SAME_TYPE_EXACT ->
+                self.getId().equals(neighbor.getId());
+
+            case SAME_TYPE_GENERAL ->
+                sameGeneralType(self, neighbor);
+
+            case CUSTOM ->
+                customDistTypes != null && customDistTypes.contains(neighbor);
         };
     }
 
@@ -182,6 +252,9 @@ public final class RelaxPlan {
         private int maxStallRounds = 2;
         private Mode mode = Mode.ONE_PER_ROUND;
         private ScanMode scanMode = ScanMode.NONE;
+        private Set<ItemType> customScanTypes = null;
+        private DistComparisonMode distComparisonMode = DistComparisonMode.ANY_TYPE;
+        private Set<ItemType> customDistTypes = null;
 
         private double weightDecay = 0.90;
 
@@ -239,8 +312,55 @@ public final class RelaxPlan {
         }
 
         public Builder scanMode(ScanMode s) {
-            scanMode = s;
+            this.scanMode = Objects.requireNonNull(s, "scanMode");
+            if (s != ScanMode.CUSTOM) {
+                customScanTypes = null;
+            }
             return this;
+        }
+
+        public Builder customScanAgainst(ItemType... types) {
+            if (scanMode != ScanMode.CUSTOM) {
+                throw new IllegalStateException(
+                        "customScanAgainst() requiere scanMode(CUSTOM)");
+            }
+            validateTypes(types);
+
+            if (customScanTypes == null)
+                customScanTypes = new HashSet<>();
+            Collections.addAll(customScanTypes, types);
+            return this;
+        }
+
+        public Builder distComparisonMode(DistComparisonMode m) {
+            this.distComparisonMode = Objects.requireNonNull(m, "distComparisonMode");
+            if (m != DistComparisonMode.CUSTOM) {
+                customDistTypes = null;
+            }
+            return this;
+        }
+
+        public Builder customDistAgainst(ItemType... types) {
+            if (distComparisonMode != DistComparisonMode.CUSTOM) {
+                throw new IllegalStateException(
+                        "customDistAgainst() requiere distComparisonMode(CUSTOM)");
+            }
+            validateTypes(types);
+
+            if (customDistTypes == null)
+                customDistTypes = new HashSet<>();
+            Collections.addAll(customDistTypes, types);
+            return this;
+        }
+
+        private static void validateTypes(ItemType[] types) {
+            if (types == null || types.length == 0) {
+                throw new IllegalArgumentException(
+                        "Debes proporcionar al menos un ItemType");
+            }
+            for (ItemType t : types) {
+                Objects.requireNonNull(t, "ItemType no puede ser null");
+            }
         }
 
         public Builder weightDecay(double decay) {
@@ -278,6 +398,18 @@ public final class RelaxPlan {
                 this.weightFn = r -> Math.pow(this.weightDecay, Math.max(0, r));
             }
 
+            if (scanMode == ScanMode.CUSTOM &&
+                    (customScanTypes == null || customScanTypes.isEmpty())) {
+                throw new IllegalStateException(
+                        "scanMode(CUSTOM) requiere customScanAgainst(...)");
+            }
+
+            if (distComparisonMode == DistComparisonMode.CUSTOM &&
+                    (customDistTypes == null || customDistTypes.isEmpty())) {
+                throw new IllegalStateException(
+                        "distComparisonMode(CUSTOM) requiere customDistAgainst(...)");
+            }
+
             return new RelaxPlan(
                     order,
                     step,
@@ -287,6 +419,9 @@ public final class RelaxPlan {
                     maxStallRounds,
                     mode,
                     scanMode,
+                    Set.copyOf(customScanTypes),
+                    distComparisonMode,
+                    Set.copyOf(customDistTypes),
                     weightDecay,
                     weightFn);
         }

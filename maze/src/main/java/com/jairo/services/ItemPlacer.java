@@ -4,6 +4,7 @@ import com.jairo.items.ItemType;
 import com.jairo.items.PlacedItem;
 import com.jairo.items.placement.Constraint;
 import com.jairo.items.placement.RelaxPlan;
+import com.jairo.utils.ItemLogger;
 import com.jairo.utils.map_generator.Cells;
 
 import java.util.ArrayDeque;
@@ -40,6 +41,7 @@ public class ItemPlacer {
             int exitY,
             List<ItemType> types) {
 
+        ItemLogger.reset();
         placedItems.clear();
         occupied.clear();
         itemsByPos.clear();
@@ -66,6 +68,8 @@ public class ItemPlacer {
                 placeTypeGuaranteeing(cells, distFromPlayer, distFromExit, type, amount);
             }
         }
+
+        ItemLogger.summary();
     }
 
     public List<PlacedItem> getPlacedItems() {
@@ -184,7 +188,9 @@ public class ItemPlacer {
         // Ponderación por “primera ronda elegible”
         Map<Long, Integer> firstEligibleRound = new HashMap<>();
         RelaxPlan plan = type.getRelaxPlan();
-        IntToDoubleFunction weightFn = plan.weightFunction();
+        IntToDoubleFunction weightFn = (plan == null || plan.weightFunction() == null)
+                ? (r -> 1.0) // fallback seguro
+                : plan.weightFunction();
 
         int placed = 0;
 
@@ -198,6 +204,11 @@ public class ItemPlacer {
 
         if (placed >= amount)
             return;
+
+        if (plan == null) {
+            // si no hay plan de relax, no podemos relajar nada más
+            return;
+        }
 
         List<Constraint> order = plan.order();
         int idx = 0;
@@ -248,8 +259,9 @@ public class ItemPlacer {
 
     /**
      * Mantiene el nombre original.
-     * Ahora hace selección ponderada por la primera ronda en la que el candidato
-     * fue elegible.
+     * Selección ponderada por la primera ronda en la que el candidato fue elegible,
+     * con fallback robusto si los pesos dan 0/NaN/Inf (evita sesgos y “bloqueos”
+     * aparentes).
      */
     private int placeWithConstraints(
             List<List<Integer>> cells,
@@ -269,6 +281,7 @@ public class ItemPlacer {
             return 0;
 
         RelaxPlan plan = type.getRelaxPlan();
+
         List<Long> candidatesNow = collectCandidatesPacked(
                 cells, distFromPlayer, distFromExit,
                 type, plan,
@@ -293,7 +306,6 @@ public class ItemPlacer {
 
         while (placedNow < need && !pool.isEmpty()) {
             long chosen = weightedPickByFirstRound(pool, firstEligibleRound, weightFn, RNG);
-
             pool.remove(Long.valueOf(chosen));
 
             if (occupied.contains(chosen))
@@ -302,10 +314,8 @@ public class ItemPlacer {
             int x = (int) chosen;
             int y = (int) (chosen >>> 32);
 
-            if (!respectsMinDistBetween(x, y, minBetween))
-                continue;
-
-            if (!respectsMinDistBetween(x, y, minBetween))
+            // (fix) no duplicar el mismo check
+            if (!respectsMinDistBetween(x, y, minBetween, type, plan))
                 continue;
 
             place(type, x, y);
@@ -315,38 +325,47 @@ public class ItemPlacer {
         return placedNow;
     }
 
+    /**
+     * (fix) Si los pesos son todos 0 o inválidos, hacemos pick uniforme real,
+     * en vez de “siempre el último”.
+     */
     private static long weightedPickByFirstRound(
             List<Long> pool,
             Map<Long, Integer> firstEligibleRound,
             IntToDoubleFunction weightFn,
             Random rng) {
 
+        // 1) Sumar pesos válidos
         double total = 0.0;
-
         for (Long p : pool) {
             int r = firstEligibleRound.getOrDefault(p, 0);
             double w = weightFn.applyAsDouble(r);
-            if (w > 0 && Double.isFinite(w))
+            if (w > 0.0 && Double.isFinite(w)) {
                 total += w;
+            }
         }
 
-        if (total < 0.0) {
+        // 2) Fallback robusto: si no hay peso usable, pick uniforme
+        if (!(total > 0.0) || !Double.isFinite(total)) {
             return pool.get(rng.nextInt(pool.size()));
         }
 
+        // 3) Ruleta ponderada
         double t = rng.nextDouble() * total;
-
         for (Long p : pool) {
             int r = firstEligibleRound.getOrDefault(p, 0);
             double w = weightFn.applyAsDouble(r);
-            if (total <= 0.0 || !Double.isFinite(w))
+            if (!(w > 0.0) || !Double.isFinite(w)) {
                 continue;
+            }
 
             t -= w;
-            if (t <= 0)
+            if (t <= 0.0) {
                 return p;
+            }
         }
 
+        // Por errores de floating point, devolvemos uno válido al final
         return pool.get(pool.size() - 1);
     }
 
@@ -356,6 +375,8 @@ public class ItemPlacer {
         long key = pack(x, y);
         occupied.add(key);
         itemsByPos.put(key, it);
+
+        ItemLogger.onPlaced(type, x, y);
     }
 
     /* ===================== Relaxation helpers ===================== */
@@ -469,7 +490,7 @@ public class ItemPlacer {
                     continue;
             }
 
-            if (!respectsMinDistBetween(x, y, minDistBetween))
+            if (!respectsMinDistBetween(x, y, minDistBetween, type, plan))
                 continue;
 
             if (!respectsGranulation(type, plan, x, y))
@@ -481,11 +502,13 @@ public class ItemPlacer {
         return res;
     }
 
-    private boolean respectsMinDistBetween(int x, int y, int minDistBetween) {
+    private boolean respectsMinDistBetween(int x, int y, int minDistBetween, ItemType type, RelaxPlan plan) {
         if (minDistBetween <= 0)
             return true;
 
         for (PlacedItem it : placedItems) {
+            if (plan != null && !plan.distConflicts(type, it.getType())) continue;
+
             int dx = Math.abs(it.getX() - x);
             int dy = Math.abs(it.getY() - y);
             if (dx + dy < minDistBetween)
@@ -712,7 +735,6 @@ public class ItemPlacer {
                 int nx = x + dx;
                 int ny = y + dy;
 
-                // si quieres ignorar fuera de mapa, compruébalo:
                 if (nx < 0 || ny < 0 || nx >= cachedW || ny >= cachedH)
                     continue;
 
@@ -732,5 +754,4 @@ public class ItemPlacer {
         return placedItems.stream()
                 .anyMatch(it -> it.getType() == item);
     }
-
 }

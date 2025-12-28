@@ -87,17 +87,15 @@ public enum SpecialType implements ItemType {
         @Override
     public RelaxPlan getRelaxPlan() {
         return switch (this) {
-            default -> defaultRelaxPlan();
+            default -> defaultRelaxPlan;
         };
     }
 
-    private RelaxPlan defaultRelaxPlan() {
-        return RelaxPlan.builder()
-                .cooldown(Constraint.PLAYER, 1)
-                .floor(Constraint.PLAYER, 30)
-                .cooldown(Constraint.BETWEEN, 1)
-                .floor(Constraint.BETWEEN, 25)
-                .weightDecay(0.75)
-                .build();
-    }
+    private static final RelaxPlan defaultRelaxPlan = RelaxPlan.builder()
+            .cooldown(Constraint.PLAYER, 1)
+            .floor(Constraint.PLAYER, 30)
+            .cooldown(Constraint.BETWEEN, 1)
+            .floor(Constraint.BETWEEN, 25)
+            .weightDecay(0.75)
+            .build();
 }

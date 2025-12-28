@@ -133,24 +133,20 @@ public enum PowerType implements ItemType {
     @Override
     public RelaxPlan getRelaxPlan() {
         return switch (this) {
-            case KEY -> keyRelaxPlan();
-            default -> defaultRelaxPlan();
+            case KEY -> keyRelaxPlan;
+            default -> defaultRelaxPlan;
         };
     }
 
-    private RelaxPlan defaultRelaxPlan() {
-        return RelaxPlan.builder()
-                .weightDecay(0.75)
-                .build();
-    }
+    private static final RelaxPlan defaultRelaxPlan = RelaxPlan.builder()
+            .weightDecay(0.75)
+            .build();
 
-    private RelaxPlan keyRelaxPlan() {
-        return RelaxPlan.builder()
-                .cooldown(Constraint.PLAYER, 2)
-                .floor(Constraint.PLAYER, 30)
-                .cooldown(Constraint.EXIT, 1)
-                .floor(Constraint.EXIT, 50)
-                .weightDecay(0.75)
-                .build();
-    }
+    private static final RelaxPlan keyRelaxPlan = RelaxPlan.builder()
+            .cooldown(Constraint.PLAYER, 2)
+            .floor(Constraint.PLAYER, 30)
+            .cooldown(Constraint.EXIT, 1)
+            .floor(Constraint.EXIT, 50)
+            .weightDecay(0.75)
+            .build();
 }

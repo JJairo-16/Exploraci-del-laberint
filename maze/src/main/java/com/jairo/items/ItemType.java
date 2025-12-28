@@ -91,11 +91,6 @@ public interface ItemType {
         return true;
     }
 
-    /**
-     * Control fino del sistema cíclico de relajación de restricciones.
-     * Por defecto replica el comportamiento típico: PLAYER -> BETWEEN -> EXIT -> BORDER,
-     * relajando 1 por ronda, step=1, floor=0, maxRounds=64.
-     */
     default RelaxPlan getRelaxPlan() {
         return RelaxPlan.builder().build();
     }
