@@ -4,6 +4,7 @@ import com.jairo.app.audio.Sound;
 import com.jairo.app.gfx.Sprite;
 import com.jairo.items.placement.Constraint;
 import com.jairo.items.placement.RelaxPlan;
+import com.jairo.items.placement.RelaxPlan.DistComparisonMode;
 
 import static com.jairo.items.Qualities.*;
 
@@ -139,10 +140,12 @@ public enum PowerType implements ItemType {
     }
 
     private static final RelaxPlan defaultRelaxPlan = RelaxPlan.builder()
+            .distComparisonMode(DistComparisonMode.SAME_TYPE_EXACT)
             .weightDecay(0.75)
             .build();
 
     private static final RelaxPlan keyRelaxPlan = RelaxPlan.builder()
+            .distComparisonMode(DistComparisonMode.NONE)
             .cooldown(Constraint.PLAYER, 2)
             .floor(Constraint.PLAYER, 30)
             .cooldown(Constraint.EXIT, 1)
