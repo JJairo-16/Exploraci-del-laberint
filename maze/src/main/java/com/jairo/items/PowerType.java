@@ -145,7 +145,6 @@ public enum PowerType implements ItemType {
             .build();
 
     private static final RelaxPlan keyRelaxPlan = RelaxPlan.builder()
-            .distComparisonMode(DistComparisonMode.NONE)
             .cooldown(Constraint.PLAYER, 2)
             .floor(Constraint.PLAYER, 30)
             .cooldown(Constraint.EXIT, 1)

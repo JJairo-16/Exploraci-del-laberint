@@ -19,12 +19,16 @@ public final class ItemLogger {
     private static final LongAdder totalPlaced = new LongAdder();
     private static final ConcurrentHashMap<String, LongAdder> placedByType = new ConcurrentHashMap<>();
 
+    private static boolean logOnAnyPlace = false;
+
     private static final FxTimeSource time = new FxTimeSource();
 
-    // FxTimeSource.now() devuelve NANOS (AnimationTimer + fallback System.nanoTime())
+    // FxTimeSource.now() devuelve NANOS (AnimationTimer + fallback
+    // System.nanoTime())
     private static volatile Long startNs = null;
 
-    private ItemLogger() {}
+    private ItemLogger() {
+    }
 
     /** Llamar al inicio de cada generación/colocación */
     public static void reset() {
@@ -41,8 +45,9 @@ public final class ItemLogger {
         totalPlaced.increment();
         placedByType.computeIfAbsent(id, k -> new LongAdder()).increment();
 
-        log.info("PLACED type={} x={} y={} total={} totalOfType={}",
-                id, x, y, totalPlaced.sum(), placedByType.get(id).sum());
+        if (logOnAnyPlace)
+            log.info("PLACED type={} x={} y={} total={} totalOfType={}",
+                    id, x, y, totalPlaced.sum(), placedByType.get(id).sum());
     }
 
     /** Llamar al final si quieres un resumen */
@@ -66,14 +71,15 @@ public final class ItemLogger {
 
         StringBuilder sb = new StringBuilder(256);
         sb.append("SUMMARY totalPlaced=").append(total)
-          .append(" elapsedMs=").append(elapsedMs)
-          .append(" byType=[");
+                .append(" elapsedMs=").append(elapsedMs)
+                .append(" byType=[");
 
         placedByType.entrySet().stream()
                 .sorted(Map.Entry.comparingByKey(Comparator.naturalOrder()))
                 .forEach(e -> sb.append(e.getKey()).append("=").append(e.getValue().sum()).append(", "));
 
-        if (sb.length() >= 2) sb.setLength(sb.length() - 2); // quita ", "
+        if (sb.length() >= 2)
+            sb.setLength(sb.length() - 2); // quita ", "
         sb.append("]");
 
         log.info(sb.toString());
@@ -89,7 +95,8 @@ public final class ItemLogger {
     }
 
     private static String typeId(ItemType type) {
-        if (type == null) return "null";
+        if (type == null)
+            return "null";
         try {
             String id = type.getId();
             return (id == null || id.isBlank()) ? type.toString() : id;

@@ -4,10 +4,11 @@ import com.jairo.items.ItemType;
 import com.jairo.items.PlacedItem;
 import com.jairo.items.placement.Constraint;
 import com.jairo.items.placement.RelaxPlan;
+import com.jairo.services.item_placer.PathDistanceCalculator;
+import com.jairo.services.item_placer.cache.GridIndex;
+import com.jairo.services.item_placer.cache.MapCache;
 import com.jairo.utils.ItemLogger;
-import com.jairo.utils.map_generator.Cells;
 
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -24,31 +25,53 @@ public class ItemPlacer {
     private static final Random RNG = new Random();
     private boolean logItemPlacer = true;
 
+    // ===== Original public API backing fields (kept for compatibility) =====
     private final List<PlacedItem> placedItems = new ArrayList<>();
 
-    // Fast grid lookup (replaces occupied HashSet + itemsByPos HashMap)
-    private boolean[] occ;          // occupied?
-    private PlacedItem[] at;        // item at cell
-    private int cachedW = -1;
-    private int cachedH = -1;
+    // ===== Extracted objects =====
+    private final MapCache map = new MapCache();
+    private final GridIndex grid = new GridIndex();
+    private final PathDistanceCalculator distanceCalc = new PathDistanceCalculator();
 
-    // Precomputed per-cell data (hot path)
-    private int[] cellValue;        // cells[y][x] flattened
-    private int[] distToBorder;     // precomputed min distance to border for each pos
-
-    // Path cells as linear positions (y*W + x)
-    private final IntBag pathPositions = new IntBag(1024);
-
-    // Base candidates per type (filters that never change during placement)
+    // ===== Per-type caches =====
     private final Map<ItemType, int[]> baseCandidatesByType = new HashMap<>();
     private final Map<ItemType, Set<Integer>> blacklistCache = new HashMap<>();
 
-    // Buckets (for minDistBetween acceleration)
+    // ===== Bucket grid (for minDistBetween) =====
     private int bucketSize = 6; // fixed; does not change results
     private int bucketsW, bucketsH;
     private ArrayList<PlacedItem>[] buckets;
 
-    /* ===================== API ===================== */
+    // Buffers reutilizables (crecen si hace falta)
+    private int[] poolBuffer = new int[256];
+    private int[] orderedBuffer = new int[256];
+
+    // ✅ PUNTO 1 (ya aplicado): buffer reutilizable para claves empaquetadas (evita objetos WeightedKey)
+    private long[] packedKeysBuffer = new long[256];
+
+    // ✅ PUNTO 2: evitar Arrays.fill(firstEligibleRound, -1) con "epoch stamping"
+    private final EligibilityRounds eligibility = new EligibilityRounds();
+
+    private int bX(int x) {
+        return x / bucketSize;
+    }
+
+    private int bY(int y) {
+        return y / bucketSize;
+    }
+
+    private int bIdx(int bx, int by) {
+        return by * bucketsW + bx;
+    }
+
+    @SuppressWarnings("unchecked")
+    private void initBuckets() {
+        bucketsW = (map.w() + bucketSize - 1) / bucketSize;
+        bucketsH = (map.h() + bucketSize - 1) / bucketSize;
+        buckets = (ArrayList<PlacedItem>[]) new ArrayList[bucketsW * bucketsH];
+    }
+
+    /* ===================== API (UNCHANGED) ===================== */
 
     public void placeObjects(
             List<List<Integer>> cells,
@@ -58,35 +81,39 @@ public class ItemPlacer {
             int exitY,
             List<ItemType> types) {
 
-        if (logItemPlacer) ItemLogger.reset();
+        if (logItemPlacer)
+            ItemLogger.reset();
 
         placedItems.clear();
         baseCandidatesByType.clear();
         blacklistCache.clear();
 
-        // Build path cache + dimensions
-        buildPathCache(cells);
+        // Rebuild map caches
+        map.rebuild(cells);
 
-        // Init arrays for this map
-        initGrid();
+        // Init grid for this map
+        grid.init(map.size());
+        grid.clear();
+
+        // Init buckets
         initBuckets();
 
-        // Precompute flattened cell values + border distances (big win)
-        buildCellCaches(cells);
+        // ✅ PUNTO 2: asegurar arrays de elegibilidad al tamaño del mapa (una vez por ejecución)
+        eligibility.ensureSize(map.size());
 
-        // Mark player cell as occupied (same behavior as before)
-        if (inBounds(playerX, playerY)) {
-            occ[idx(playerX, playerY)] = true;
+        // Occupy player position (same semantics as before)
+        if (map.inBounds(playerX, playerY)) {
+            grid.setOccupied(map.idx(playerX, playerY), true);
         }
 
-        int pathCount = pathPositions.size;
+        int pathCount = map.pathCount();
 
-        int[][] distFromPlayer = bfsFrom(cells, playerX, playerY);
-        int[][] distFromExit = bfsFromExit(cells, exitX, exitY);
+        int[][] distFromPlayer = distanceCalc.distFrom(cells, playerX, playerY);
+        int[][] distFromExit = distanceCalc.distFromExit(cells, exitX, exitY);
 
-        // Prebuild baseCandidates for each type once (big win)
+        // Prebuild base candidates per type (invariant filtering)
         for (ItemType type : types) {
-            baseCandidatesByType.put(type, buildBaseCandidatesForType(type, distFromPlayer, distFromExit));
+            baseCandidatesByType.put(type, buildBaseCandidatesForType(type, distFromPlayer));
         }
 
         List<ItemType> sorted = new ArrayList<>(types);
@@ -100,11 +127,12 @@ public class ItemPlacer {
         for (ItemType type : sorted) {
             int amount = computeAmountForType(type, pathCount);
             if (amount > 0) {
-                placeTypeGuaranteeing(cells, distFromPlayer, distFromExit, type, amount);
+                placeTypeGuaranteeing(distFromPlayer, distFromExit, type, amount);
             }
         }
 
-        if (logItemPlacer) ItemLogger.summary();
+        if (logItemPlacer)
+            ItemLogger.summary();
     }
 
     public List<PlacedItem> getPlacedItems() {
@@ -112,7 +140,8 @@ public class ItemPlacer {
     }
 
     public List<PlacedItem> getPlacedItems(int minX, int minY, int maxX, int maxY) {
-        if (placedItems.isEmpty()) return Collections.emptyList();
+        if (placedItems.isEmpty())
+            return Collections.emptyList();
 
         int loX = Math.min(minX, maxX);
         int hiX = Math.max(minX, maxX);
@@ -123,15 +152,18 @@ public class ItemPlacer {
         long height = (long) hiY - (long) loY + 1L;
         long area = (width <= 0 || height <= 0) ? 0 : width * height;
 
-        // If query area is small, scan cells directly using at[]
+        // Prefer direct cell scan when the query rectangle is small
         if (area > 0 && area <= placedItems.size() * 2L) {
             List<PlacedItem> res = new ArrayList<>();
             for (int y = loY; y <= hiY; y++) {
-                if (y < 0 || y >= cachedH) continue;
+                if (y < 0 || y >= map.h())
+                    continue;
                 for (int x = loX; x <= hiX; x++) {
-                    if (x < 0 || x >= cachedW) continue;
-                    PlacedItem it = at[idx(x, y)];
-                    if (it != null) res.add(it);
+                    if (x < 0 || x >= map.w())
+                        continue;
+                    PlacedItem it = grid.get(map.idx(x, y));
+                    if (it != null)
+                        res.add(it);
                 }
             }
             return Collections.unmodifiableList(res);
@@ -142,18 +174,105 @@ public class ItemPlacer {
         for (PlacedItem it : placedItems) {
             int x = it.getX();
             int y = it.getY();
-            if (x >= loX && x <= hiX && y >= loY && y <= hiY) res.add(it);
+            if (x >= loX && x <= hiX && y >= loY && y <= hiY)
+                res.add(it);
         }
         return Collections.unmodifiableList(res);
     }
 
     public PlacedItem getItemAt(int x, int y) {
-        if (!inBounds(x, y)) return null;
-        return at[idx(x, y)];
+        if (!map.inBounds(x, y))
+            return null;
+        return grid.get(map.idx(x, y));
+    }
+
+    // ===== Original public methods preserved (even if not used internally) =====
+
+    public int removeAllOfType(ItemType type) {
+        if (type == null || placedItems.isEmpty())
+            return 0;
+
+        int removed = 0;
+        for (int i = placedItems.size() - 1; i >= 0; i--) {
+            PlacedItem it = placedItems.get(i);
+            if (it.getType() == type) {
+                removeOne(it);
+                placedItems.remove(i);
+                removed++;
+            }
+        }
+        return removed;
+    }
+
+    public int removeAllOfTypeExcept(ItemType type, int keepX, int keepY) {
+        if (type == null || placedItems.isEmpty())
+            return 0;
+
+        PlacedItem keep = (map.inBounds(keepX, keepY)) ? grid.get(map.idx(keepX, keepY)) : null;
+
+        int removed = 0;
+        for (int i = placedItems.size() - 1; i >= 0; i--) {
+            PlacedItem it = placedItems.get(i);
+            if (it.getType() != type)
+                continue;
+            if (it == keep)
+                continue;
+
+            removeOne(it);
+            placedItems.remove(i);
+            removed++;
+        }
+        return removed;
+    }
+
+    public int countPlacedItemsOf(ItemType item) {
+        int c = 0;
+        for (PlacedItem it : placedItems)
+            if (it.getType() == item)
+                c++;
+        return c;
+    }
+
+    public List<int[]> getPositionsOf(ItemType type) {
+        List<int[]> res = new ArrayList<>();
+        for (PlacedItem it : placedItems) {
+            if (it.getType() == type)
+                res.add(new int[] { it.getX(), it.getY() });
+        }
+        return res;
+    }
+
+    public PlacedItem pickupAt(int x, int y) {
+        if (!map.inBounds(x, y))
+            return null;
+
+        PlacedItem it = getItemAt(x, y);
+        if (it == null)
+            return null;
+
+        if (it.getType().getIfRemovePlaced()) {
+            // Remove from placedItems without changing semantics
+            for (int i = placedItems.size() - 1; i >= 0; i--) {
+                if (placedItems.get(i).getX() == x && placedItems.get(i).getY() == y) {
+                    placedItems.remove(i);
+                    break;
+                }
+            }
+            removeOne(it);
+        }
+
+        return it;
     }
 
     public PlacedItem peekAt(int x, int y) {
         return getItemAt(x, y);
+    }
+
+    public boolean anyPlaced(ItemType item) {
+        for (PlacedItem it : placedItems)
+            if (it.getType() == item)
+                return true;
+        return false;
     }
 
     /* ===================== Core placement ===================== */
@@ -182,10 +301,14 @@ public class ItemPlacer {
         }
 
         void tickRound() {
-            if (sincePlayer < Integer.MAX_VALUE / 2) sincePlayer++;
-            if (sinceBetween < Integer.MAX_VALUE / 2) sinceBetween++;
-            if (sinceExit < Integer.MAX_VALUE / 2) sinceExit++;
-            if (sinceBorder < Integer.MAX_VALUE / 2) sinceBorder++;
+            if (sincePlayer < Integer.MAX_VALUE / 2)
+                sincePlayer++;
+            if (sinceBetween < Integer.MAX_VALUE / 2)
+                sinceBetween++;
+            if (sinceExit < Integer.MAX_VALUE / 2)
+                sinceExit++;
+            if (sinceBorder < Integer.MAX_VALUE / 2)
+                sinceBorder++;
         }
 
         boolean canRelax(Constraint c, int cooldown) {
@@ -208,7 +331,6 @@ public class ItemPlacer {
     }
 
     private void placeTypeGuaranteeing(
-            List<List<Integer>> cells,
             int[][] distFromPlayer,
             int[][] distFromExit,
             ItemType type,
@@ -225,26 +347,25 @@ public class ItemPlacer {
                 ? (r -> 1.0)
                 : plan.weightFunction();
 
-        // firstEligibleRound indexed by pos (0..W*H-1), -1 means never eligible
-        int[] firstEligibleRound = new int[cachedW * cachedH];
-        Arrays.fill(firstEligibleRound, -1);
+        // ✅ PUNTO 2: "reset" lógico sin Arrays.fill
+        eligibility.nextEpoch();
+
         IntBag everEligible = new IntBag(256);
+        int[] base = baseCandidatesByType.getOrDefault(type, new int[0]);
 
         int placed = 0;
-
-        int[] base = baseCandidatesByType.get(type);
-        if (base == null) base = new int[0];
 
         // Round 0
         placed += placeWithConstraints(
                 distFromPlayer, distFromExit,
                 type, amount - placed,
                 s.minPlayer, s.minExit, s.minBetween, s.minBorder,
-                firstEligibleRound, everEligible, 0, weightFn,
-                base);
+                eligibility, everEligible, 0, weightFn, base);
 
-        if (placed >= amount) return;
-        if (plan == null) return;
+        if (placed >= amount)
+            return;
+        if (plan == null)
+            return;
 
         List<Constraint> order = plan.order();
         int idx = 0;
@@ -266,12 +387,14 @@ public class ItemPlacer {
                     }
                 }
             } else {
-                for (Constraint c : order) changed |= relaxOne(c, plan, s);
+                for (Constraint c : order)
+                    changed |= relaxOne(c, plan, s);
             }
 
             if (!changed) {
                 stall++;
-                if (stall > maxStall) break;
+                if (stall > maxStall)
+                    break;
                 continue;
             } else {
                 stall = 0;
@@ -283,8 +406,7 @@ public class ItemPlacer {
                     distFromPlayer, distFromExit,
                     type, amount - placed,
                     s.minPlayer, s.minExit, s.minBetween, s.minBorder,
-                    firstEligibleRound, everEligible, roundIndex, weightFn,
-                    base);
+                    eligibility, everEligible, roundIndex, weightFn, base);
         }
     }
 
@@ -297,126 +419,112 @@ public class ItemPlacer {
             int minExit,
             int minBetween,
             int minBorder,
-            int[] firstEligibleRound,
+            EligibilityRounds firstEligibleRound,
             IntBag everEligible,
             int roundIndex,
             IntToDoubleFunction weightFn,
             int[] baseCandidates) {
 
-        if (need <= 0) return 0;
+        if (need <= 0)
+            return 0;
 
         RelaxPlan plan = type.getRelaxPlan();
 
-        // Scan ONLY baseCandidates (not full path) and mark eligibility
-        for (int i = 0; i < baseCandidates.length; i++) {
-            int pos = baseCandidates[i];
-            if (occ[pos]) continue;
+        // Scan only base candidates (not full path)
+        for (int pos : baseCandidates) {
 
-            int x = pos % cachedW;
-            int y = pos / cachedW;
+            // ✅ PUNTO 2: si ya fue elegible en esta "época", no lo reevaluamos
+            if (firstEligibleRound.get(pos) != -1)
+                continue;
+
+            if (grid.isOccupied(pos))
+                continue;
+
+            int x = map.xOf(pos);
+            int y = map.yOf(pos);
 
             int dp = distFromPlayer[y][x];
-            if (dp == -1 || dp < minPlayer) continue;
+            if (dp == -1 || dp < minPlayer)
+                continue;
 
             if (minExit > 0) {
                 int de = distFromExit[y][x];
-                if (de == -1 || de < minExit) continue;
+                if (de == -1 || de < minExit)
+                    continue;
             }
 
-            if (minBorder > 0) {
-                if (distToBorder[pos] < minBorder) continue;
-            }
+            if (minBorder > 0 && map.distToBorderAtPos(pos) < minBorder)
+                continue;
 
-            if (!respectsMinDistBetween(x, y, minBetween, type, plan)) continue;
-            if (!respectsGranulation(type, plan, x, y)) continue;
+            if (!respectsMinDistBetween(x, y, minBetween, type, plan))
+                continue;
+            if (!respectsGranulation(type, plan, x, y))
+                continue;
 
-            if (firstEligibleRound[pos] == -1) {
-                firstEligibleRound[pos] = roundIndex;
-                everEligible.add(pos);
-            }
+            firstEligibleRound.set(pos, roundIndex);
+            everEligible.add(pos);
         }
 
-        if (everEligible.size == 0) return 0;
+        if (everEligible.size == 0)
+            return 0;
 
-        // Build pool as int[] (swap-remove), ignoring occupied
-        int[] pool = new int[everEligible.size];
+        // Build pool, ignoring occupied
+        poolBuffer = ensureCapacity(poolBuffer, everEligible.size);
+        int[] pool = poolBuffer;
         int poolSize = 0;
+
         for (int i = 0; i < everEligible.size; i++) {
             int pos = everEligible.data[i];
-            if (!occ[pos]) pool[poolSize++] = pos;
+            if (!grid.isOccupied(pos))
+                pool[poolSize++] = pos;
         }
 
         int placedNow = 0;
 
-        while (placedNow < need && poolSize > 0) {
-            int pickIndex = weightedPickIndexByFirstRound(pool, poolSize, firstEligibleRound, weightFn, RNG);
-            int chosenPos = pool[pickIndex];
+        if (poolSize > 0) {
+            orderedBuffer = ensureCapacity(orderedBuffer, poolSize);
+            packedKeysBuffer = ensureCapacity(packedKeysBuffer, poolSize);
 
-            // swap-remove
-            pool[pickIndex] = pool[poolSize - 1];
-            poolSize--;
+            int orderedSize = weightedOrderEfraimidisIntoPacked(
+                    pool, poolSize,
+                    firstEligibleRound, weightFn, RNG,
+                    orderedBuffer, packedKeysBuffer);
 
-            if (occ[chosenPos]) continue;
+            for (int i = 0; i < orderedSize && placedNow < need; i++) {
+                int chosenPos = orderedBuffer[i];
+                if (grid.isOccupied(chosenPos))
+                    continue;
 
-            int x = chosenPos % cachedW;
-            int y = chosenPos / cachedW;
+                int x = map.xOf(chosenPos);
+                int y = map.yOf(chosenPos);
 
-            if (!respectsMinDistBetween(x, y, minBetween, type, plan)) continue;
+                if (!respectsMinDistBetween(x, y, minBetween, type, plan))
+                    continue;
 
-            place(type, x, y);
-            placedNow++;
+                place(type, x, y);
+                placedNow++;
+            }
         }
 
         return placedNow;
-    }
-
-    private static int weightedPickIndexByFirstRound(
-            int[] pool,
-            int poolSize,
-            int[] firstEligibleRound,
-            IntToDoubleFunction weightFn,
-            Random rng) {
-
-        double total = 0.0;
-        for (int i = 0; i < poolSize; i++) {
-            int r = firstEligibleRound[pool[i]];
-            if (r < 0) r = 0;
-            double w = weightFn.applyAsDouble(r);
-            if (w > 0.0 && Double.isFinite(w)) total += w;
-        }
-
-        if (!(total > 0.0) || !Double.isFinite(total)) {
-            return rng.nextInt(poolSize);
-        }
-
-        double t = rng.nextDouble() * total;
-        for (int i = 0; i < poolSize; i++) {
-            int r = firstEligibleRound[pool[i]];
-            if (r < 0) r = 0;
-            double w = weightFn.applyAsDouble(r);
-            if (w <= 0.0 || !Double.isFinite(w)) continue;
-            t -= w;
-            if (t <= 0.0) return i;
-        }
-
-        return poolSize - 1;
     }
 
     private void place(ItemType type, int x, int y) {
         PlacedItem it = new PlacedItem(type, x, y);
         placedItems.add(it);
 
-        int p = idx(x, y);
-        occ[p] = true;
-        at[p] = it;
+        int pos = map.idx(x, y);
+        grid.put(pos, it);
 
         // buckets
         int bi = bIdx(bX(x), bY(y));
         ArrayList<PlacedItem> list = buckets[bi];
-        if (list == null) buckets[bi] = list = new ArrayList<>();
+        if (list == null)
+            buckets[bi] = list = new ArrayList<>();
         list.add(it);
 
-        if (logItemPlacer) ItemLogger.onPlaced(type, x, y);
+        if (logItemPlacer)
+            ItemLogger.onPlaced(type, x, y);
     }
 
     /* ===================== Relaxation helpers ===================== */
@@ -426,7 +534,8 @@ public class ItemPlacer {
         int floor = plan.floor(c);
         int cooldown = plan.cooldown(c);
 
-        if (!s.canRelax(c, cooldown)) return false;
+        if (!s.canRelax(c, cooldown))
+            return false;
 
         boolean changed = switch (c) {
             case PLAYER -> decPlayer(s, step, floor);
@@ -435,127 +544,68 @@ public class ItemPlacer {
             case BORDER -> decBorder(s, step, floor);
         };
 
-        if (changed) s.markRelaxed(c);
+        if (changed)
+            s.markRelaxed(c);
         return changed;
     }
 
     private boolean decPlayer(ConstraintsState s, int step, int floor) {
-        if (s.minPlayer <= floor) return false;
+        if (s.minPlayer <= floor)
+            return false;
         int next = Math.max(floor, s.minPlayer - step);
-        if (next == s.minPlayer) return false;
+        if (next == s.minPlayer)
+            return false;
         s.minPlayer = next;
         return true;
     }
 
     private boolean decBetween(ConstraintsState s, int step, int floor) {
-        if (s.minBetween <= floor) return false;
+        if (s.minBetween <= floor)
+            return false;
         int next = Math.max(floor, s.minBetween - step);
-        if (next == s.minBetween) return false;
+        if (next == s.minBetween)
+            return false;
         s.minBetween = next;
         return true;
     }
 
     private boolean decExit(ConstraintsState s, int step, int floor) {
-        if (s.minExit <= floor) return false;
+        if (s.minExit <= floor)
+            return false;
         int next = Math.max(floor, s.minExit - step);
-        if (next == s.minExit) return false;
+        if (next == s.minExit)
+            return false;
         s.minExit = next;
         return true;
     }
 
     private boolean decBorder(ConstraintsState s, int step, int floor) {
-        if (s.minBorder <= floor) return false;
+        if (s.minBorder <= floor)
+            return false;
         int next = Math.max(floor, s.minBorder - step);
-        if (next == s.minBorder) return false;
+        if (next == s.minBorder)
+            return false;
         s.minBorder = next;
         return true;
     }
 
-    /* ===================== Between + Granulation checks ===================== */
+    /* ===================== Candidate base ===================== */
 
-    private boolean respectsMinDistBetween(int x, int y, int minDistBetween, ItemType type, RelaxPlan plan) {
-        if (minDistBetween <= 0) return true;
-
-        int cbx = bX(x), cby = bY(y);
-        int r = (minDistBetween + bucketSize - 1) / bucketSize; // safe radius
-
-        for (int oy = -r; oy <= r; oy++) {
-            int by = cby + oy;
-            if (by < 0 || by >= bucketsH) continue;
-
-            for (int ox = -r; ox <= r; ox++) {
-                int bx = cbx + ox;
-                if (bx < 0 || bx >= bucketsW) continue;
-
-                ArrayList<PlacedItem> list = buckets[bIdx(bx, by)];
-                if (list == null) continue;
-
-                for (PlacedItem it : list) {
-                    if (plan != null && !plan.distConflicts(type, it.getType())) continue;
-
-                    int d = Math.abs(it.getX() - x) + Math.abs(it.getY() - y);
-                    if (d < minDistBetween) return false;
-                }
-            }
-        }
-        return true;
-    }
-
-    private boolean respectsGranulation(ItemType type, RelaxPlan plan, int x, int y) {
-        if (plan == null || plan.scanMode() == null) return true;
-
-        RelaxPlan.ScanMode mode = plan.scanMode();
-        if (mode == RelaxPlan.ScanMode.NONE) return true;
-
-        for (int dy = -1; dy <= 1; dy++) {
-            for (int dx = -1; dx <= 1; dx++) {
-                if (dx == 0 && dy == 0) continue;
-
-                int nx = x + dx;
-                int ny = y + dy;
-
-                if (!inBounds(nx, ny)) continue;
-
-                PlacedItem neighbor = at[idx(nx, ny)];
-                if (neighbor == null) continue;
-
-                if (plan.conflicts(type, neighbor.getType())) return false;
-            }
-        }
-        return true;
-    }
-
-    /* ===================== Precompute base candidates ===================== */
-
-    private int[] buildBaseCandidatesForType(ItemType type, int[][] distFromPlayer, int[][] distFromExit) {
+    private int[] buildBaseCandidatesForType(ItemType type, int[][] distFromPlayer) {
         Set<Integer> black = getBlacklist(type);
-        RelaxPlan plan = type.getRelaxPlan();
+        int[] path = map.pathPositions();
 
-        // This base list includes only invariants:
-        // - is path (already)
-        // - not blacklisted for this type
-        // - reachable from player (dp != -1)
-        // - if exit distance is required at all, we can still keep de == -1 out (safe)
-        //   BUT since minExit can be 0 in some rounds, we only filter out de == -1 if the type can ever require exit.
-        //   Easiest safe choice: do NOT filter by exit reachability here (keep it for per-round check).
-        // Result correctness is preserved either way.
+        IntBag bag = new IntBag(Math.max(64, path.length / 4));
 
-        IntBag bag = new IntBag(Math.max(64, pathPositions.size / 4));
+        for (int pos : path) {
+            if (!black.isEmpty() && black.contains(map.cellValueAtPos(pos)))
+                continue;
 
-        for (int i = 0; i < pathPositions.size; i++) {
-            int pos = pathPositions.data[i];
+            int x = map.xOf(pos);
+            int y = map.yOf(pos);
 
-            // blacklist (invariant)
-            if (!black.isEmpty() && black.contains(cellValue[pos])) continue;
-
-            int x = pos % cachedW;
-            int y = pos / cachedW;
-
-            // reachable from player (invariant)
-            if (distFromPlayer[y][x] == -1) continue;
-
-            // (Optional) You can also prefilter exit reachability if you KNOW minExit will always be >0.
-            // Here we keep it safe and defer to per-round check.
+            if (distFromPlayer[y][x] == -1)
+                continue;
 
             bag.add(pos);
         }
@@ -563,56 +613,75 @@ public class ItemPlacer {
         return Arrays.copyOf(bag.data, bag.size);
     }
 
-    /* ===================== Utils / Caches ===================== */
+    private Set<Integer> getBlacklist(ItemType type) {
+        List<Integer> bl = type.getSpawnBlacklist();
+        if (bl == null || bl.isEmpty())
+            return Collections.emptySet();
+        return blacklistCache.computeIfAbsent(type, t -> new HashSet<>(bl));
+    }
 
-    private void buildPathCache(List<List<Integer>> cells) {
-        pathPositions.clear();
+    /* ===================== Between + Granulation ===================== */
 
-        cachedH = cells.size();
-        cachedW = cells.isEmpty() ? 0 : cells.get(0).size();
+    private boolean respectsMinDistBetween(int x, int y, int minDistBetween, ItemType type, RelaxPlan plan) {
+        if (minDistBetween <= 0)
+            return true;
 
-        for (int y = 0; y < cachedH; y++) {
-            for (int x = 0; x < cachedW; x++) {
-                if (Cells.isPath(cells.get(y).get(x))) {
-                    pathPositions.add(y * cachedW + x);
+        int cbx = bX(x), cby = bY(y);
+        int r = (minDistBetween + bucketSize - 1) / bucketSize;
+
+        for (int oy = -r; oy <= r; oy++) {
+            int by = cby + oy;
+            if (by < 0 || by >= bucketsH)
+                continue;
+
+            for (int ox = -r; ox <= r; ox++) {
+                int bx = cbx + ox;
+                if (bx < 0 || bx >= bucketsW)
+                    continue;
+
+                ArrayList<PlacedItem> list = buckets[bIdx(bx, by)];
+                if (list == null)
+                    continue;
+
+                for (PlacedItem it : list) {
+                    if (plan != null && !plan.distConflicts(type, it.getType()))
+                        continue;
+
+                    int d = Math.abs(it.getX() - x) + Math.abs(it.getY() - y);
+                    if (d < minDistBetween)
+                        return false;
                 }
             }
         }
+        return true;
     }
 
-    private void buildCellCaches(List<List<Integer>> cells) {
-        int n = cachedW * cachedH;
-        cellValue = new int[n];
-        distToBorder = new int[n];
+    private boolean respectsGranulation(ItemType type, RelaxPlan plan, int x, int y) {
+        if (plan == null || plan.scanMode() == null)
+            return true;
+        if (plan.scanMode() == RelaxPlan.ScanMode.NONE)
+            return true;
 
-        for (int y = 0; y < cachedH; y++) {
-            List<Integer> row = cells.get(y);
-            int top = y;
-            int bottom = cachedH - 1 - y;
+        for (int dy = -1; dy <= 1; dy++) {
+            for (int dx = -1; dx <= 1; dx++) {
+                if (dx == 0 && dy == 0)
+                    continue;
 
-            for (int x = 0; x < cachedW; x++) {
-                int pos = y * cachedW + x;
+                int nx = x + dx;
+                int ny = y + dy;
 
-                cellValue[pos] = row.get(x);
+                if (!map.inBounds(nx, ny))
+                    continue;
 
-                int left = x;
-                int right = cachedW - 1 - x;
-                distToBorder[pos] = Math.min(Math.min(left, right), Math.min(top, bottom));
+                PlacedItem neighbor = grid.get(map.idx(nx, ny));
+                if (neighbor != null && plan.conflicts(type, neighbor.getType()))
+                    return false;
             }
         }
+        return true;
     }
 
-    private void initGrid() {
-        int n = cachedW * cachedH;
-        occ = new boolean[n];
-        at = new PlacedItem[n];
-    }
-
-    private void initBuckets() {
-        bucketsW = (cachedW + bucketSize - 1) / bucketSize;
-        bucketsH = (cachedH + bucketSize - 1) / bucketSize;
-        buckets = (ArrayList<PlacedItem>[]) new ArrayList[bucketsW * bucketsH];
-    }
+    /* ===================== Utils ===================== */
 
     private int computeAmountForType(ItemType type, int pathCount) {
         double raw = pathCount * Math.max(0.0, type.getDensity());
@@ -622,211 +691,139 @@ public class ItemPlacer {
         return amount;
     }
 
-    private boolean inBounds(int x, int y) {
-        return x >= 0 && y >= 0 && x < cachedW && y < cachedH;
-    }
-
-    private int idx(int x, int y) {
-        return y * cachedW + x;
-    }
-
-    private int bX(int x) { return x / bucketSize; }
-    private int bY(int y) { return y / bucketSize; }
-    private int bIdx(int bx, int by) { return by * bucketsW + bx; }
-
-    private Set<Integer> getBlacklist(ItemType type) {
-        List<Integer> bl = type.getSpawnBlacklist();
-        if (bl == null || bl.isEmpty()) return Collections.emptySet();
-        return blacklistCache.computeIfAbsent(type, t -> new HashSet<>(bl));
-    }
-
-    /* ===================== BFS ===================== */
-
-    private static final int[] DX = { 1, -1, 0, 0 };
-    private static final int[] DY = { 0, 0, 1, -1 };
-
-    private int[][] bfsFrom(List<List<Integer>> cells, int sx, int sy) {
-        int h = cells.size();
-        int w = cells.get(0).size();
-
-        int[][] dist = new int[h][w];
-        for (int y = 0; y < h; y++) Arrays.fill(dist[y], -1);
-
-        if (sx < 0 || sy < 0 || sx >= w || sy >= h) return dist;
-        if (!Cells.isPath(cells.get(sy).get(sx))) return dist;
-
-        ArrayDeque<int[]> q = new ArrayDeque<>();
-        dist[sy][sx] = 0;
-        q.add(new int[] { sx, sy });
-
-        while (!q.isEmpty()) {
-            int[] p = q.poll();
-            int px = p[0], py = p[1];
-            int base = dist[py][px];
-
-            for (int k = 0; k < 4; k++) {
-                int nx = px + DX[k];
-                int ny = py + DY[k];
-                if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
-                if (dist[ny][nx] != -1) continue;
-                if (!Cells.isPath(cells.get(ny).get(nx))) continue;
-                dist[ny][nx] = base + 1;
-                q.add(new int[] { nx, ny });
-            }
-        }
-        return dist;
-    }
-
-    private int[][] bfsFromExit(List<List<Integer>> cells, int exitX, int exitY) {
-        if (exitX >= 0 && exitY >= 0 &&
-                exitY < cells.size() &&
-                exitX < cells.get(0).size() &&
-                Cells.isPath(cells.get(exitY).get(exitX))) {
-            return bfsFrom(cells, exitX, exitY);
-        }
-
-        int[] start = findNearestPathCell(cells, exitX, exitY);
-        if (start == null) {
-            int[][] dist = new int[cells.size()][cells.get(0).size()];
-            for (int[] row : dist) Arrays.fill(row, -1);
-            return dist;
-        }
-        return bfsFrom(cells, start[0], start[1]);
-    }
-
-    private int[] findNearestPathCell(List<List<Integer>> cells, int sx, int sy) {
-        int h = cells.size();
-        int w = cells.get(0).size();
-
-        boolean[][] vis = new boolean[h][w];
-        ArrayDeque<int[]> q = new ArrayDeque<>();
-
-        int cx = Math.max(0, Math.min(w - 1, sx));
-        int cy = Math.max(0, Math.min(h - 1, sy));
-
-        q.add(new int[] { cx, cy });
-        vis[cy][cx] = true;
-
-        while (!q.isEmpty()) {
-            int[] p = q.poll();
-            int px = p[0], py = p[1];
-
-            if (Cells.isPath(cells.get(py).get(px))) return p;
-
-            for (int k = 0; k < 4; k++) {
-                int nx = px + DX[k];
-                int ny = py + DY[k];
-                if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
-                if (vis[ny][nx]) continue;
-                vis[ny][nx] = true;
-                q.add(new int[] { nx, ny });
-            }
-        }
-        return null;
-    }
-
-    /* ===================== Removals / queries ===================== */
-
-    public int removeAllOfType(ItemType type) {
-        if (type == null || placedItems.isEmpty()) return 0;
-
-        int removed = 0;
-        for (int i = placedItems.size() - 1; i >= 0; i--) {
-            PlacedItem it = placedItems.get(i);
-            if (it.getType() == type) {
-                removeOne(it);
-                placedItems.remove(i);
-                removed++;
-            }
-        }
-        return removed;
-    }
-
-    public int removeAllOfTypeExcept(ItemType type, int keepX, int keepY) {
-        if (type == null || placedItems.isEmpty()) return 0;
-
-        PlacedItem keep = (inBounds(keepX, keepY)) ? at[idx(keepX, keepY)] : null;
-
-        int removed = 0;
-        for (int i = placedItems.size() - 1; i >= 0; i--) {
-            PlacedItem it = placedItems.get(i);
-            if (it.getType() != type) continue;
-            if (it == keep) continue;
-
-            removeOne(it);
-            placedItems.remove(i);
-            removed++;
-        }
-        return removed;
-    }
-
-    public int countPlacedItemsOf(ItemType item) {
-        int c = 0;
-        for (PlacedItem it : placedItems) if (it.getType() == item) c++;
-        return c;
-    }
-
-    public List<int[]> getPositionsOf(ItemType type) {
-        List<int[]> res = new ArrayList<>();
-        for (PlacedItem it : placedItems) {
-            if (it.getType() == type) res.add(new int[] { it.getX(), it.getY() });
-        }
-        return res;
-    }
-
-    public PlacedItem pickupAt(int x, int y) {
-        if (!inBounds(x, y)) return null;
-        PlacedItem it = at[idx(x, y)];
-        if (it == null) return null;
-
-        if (it.getType().getIfRemovePlaced()) {
-            for (int i = placedItems.size() - 1; i >= 0; i--) {
-                if (placedItems.get(i) == it) {
-                    placedItems.remove(i);
-                    break;
-                }
-            }
-            removeOne(it);
-        }
-
-        return it;
-    }
-
-    public boolean anyPlaced(ItemType item) {
-        for (PlacedItem it : placedItems) if (it.getType() == item) return true;
-        return false;
-    }
+    /* ===================== Removals backing ===================== */
 
     private void removeOne(PlacedItem it) {
-        int p = idx(it.getX(), it.getY());
-        occ[p] = false;
-        at[p] = null;
+        int x = it.getX();
+        int y = it.getY();
+        if (!map.inBounds(x, y))
+            return;
+
+        int pos = map.idx(x, y);
+        grid.remove(pos);
         removeFromBucket(it);
     }
 
     private void removeFromBucket(PlacedItem it) {
         int bi = bIdx(bX(it.getX()), bY(it.getY()));
         ArrayList<PlacedItem> list = buckets[bi];
-        if (list != null) list.remove(it);
+        if (list != null)
+            list.remove(it);
     }
 
-    /* ===================== Small int bag ===================== */
+    /* ===================== Tiny int bag ===================== */
 
     private static final class IntBag {
         int[] data;
         int size;
 
-        IntBag(int initialCap) {
-            data = new int[Math.max(16, initialCap)];
+        IntBag(int cap) {
+            data = new int[Math.max(16, cap)];
         }
 
         void add(int v) {
-            if (size == data.length) data = Arrays.copyOf(data, data.length * 2);
+            if (size == data.length)
+                data = Arrays.copyOf(data, data.length * 2);
             data[size++] = v;
         }
+    }
 
-        void clear() {
-            size = 0;
+    /* ===================== PUNTO 2: Epoch stamping helper ===================== */
+
+    private static final class EligibilityRounds {
+        private int[] stamp;
+        private int[] value;
+        private int epoch = 1;
+
+        void ensureSize(int n) {
+            if (stamp == null || stamp.length != n) {
+                stamp = new int[n];
+                value = new int[n];
+                epoch = 1;
+            }
         }
+
+        void nextEpoch() {
+            epoch++;
+            if (epoch == 0) { // overflow raro
+                Arrays.fill(stamp, 0);
+                epoch = 1;
+            }
+        }
+
+        int get(int pos) {
+            return (stamp[pos] == epoch) ? value[pos] : -1;
+        }
+
+        void set(int pos, int roundIndex) {
+            stamp[pos] = epoch;
+            value[pos] = roundIndex;
+        }
+    }
+
+    /* ===================== Buffers ===================== */
+
+    private int[] ensureCapacity(int[] buf, int needed) {
+        if (buf.length >= needed)
+            return buf;
+        int n = buf.length;
+        while (n < needed)
+            n <<= 1;
+        return Arrays.copyOf(buf, n);
+    }
+
+    private long[] ensureCapacity(long[] buf, int needed) {
+        if (buf.length >= needed)
+            return buf;
+        int n = buf.length;
+        while (n < needed)
+            n <<= 1;
+        return Arrays.copyOf(buf, n);
+    }
+
+    /* ===================== PUNTO 1: Weighted order (sin objetos) ===================== */
+
+    private static long sortableDoubleBits(double d) {
+        long bits = Double.doubleToRawLongBits(d);
+        return bits ^ ((bits >> 63) & 0x7fffffffffffffffL);
+    }
+
+    private static int weightedOrderEfraimidisIntoPacked(
+            int[] pool,
+            int poolSize,
+            EligibilityRounds firstEligibleRound,
+            IntToDoubleFunction weightFn,
+            Random rng,
+            int[] out,
+            long[] packedBuf) {
+
+        for (int i = 0; i < poolSize; i++) {
+            int pos = pool[i];
+
+            int r = firstEligibleRound.get(pos);
+            if (r < 0)
+                r = 0;
+
+            double w = weightFn.applyAsDouble(r);
+            if (w <= 0.0 || !Double.isFinite(w))
+                w = 1.0;
+
+            double u = rng.nextDouble();
+            if (u <= 0.0)
+                u = Double.MIN_VALUE;
+
+            double key = -Math.log(u) / w;
+
+            long keyBits = sortableDoubleBits(key);
+            long packed = ((keyBits >>> 32) << 32) | (pos & 0xffffffffL);
+            packedBuf[i] = packed;
+        }
+
+        Arrays.sort(packedBuf, 0, poolSize);
+
+        for (int i = 0; i < poolSize; i++) {
+            out[i] = (int) packedBuf[i];
+        }
+        return poolSize;
     }
 }

@@ -84,7 +84,7 @@ public enum SpecialType implements ItemType {
         this.quality = q;
     }
 
-        @Override
+    @Override
     public RelaxPlan getRelaxPlan() {
         return switch (this) {
             default -> defaultRelaxPlan;

@@ -58,8 +58,6 @@ import com.jairo.items.SpecialType;
  * <b>BETWEEN</b> (distància mínima entre items). Determina contra quins items
  * s’aplica <code>minDistBetween</code>:
  * <ul>
- * <li><code>NONE</code>: no s’aplica cap comparació de distància (equivalent a
- * ignorar la restricció BETWEEN).</li>
  * <li><code>SAME_TYPE_EXACT</code>: aplica la distància mínima únicament contra
  * items del mateix tipus exacte.</li>
  * <li><code>SAME_TYPE_GENERAL</code>: aplica la distància mínima únicament contra
@@ -93,7 +91,6 @@ public final class RelaxPlan {
     }
 
     public enum DistComparisonMode {
-        NONE,
         SAME_TYPE_EXACT,
         SAME_TYPE_GENERAL,
         ANY_TYPE,
@@ -213,12 +210,11 @@ public final class RelaxPlan {
     }
 
     public boolean distConflicts(ItemType self, ItemType neighbor) {
-        if (distComparisonMode == DistComparisonMode.NONE || neighbor == null) {
+        if (neighbor == null) {
             return false;
         }
 
         return switch (distComparisonMode) {
-            case NONE -> false;
             case ANY_TYPE -> true;
 
             case SAME_TYPE_EXACT ->

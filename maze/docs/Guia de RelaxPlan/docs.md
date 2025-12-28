@@ -138,7 +138,6 @@ pertany a aquest conjunt explícitament definit.
 ### `distComparisonMode(RelaxPlan.DistComparisonMode)`
 Defineix com s’aplica la restricció de distància mínima entre items (`minDistBetween`). Determina **contra quins items** es compara aquesta distància quan es valida una posició candidata:
 
-- `NONE`: no es realitza cap comparació de distància entre items; la restricció `minDistBetween` s’ignora.
 - `SAME_TYPE_EXACT`: la distància mínima només s’aplica contra items del mateix tipus exacte (mateix `id`).
 - `SAME_TYPE_GENERAL`: la distància mínima només s’aplica contra items del mateix tipus general (`BasicItemType`, `PowerType` o `SpecialType`).
 - `ANY_TYPE`: la distància mínima s’aplica contra qualsevol item, independentment del seu tipus.
