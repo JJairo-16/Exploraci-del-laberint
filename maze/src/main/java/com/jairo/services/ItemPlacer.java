@@ -102,7 +102,8 @@ public class ItemPlacer {
             return Collections.unmodifiableList(res);
         }
 
-        List<PlacedItem> res = new ArrayList<>();
+        int cap = (int) Math.min(area, Integer.MAX_VALUE);
+        List<PlacedItem> res = new ArrayList<>(cap);
         for (PlacedItem it : placedItems) {
             int x = it.getX();
             int y = it.getY();
@@ -296,7 +297,7 @@ public class ItemPlacer {
         }
 
         // Pool = todos los que alguna vez fueron elegibles, ignorando ya ocupados
-        List<Long> pool = new ArrayList<>();
+        List<Long> pool = new ArrayList<>(firstEligibleRound.size());
         for (Long p : firstEligibleRound.keySet()) {
             if (!occupied.contains(p))
                 pool.add(p);
@@ -459,7 +460,7 @@ public class ItemPlacer {
                 ? Collections.emptySet()
                 : new HashSet<>(spawnBlackList);
 
-        List<Long> res = new ArrayList<>();
+        List<Long> res = new ArrayList<>(pathPositions.size());
 
         for (Long p : pathPositions) {
             long pos = p;

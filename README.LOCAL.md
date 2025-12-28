@@ -208,6 +208,8 @@ tbody tr:last-child td:last-child  { border-bottom-right-radius: 10px; }
 
 És un joc d’exploració de laberints on el jugador es desplaça per un entorn desconegut, descobrint progressivament el mapa mentre busca la sortida. El sistema de visibilitat limita la informació disponible, fomentant l’orientació, la planificació dels moviments i l’exploració estratègica.
 
+<img src="maze/docs/reedme/img/banner.png" al="Imatge del banner">
+
 ---
 
 ## Com es juga?

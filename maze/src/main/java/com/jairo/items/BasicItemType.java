@@ -14,7 +14,7 @@ import static com.jairo.utils.map_generator.Cells.*;
 
 public enum BasicItemType implements ItemType {
     COIN(Sprite.COIN, 0.225, 5, 4, Sound.COIN),
-    MAP(Sprite.MAP, 0.005, 30, 20, Sound.MAP_WRITING, Qualities.EPIC), // ? 0.005 40 15
+    MAP(Sprite.MAP, 0.008, 30, 20, Sound.MAP_WRITING, Qualities.EPIC), // ? 0.008 40 15
     PORTAL_GUN(Sprite.PORTAL_GUN, 0.0018, 40, 40, Sound.PORTAL_GUN, Qualities.EPIC); // ? 0.0018 40 40
 
     private final Sprite sprite;

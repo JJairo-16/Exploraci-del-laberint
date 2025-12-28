@@ -410,6 +410,9 @@ public final class RelaxPlan {
                         "distComparisonMode(CUSTOM) requiere customDistAgainst(...)");
             }
 
+            Set<ItemType> cst = getSetOf(customScanTypes);
+            Set<ItemType> cdt = getSetOf(customDistTypes);
+
             return new RelaxPlan(
                     order,
                     step,
@@ -419,11 +422,19 @@ public final class RelaxPlan {
                     maxStallRounds,
                     mode,
                     scanMode,
-                    Set.copyOf(customScanTypes),
+                    cst,
                     distComparisonMode,
-                    Set.copyOf(customDistTypes),
+                    cdt,
                     weightDecay,
                     weightFn);
+        }
+
+        private Set<ItemType> getSetOf(Set<ItemType> input) {
+            if (input == null || input.isEmpty()) {
+                return Set.of();
+            }
+
+            return Set.copyOf(input);
         }
     }
 }

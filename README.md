@@ -9,6 +9,8 @@
 
 És un joc d’exploració de laberints on el jugador es desplaça per un entorn desconegut, descobrint progressivament el mapa mentre busca la sortida. El sistema de visibilitat limita la informació disponible, fomentant l’orientació, la planificació dels moviments i l’exploració estratègica.
 
+![Imatge del banner](maze/docs/reedme/img/banner.png)
+
 ---
 
 ## Com es juga?
