@@ -7,7 +7,6 @@ import com.jairo.items.placement.RelaxPlan;
 
 import static com.jairo.items.Qualities.*;
 import static com.jairo.utils.map_generator.Cells.ICE;
-import com.jairo.utils.map_generator.Cells;
 
 import java.util.Arrays;
 import java.util.List;
@@ -49,7 +48,7 @@ public enum SpecialType implements ItemType {
     @Override public boolean removeRemaining() { return removeRemaining; }
 
     static {
-        BOOTS.setSpawnBlacklist(ICE, Cells.CHEAT_WALL);
+        BOOTS.setSpawnBlacklist(ICE);
         COINS_POWER.updateCount(0, 0, false);
 
         CHEATED_BUTTON.updateCount(2, 2, true);

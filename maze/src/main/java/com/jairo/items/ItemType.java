@@ -68,7 +68,7 @@ public interface ItemType {
      * Por defecto, vacío => no filtra nada extra.
      */
     default List<Integer> getSpawnBlacklist() {
-        return List.of(Cells.CHEAT_WALL);
+        return List.of();
     }
 
     default boolean shouldFloat() {

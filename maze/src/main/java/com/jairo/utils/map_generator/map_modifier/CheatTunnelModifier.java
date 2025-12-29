@@ -42,11 +42,14 @@ public final class CheatTunnelModifier {
         // 1) recolectar candidatos: PATH que estén en túnel
         List<int[]> candidates = new ArrayList<>();
         for (int y = 1; y < h - 1; y++) {
+            List<Integer> row = cells.get(y);
             for (int x = 1; x < w - 1; x++) {
-                int v = cells.get(y).get(x);
+                int v = row.get(x);
+
                 if (v != PATH) continue;
                 if (!isTunnelCell(cells, x, y)) continue;
                 if (nearExit(cells, x, y)) continue;
+                
                 candidates.add(new int[] {x, y});
             }
         }
@@ -145,7 +148,7 @@ public final class CheatTunnelModifier {
 
     private static boolean isTunnelFloor(int tile) {
         // Consideramos "suelo" los PATH_TYPES (incluye CHEAT_* si ya aplicaste el cambio en Cells)
-        // y también puertas abiertas/abiertas-del-todo si las tienes como suelos transitables.
+        // y también puertas abiertas/abiertas-del-t0do si las tienes como suelos transitables.
         // Pero para túnel, evitamos EXIT/EXIT_CONNECTOR.
         if (tile == EXIT || tile == EXIT_CONNECTOR) return false;
         return isPath(tile) || isOpenedDoor(tile);

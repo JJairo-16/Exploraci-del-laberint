@@ -1,6 +1,6 @@
 package com.jairo.services.item_placer.cache;
 
-import com.jairo.utils.map_generator.Cells;
+import static com.jairo.utils.map_generator.Cells.*;
 
 import java.util.Arrays;
 import java.util.List;
@@ -10,8 +10,8 @@ public final class MapCache {
     private int h;
 
     // Flattened per-cell data
-    private int[] cellValue;      // cells[y][x] flattened: pos=y*w+x
-    private int[] distToBorder;   // precomputed min distance to border for each pos
+    private int[] cellValue; // cells[y][x] flattened: pos=y*w+x
+    private int[] distToBorder; // precomputed min distance to border for each pos
 
     // Path cells as linear positions (pos=y*w+x)
     private int[] pathPositions;
@@ -43,7 +43,7 @@ public final class MapCache {
                 int right = w - 1 - x;
                 distToBorder[pos] = Math.min(Math.min(left, right), Math.min(top, bottom));
 
-                if (Cells.isPath(v)) {
+                if (isPath(v)) {
                     path.add(pos);
                 }
             }
@@ -53,9 +53,17 @@ public final class MapCache {
         this.pathCount = path.size;
     }
 
-    public int w() { return w; }
-    public int h() { return h; }
-    public int size() { return w * h; }
+    public int w() {
+        return w;
+    }
+
+    public int h() {
+        return h;
+    }
+
+    public int size() {
+        return w * h;
+    }
 
     public boolean inBounds(int x, int y) {
         return x >= 0 && y >= 0 && x < w && y < h;
@@ -99,8 +107,16 @@ public final class MapCache {
         }
 
         void add(int v) {
-            if (size == data.length) data = Arrays.copyOf(data, data.length * 2);
+            if (size == data.length)
+                data = Arrays.copyOf(data, data.length * 2);
             data[size++] = v;
         }
+    }
+
+    private static boolean isPath(int tile) {
+        return tile == PATH ||
+                tile == CHEAT_PATH ||
+                tile == HIDDEN_CHEAT_PATH ||
+                tile == ICE;
     }
 }

@@ -8,6 +8,7 @@ import com.jairo.services.item_placer.cache.MapCache;
 import com.jairo.utils.ItemLogger;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.Random;
 import java.util.function.IntToDoubleFunction;
 
@@ -66,7 +67,7 @@ public final class PlacementSelector {
             IntToDoubleFunction weightFn,
             int[] baseCandidates,
             boolean logItemPlacer,
-            java.util.List<PlacedItem> placedItems) {
+            List<PlacedItem> placedItems) {
 
         if (need <= 0) return 0;
 

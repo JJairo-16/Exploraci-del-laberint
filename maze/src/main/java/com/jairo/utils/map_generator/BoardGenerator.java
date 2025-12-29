@@ -1,9 +1,7 @@
 package com.jairo.utils.map_generator;
 
-// * Llistes
 import java.util.List;
 import java.util.ArrayList;
-import java.util.ArrayDeque;
 import java.util.Random;
 
 import static com.jairo.utils.map_generator.Cells.*;
@@ -27,51 +25,38 @@ import org.slf4j.LoggerFactory;
 public class BoardGenerator {
     private static final Logger log = LoggerFactory.getLogger(BoardGenerator.class);
 
-    /**
-     * Constructor privat per evitar la instanciació de la classe.
-     */
     private BoardGenerator() {
     }
 
-    /**
-     * Generador de nombres aleatoris utilitzat per a la selecció de posicions.
-     */
+    /** Generador de nombres aleatoris utilitzat per a la selecció de posicions. */
     private static final Random RNG = new Random();
+
+    /** Direccions de moviment (dreta, esquerra, avall, amunt) com a constants (evita alloc per crida). */
+    private static final int[] DX = { 1, -1, 0, 0 };
+    private static final int[] DY = { 0, 0, 1, -1 };
 
     /**
      * Estructura immutable que encapsula els mapes del tauler.
      *
-     * @param cells
-     *                   Mapa de cel·les reals del tauler.
-     *
-     * @param visibility
-     *                   Mapa de visibilitat associat al tauler.
+     * @param cells       Mapa de cel·les reals del tauler.
+     * @param visibility  Mapa de visibilitat associat al tauler.
+     * @param secretWalls Llista de posicions (x,y) on hi ha parets secretes.
+     * @param doorsCount  Nombre total de portes detectades.
      */
-    public static record Maps(List<List<Integer>> cells, List<List<Integer>> visibility, List<int[]> secretWalls,
-            int doorsCount) {
+    public static record Maps(List<List<Integer>> cells,
+                              List<List<Integer>> visibility,
+                              List<int[]> secretWalls,
+                              int doorsCount) {
     }
 
     /**
      * Genera els mapes bidimensionals del tauler a partir d'un mapa pla.
      *
-     * <p>
-     * El mapa pla es recorre seqüencialment i es transforma en una
-     * estructura de cel·les 2D. Paral·lelament, es crea un mapa de
-     * visibilitat inicial, on els límits del tauler són visibles i la resta
-     * de cel·les queden ocultes.
-     * </p>
+     * @param flat   Representació plana del mapa en format de codi numèric.
+     * @param width  Amplada del tauler.
+     * @param height Alçada del tauler.
      *
-     * @param flat
-     *               Representació plana del mapa en format de codi numèric.
-     *
-     * @param width
-     *               Amplada del tauler.
-     *
-     * @param height
-     *               Alçada del tauler.
-     *
-     * @return
-     *         Conjunt de mapes generats encapsulats dins {@link Maps}.
+     * @return Conjunt de mapes generats encapsulats dins {@link Maps}.
      */
     public static Maps generateEmptyBoard(String flat, int width, int height) {
         // * Validacions inicials
@@ -86,7 +71,7 @@ public class BoardGenerator {
             throw new IllegalArgumentException("La mida del mapa no coincideix amb la esperada");
         }
 
-        // * Inicialitzar mapes
+        // * Inicialitzar mapes (API pública: List<List<Integer>>)
         List<List<Integer>> cells = new ArrayList<>(height);
         List<List<Integer>> visibility = new ArrayList<>(height);
         List<int[]> secretWalls = new ArrayList<>();
@@ -109,7 +94,6 @@ public class BoardGenerator {
                 } else if (isDoor(cell)) {
                     doorsCount++;
                 }
-
             }
 
             cells.add(row);
@@ -122,11 +106,8 @@ public class BoardGenerator {
     /**
      * Estructura immutable que representa una posició dins del tauler.
      *
-     * @param x
-     *          Coordenada horitzontal.
-     *
-     * @param y
-     *          Coordenada vertical.
+     * @param x Coordenada horitzontal.
+     * @param y Coordenada vertical.
      */
     public static record PlayerPosition(int x, int y) {
     }
@@ -135,118 +116,130 @@ public class BoardGenerator {
      * Determina una posició inicial vàlida i aleatòria per al jugador.
      *
      * <p>
-     * La posició seleccionada garanteix una distància mínima respecte
-     * a qualsevol sortida del mapa. Per aconseguir-ho, es realitza una
-     * cerca en amplada (BFS) a partir de totes les cel·les de sortida,
-     * calculant la distància mínima a cada cel·la transitable.
+     * Optimització: es manté l'API pública amb List<List<Integer>>,
+     * però internament es desboxa a int[][] i s'executa el BFS sobre arrays
+     * primitius. També s'eviten les divisions/mods del BFS usant dues cues
+     * paral·leles (qx/qy), sense mutar l'entrada ni produir efectes secundaris.
      * </p>
      *
-     * <p>
-     * Si no existeix cap cel·la que compleixi la distància mínima
-     * requerida, es selecciona una posició aleatòria entre totes les
-     * cel·les transitables com a mecanisme de seguretat.
-     * </p>
+     * @param cells               Mapa de cel·les del tauler (List<List<Integer>>).
+     * @param minDistanceFromExit Distància mínima respecte la sortida més propera.
      *
-     * @param cells
-     *                            Mapa de cel·les del tauler. Cada valor indica el
-     *                            tipus de cel·la
-     *                            (per exemple {@code PATH}, {@code WALL} o
-     *                            {@code EXIT_CONNECTOR}).
-     *
-     * @param minDistanceFromExit
-     *                            Distància mínima (en passos ortogonals) entre el
-     *                            jugador i la
-     *                            sortida més propera.
-     *
-     * @return
-     *         Posició inicial del jugador encapsulada dins {@link PlayerPosition}.
+     * @return Posició inicial del jugador.
      */
-    public static PlayerPosition placePlayer(List<List<Integer>> cells,
-            int minDistanceFromExit) {
-
+    public static PlayerPosition placePlayer(List<List<Integer>> cells, int minDistanceFromExit) {
         // * Obtenir dimensions del mapa
         final int WIDTH = cells.get(0).size();
         final int HEIGHT = cells.size();
 
+        // * Representació interna (desboxing) per al hot path
+        final int[][] board = new int[HEIGHT][WIDTH];
+
         // * Matriu de distàncies (-1 indica no visitat)
-        int[][] dist = new int[HEIGHT][WIDTH];
+        final int[][] dist = new int[HEIGHT][WIDTH];
 
-        // * Cua per a la cerca en amplada (BFS)
-        ArrayDeque<int[]> q = new ArrayDeque<>();
+        // * Cues BFS sense allocs per node i sense % / /
+        final int[] qx = new int[WIDTH * HEIGHT];
+        final int[] qy = new int[WIDTH * HEIGHT];
+        int head = 0;
+        int tail = 0;
 
-        // * Inicialització de la matriu de distàncies
+        // * Copiar (desboxar) + inicialitzar dist i encolar exits (una sola passada)
         for (int y = 0; y < HEIGHT; y++) {
+            final List<Integer> row = cells.get(y);
             for (int x = 0; x < WIDTH; x++) {
-                dist[y][x] = -1;
-            }
-        }
+                final int v = row.get(x); // unboxing un cop aquí
+                board[y][x] = v;
 
-        // * Afegir totes les sortides com a punts inicials del BFS
-        for (int y = 0; y < HEIGHT; y++) {
-            List<Integer> row = cells.get(y);
-            for (int x = 0; x < WIDTH; x++) {
-                if (row.get(x) == EXIT_CONNECTOR) {
+                if (v == EXIT_CONNECTOR) {
                     dist[y][x] = 0;
-                    q.add(new int[] { x, y });
+                    qx[tail] = x;
+                    qy[tail] = y;
+                    tail++;
+                } else {
+                    dist[y][x] = -1;
                 }
             }
         }
 
-        // * Direccions de moviment (dreta, esquerra, avall, amunt)
-        int[][] dirs = { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } };
-
         // * Execució del BFS
-        while (!q.isEmpty()) {
-            int[] p = q.poll();
+        while (head < tail) {
+            final int x = qx[head];
+            final int y = qy[head];
+            head++;
 
-            for (int[] d : dirs) {
-                int nx = p[0] + d[0];
-                int ny = p[1] + d[1];
+            final int nextDist = dist[y][x] + 1;
 
-                // Comprovar límits del mapa
+            for (int i = 0; i < 4; i++) {
+                final int nx = x + DX[i];
+                final int ny = y + DY[i];
+
+                // límits
                 if (nx < 0 || ny < 0 || nx >= WIDTH || ny >= HEIGHT) {
                     continue;
                 }
 
-                // Visitar només cel·les transitables no visitades
-                if (dist[ny][nx] == -1 && cells.get(ny).get(nx) == PATH) {
-                    dist[ny][nx] = dist[p[1]][p[0]] + 1;
-                    q.add(new int[] { nx, ny });
+                // Visitar només PATH no visitat
+                if (dist[ny][nx] == -1 && board[ny][nx] == PATH) {
+                    dist[ny][nx] = nextDist;
+                    qx[tail] = nx;
+                    qy[tail] = ny;
+                    tail++;
                 }
             }
         }
 
-        // * Recollir posicions candidates
-        List<int[]> candidates = new ArrayList<>();
+        // * Selecció uniforme sense llistar candidats: reservoir sampling
+        //   - candChoice: PATH amb dist >= minDistanceFromExit
+        //   - pathChoice: qualsevol PATH (fallback)
+        int candCount = 0;
+        int candChoiceX = -1;
+        int candChoiceY = -1;
+
+        int pathCount = 0;
+        int pathChoiceX = -1;
+        int pathChoiceY = -1;
 
         for (int y = 0; y < HEIGHT; y++) {
-            List<Integer> row = cells.get(y);
             for (int x = 0; x < WIDTH; x++) {
-                if (row.get(x) == PATH && dist[y][x] >= minDistanceFromExit) {
-                    candidates.add(new int[] { x, y });
+                if (board[y][x] != PATH) {
+                    continue;
                 }
-            }
-        }
 
-        // * Cas de seguretat: cap posició prou llunyana
-        if (candidates.isEmpty()) {
-            log.warn(
-                    "No valid start position found with minDistanceFromExit={}; falling back to any PATH cell",
-                    minDistanceFromExit);
+                // reservoir per a qualsevol PATH
+                pathCount++;
+                if (RNG.nextInt(pathCount) == 0) {
+                    pathChoiceX = x;
+                    pathChoiceY = y;
+                }
 
-            for (int y = 0; y < HEIGHT; y++) {
-                List<Integer> row = cells.get(y);
-                for (int x = 0; x < WIDTH; x++) {
-                    if (row.get(x) == PATH) {
-                        candidates.add(new int[] { x, y });
+                // reservoir per a candidats "lluny"
+                if (dist[y][x] >= minDistanceFromExit) {
+                    candCount++;
+                    if (RNG.nextInt(candCount) == 0) {
+                        candChoiceX = x;
+                        candChoiceY = y;
                     }
                 }
             }
         }
 
-        // * Selecció aleatòria final
-        int[] chosen = candidates.get(RNG.nextInt(candidates.size()));
-        return new PlayerPosition(chosen[0], chosen[1]);
+        // * Fallback: si no hi ha candidats prou llunyans, qualsevol PATH
+        if (candCount > 0) {
+            return new PlayerPosition(candChoiceX, candChoiceY);
+        }
+
+        log.warn(
+            "No valid start position found with minDistanceFromExit={}; falling back to any PATH cell",
+            minDistanceFromExit
+        );
+
+        if (pathCount == 0) {
+            // Si el mapa no conté cap PATH, és un estat inconsistent per a placePlayer
+            throw new IllegalStateException("No PATH cells available to place the player");
+        }
+
+        return new PlayerPosition(pathChoiceX, pathChoiceY);
     }
 
     private static boolean isDoor(int tile) {

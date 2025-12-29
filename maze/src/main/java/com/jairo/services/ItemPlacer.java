@@ -189,9 +189,7 @@ public class ItemPlacer {
         int removed = 0;
         for (int i = placedItems.size() - 1; i >= 0; i--) {
             PlacedItem it = placedItems.get(i);
-            if (it.getType() != type)
-                continue;
-            if (it == keep)
+            if (it.getType() != type || it == keep)
                 continue;
 
             removeOne(it);

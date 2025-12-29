@@ -2,6 +2,7 @@ package com.jairo.utils.map_generator.map_modifier;
 
 import java.security.SecureRandom;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import static com.jairo.utils.map_generator.Cells.*;
@@ -15,6 +16,41 @@ public final class DoorConstructor {
     private static final int DOOR_OPEN_FROM_EAST  = 7;
 
     private static final int MAX_BYPASS_DIST = 16;
+
+    // -------------------- ✅ Reusable BFS buffers (no per-BFS allocs) --------------------
+
+    /**
+     * Reusable BFS buffers.
+     * - qPos is reused across BFS runs
+     * - visited[] uses "stamps" (visited[pos] == stamp means visited), so clearing is O(1)
+     * - qDist is optional (only when a BFS needs distances)
+     */
+    private static final class BfsScratch {
+        final int w, h, n;
+        final int[] qPos;
+        final int[] qDist;    // null if not needed
+        final int[] visited;  // stamp array
+        int stamp = 1;
+
+        BfsScratch(int w, int h, boolean withDist) {
+            this.w = w;
+            this.h = h;
+            this.n = w * h;
+            this.qPos = new int[n];
+            this.qDist = withDist ? new int[n] : null;
+            this.visited = new int[n];
+        }
+
+        int nextStamp() {
+            int s = ++stamp;
+            if (s == 0) { // overflow (extremely unlikely)
+                Arrays.fill(visited, 0);
+                stamp = 1;
+                return 1;
+            }
+            return s;
+        }
+    }
 
     public static String addOneWayLockedDoors(String baseMap, int width, int height) {
         return addOneWayLockedDoors(baseMap, width, height, 0.015, 4, new SecureRandom());
@@ -30,6 +66,10 @@ public final class DoorConstructor {
 
         int[][] g = parse(baseMap, width, height);
 
+        // ✅ Scratch buffers created once per run (NO allocs inside BFS)
+        BfsScratch bfsNoDist = new BfsScratch(width, height, false);
+        BfsScratch bfsDist   = new BfsScratch(width, height, true);
+
         List<int[]> candidates = collectDoorCandidates(g, width, height);
         if (candidates.isEmpty()) return baseMap;
 
@@ -40,8 +80,8 @@ public final class DoorConstructor {
 
         int attempts = Math.min(candidates.size() * 3, 8000);
 
-        // ✅ Compute ONCE, then update incrementally after each placed door.
-        boolean[][] reachableFromMain = computeReachableFromMain(g);
+        // ✅ Compute once, then update incrementally
+        boolean[][] reachableFromMain = computeReachableFromMain(g, bfsNoDist);
 
         for (int i = 0; i < attempts && placed < target && !candidates.isEmpty(); i++) {
             int idx = rnd.nextInt(candidates.size());
@@ -50,12 +90,11 @@ public final class DoorConstructor {
             int y = c[1];
 
             if (tooClose(x, y, placedDoors, minSpacing)) {
-                // O(1) remove: swap-with-last
                 removeSwapLast(candidates, idx);
                 continue;
             }
 
-            int openSide = pickOpenSideReachable(g, x, y, rnd, reachableFromMain);
+            int openSide = pickOpenSideReachable(g, x, y, rnd, reachableFromMain, bfsNoDist, bfsDist);
             if (openSide == -1) {
                 removeSwapLast(candidates, idx);
                 continue;
@@ -64,8 +103,8 @@ public final class DoorConstructor {
             // Place door
             g[y][x] = openSide;
 
-            // 🔥 Incremental reachable update (no full recompute)
-            updateReachableAfterDoorPlaced(g, reachableFromMain, x, y, openSide);
+            // ✅ Incremental reachable update (no full recompute, no allocs)
+            updateReachableAfterDoorPlaced(g, reachableFromMain, x, y, openSide, bfsNoDist);
 
             placedDoors.add(new int[] { x, y });
             placed++;
@@ -79,9 +118,11 @@ public final class DoorConstructor {
 
     /**
      * Incrementally updates reachableFromMain after placing a new door at (x,y).
-     * Correct here because doors are placed on WALL -> passability/reachability can only increase.
+     * Correct here because doors are placed on WALL -> reachability can only increase.
      */
-    private static void updateReachableAfterDoorPlaced(int[][] g, boolean[][] reach, int x, int y, int doorValue) {
+    private static void updateReachableAfterDoorPlaced(
+            int[][] g, boolean[][] reach, int x, int y, int doorValue, BfsScratch bfsNoDist) {
+
         int h = g.length, w = g[0].length;
 
         // Entry cell (must already be reachable) and destination cell (becomes newly reachable).
@@ -100,7 +141,6 @@ public final class DoorConstructor {
         // If entry isn't reachable, this door doesn't add new reachability from main.
         if (!reach[ey][ex]) return;
 
-        // Sanity: movement entry -> door must be valid, and door -> dest must be valid.
         if (!canMove(g, ex, ey, x, y)) return;
         if (!canMove(g, x, y, tx, ty)) return;
 
@@ -110,22 +150,21 @@ public final class DoorConstructor {
         // If destination already reachable, nothing new to propagate.
         if (reach[ty][tx]) return;
 
-        // Propagate reachability only into newly reachable area.
-        propagateReachableFrom(g, reach, tx, ty);
+        // ✅ Reuse queue (no allocation)
+        propagateReachableFrom(g, reach, tx, ty, bfsNoDist);
     }
 
     /**
      * BFS that only visits cells not yet marked reachable in 'reach'.
-     * Uses packed int positions to avoid object allocations.
+     * ✅ Uses reusable queue from bfsNoDist (no allocation).
      */
-    private static void propagateReachableFrom(int[][] g, boolean[][] reach, int sx, int sy) {
+    private static void propagateReachableFrom(int[][] g, boolean[][] reach, int sx, int sy, BfsScratch bfsNoDist) {
         int h = g.length, w = g[0].length;
         if (!inBounds(sx, sy, w, h)) return;
         if (reach[sy][sx]) return;
         if (!isPassable(g[sy][sx])) return;
 
-        // Worst-case queue capacity = w*h, but typically far smaller.
-        int[] q = new int[w * h];
+        int[] q = bfsNoDist.qPos;
         int qi = 0, qj = 0;
 
         int start = sy * w + sx;
@@ -137,7 +176,6 @@ public final class DoorConstructor {
             int x = pos % w;
             int y = pos / w;
 
-            // 4-neighbors (manual unroll for speed)
             // Right
             if (x + 1 < w) {
                 int nx = x + 1, ny = y;
@@ -279,20 +317,20 @@ public final class DoorConstructor {
 
     // -------------------- Reachability (full computation used only once) --------------------
 
-    private static boolean[][] computeReachableFromMain(int[][] g) {
+    private static boolean[][] computeReachableFromMain(int[][] g, BfsScratch bfsNoDist) {
         int h = g.length;
         int w = g[0].length;
 
         boolean[][] reach = new boolean[h][w];
 
-        int[] start = findMainStartWalkable(g);
+        int[] start = findMainStartWalkable(g, bfsNoDist);
         if (start.length == 0) return reach;
 
-        propagateReachableFrom(g, reach, start[0], start[1]);
+        propagateReachableFrom(g, reach, start[0], start[1], bfsNoDist);
         return reach;
     }
 
-    private static int[] findMainStartWalkable(int[][] g) {
+    private static int[] findMainStartWalkable(int[][] g, BfsScratch bfsNoDist) {
         int h = g.length, w = g[0].length;
 
         // Prefer EXIT_CONNECTOR
@@ -303,7 +341,7 @@ public final class DoorConstructor {
         }
 
         // Otherwise pick largest walkable component (undirected, no doors)
-        boolean[][] vis = new boolean[h][w];
+        boolean[][] vis = new boolean[h][w]; // computed once (acceptable)
         int bestSize = 0;
         int bestX = -1, bestY = -1;
 
@@ -312,7 +350,7 @@ public final class DoorConstructor {
                 if (vis[y][x]) continue;
                 if (!isWalkable(g[y][x])) continue;
 
-                int size = floodWalkableUndirected(g, x, y, vis);
+                int size = floodWalkableUndirected(g, x, y, vis, bfsNoDist);
                 if (size > bestSize) {
                     bestSize = size;
                     bestX = x;
@@ -325,10 +363,10 @@ public final class DoorConstructor {
         return new int[] { bestX, bestY };
     }
 
-    private static int floodWalkableUndirected(int[][] g, int sx, int sy, boolean[][] vis) {
+    private static int floodWalkableUndirected(int[][] g, int sx, int sy, boolean[][] vis, BfsScratch bfsNoDist) {
         int h = g.length, w = g[0].length;
 
-        int[] q = new int[w * h];
+        int[] q = bfsNoDist.qPos;
         int qi = 0, qj = 0;
 
         q[qj++] = sy * w + sx;
@@ -342,7 +380,6 @@ public final class DoorConstructor {
             int y = pos / w;
             count++;
 
-            // neighbors (undirected walkable-only)
             if (x + 1 < w && !vis[y][x + 1] && isWalkable(g[y][x + 1])) {
                 vis[y][x + 1] = true;
                 q[qj++] = y * w + (x + 1);
@@ -365,7 +402,13 @@ public final class DoorConstructor {
 
     // -------------------- Door choice logic --------------------
 
-    private static int pickOpenSideReachable(int[][] g, int x, int y, SecureRandom rnd, boolean[][] reachableFromMain) {
+    private static int pickOpenSideReachable(
+            int[][] g, int x, int y,
+            SecureRandom rnd,
+            boolean[][] reachableFromMain,
+            BfsScratch bfsNoDist,
+            BfsScratch bfsDist) {
+
         boolean n = isPassable(g[y - 1][x]);
         boolean s = isPassable(g[y + 1][x]);
         boolean w = isPassable(g[y][x - 1]);
@@ -385,8 +428,8 @@ public final class DoorConstructor {
 
             if (!canFromNorth && !canFromSouth) return -1;
 
-            int northScore = canFromNorth ? reachableScore(g, x, y - 1) : 0;
-            int southScore = canFromSouth ? reachableScore(g, x, y + 1) : 0;
+            int northScore = canFromNorth ? reachableScore(g, x, y - 1, bfsNoDist) : 0;
+            int southScore = canFromSouth ? reachableScore(g, x, y + 1, bfsNoDist) : 0;
 
             if (northScore < minLocal && southScore < minLocal) return -1;
 
@@ -405,8 +448,8 @@ public final class DoorConstructor {
 
             if (!canFromWest && !canFromEast) return -1;
 
-            int westScore = canFromWest ? reachableScore(g, x - 1, y) : 0;
-            int eastScore = canFromEast ? reachableScore(g, x + 1, y) : 0;
+            int westScore = canFromWest ? reachableScore(g, x - 1, y, bfsNoDist) : 0;
+            int eastScore = canFromEast ? reachableScore(g, x + 1, y, bfsNoDist) : 0;
 
             if (westScore < minLocal && eastScore < minLocal) return -1;
 
@@ -421,11 +464,11 @@ public final class DoorConstructor {
             }
         }
 
-        if (chosen != -1 && !isSensibleOneWayDoor(g, x, y, chosen)) return -1;
+        if (chosen != -1 && !isSensibleOneWayDoor(g, x, y, chosen, bfsNoDist, bfsDist)) return -1;
         return chosen;
     }
 
-    private static int reachableScore(int[][] g, int sx, int sy) {
+    private static int reachableScore(int[][] g, int sx, int sy, BfsScratch bfsNoDist) {
         int w = g[0].length;
         int h = g.length;
 
@@ -435,13 +478,15 @@ public final class DoorConstructor {
         int score = 0;
         int max = 64;
 
-        boolean[][] vis = new boolean[h][w];
+        int[] q = bfsNoDist.qPos;
+        int[] visited = bfsNoDist.visited;
+        int stamp = bfsNoDist.nextStamp();
 
-        int[] q = new int[w * h];
         int qi = 0, qj = 0;
 
-        q[qj++] = sy * w + sx;
-        vis[sy][sx] = true;
+        int start = sy * w + sx;
+        q[qj++] = start;
+        visited[start] = stamp;
 
         while (qi < qj && score < max) {
             int pos = q[qi++];
@@ -449,21 +494,37 @@ public final class DoorConstructor {
             int y = pos / w;
             score++;
 
-            if (x + 1 < w && !vis[y][x + 1] && canMove(g, x, y, x + 1, y)) {
-                vis[y][x + 1] = true;
-                q[qj++] = y * w + (x + 1);
+            // Right
+            if (x + 1 < w) {
+                int npos = y * w + (x + 1);
+                if (visited[npos] != stamp && canMove(g, x, y, x + 1, y)) {
+                    visited[npos] = stamp;
+                    q[qj++] = npos;
+                }
             }
-            if (x - 1 >= 0 && !vis[y][x - 1] && canMove(g, x, y, x - 1, y)) {
-                vis[y][x - 1] = true;
-                q[qj++] = y * w + (x - 1);
+            // Left
+            if (x - 1 >= 0) {
+                int npos = y * w + (x - 1);
+                if (visited[npos] != stamp && canMove(g, x, y, x - 1, y)) {
+                    visited[npos] = stamp;
+                    q[qj++] = npos;
+                }
             }
-            if (y + 1 < h && !vis[y + 1][x] && canMove(g, x, y, x, y + 1)) {
-                vis[y + 1][x] = true;
-                q[qj++] = (y + 1) * w + x;
+            // Down
+            if (y + 1 < h) {
+                int npos = (y + 1) * w + x;
+                if (visited[npos] != stamp && canMove(g, x, y, x, y + 1)) {
+                    visited[npos] = stamp;
+                    q[qj++] = npos;
+                }
             }
-            if (y - 1 >= 0 && !vis[y - 1][x] && canMove(g, x, y, x, y - 1)) {
-                vis[y - 1][x] = true;
-                q[qj++] = (y - 1) * w + x;
+            // Up
+            if (y - 1 >= 0) {
+                int npos = (y - 1) * w + x;
+                if (visited[npos] != stamp && canMove(g, x, y, x, y - 1)) {
+                    visited[npos] = stamp;
+                    q[qj++] = npos;
+                }
             }
         }
 
@@ -506,9 +567,13 @@ public final class DoorConstructor {
         return true;
     }
 
-    // -------------------- Door quality filters (unchanged) --------------------
+    // -------------------- Door quality filters (same rules, ✅ reuse BFS scratch) --------------------
 
-    private static boolean isSensibleOneWayDoor(int[][] g, int x, int y, int doorValue) {
+    private static boolean isSensibleOneWayDoor(
+            int[][] g, int x, int y, int doorValue,
+            BfsScratch bfsNoDist,
+            BfsScratch bfsDist) {
+
         final int MIN_DEST_REGION = 40;
         final int BRANCH_SEARCH_LIMIT = 20;
         final int MIN_BRANCH_DEGREE = 3;
@@ -519,7 +584,7 @@ public final class DoorConstructor {
         int[] sides = doorSides(x, y, doorValue);
         int ax = sides[0], ay = sides[1], bx = sides[2], by = sides[3];
 
-        int bypass = bypassDistanceWithoutDoorCell(g, ax, ay, bx, by, x, y, MAX_BYPASS_DIST);
+        int bypass = bypassDistanceWithoutDoorCell(g, ax, ay, bx, by, x, y, MAX_BYPASS_DIST, bfsDist);
         if (bypass != Integer.MAX_VALUE && bypass <= MAX_BYPASS_DIST) {
             g[y][x] = old;
             return false;
@@ -543,13 +608,13 @@ public final class DoorConstructor {
             return false;
         }
 
-        int region = directedFloodCount(g, tx, ty, MIN_DEST_REGION);
+        int region = directedFloodCount(g, tx, ty, MIN_DEST_REGION, bfsNoDist);
         if (region < MIN_DEST_REGION) {
             g[y][x] = old;
             return false;
         }
 
-        if (!hasBranchingNearby(g, tx, ty, BRANCH_SEARCH_LIMIT, MIN_BRANCH_DEGREE)) {
+        if (!hasBranchingNearby(g, tx, ty, BRANCH_SEARCH_LIMIT, MIN_BRANCH_DEGREE, bfsNoDist)) {
             g[y][x] = old;
             return false;
         }
@@ -558,15 +623,18 @@ public final class DoorConstructor {
         return true;
     }
 
-    private static boolean hasBranchingNearby(int[][] g, int sx, int sy, int limit, int minDegree) {
+    private static boolean hasBranchingNearby(int[][] g, int sx, int sy, int limit, int minDegree, BfsScratch bfsNoDist) {
         int w = g[0].length, h = g.length;
 
-        boolean[][] vis = new boolean[h][w];
-        int[] q = new int[w * h];
+        int[] q = bfsNoDist.qPos;
+        int[] visited = bfsNoDist.visited;
+        int stamp = bfsNoDist.nextStamp();
+
         int qi = 0, qj = 0;
 
-        q[qj++] = sy * w + sx;
-        vis[sy][sx] = true;
+        int start = sy * w + sx;
+        q[qj++] = start;
+        visited[start] = stamp;
 
         int seen = 0;
 
@@ -584,46 +652,54 @@ public final class DoorConstructor {
 
             if (degree >= minDegree) return true;
 
-            if (x + 1 < w && !vis[y][x + 1] && canMove(g, x, y, x + 1, y)) {
-                vis[y][x + 1] = true;
-                q[qj++] = y * w + (x + 1);
+            // Right
+            if (x + 1 < w) {
+                int npos = y * w + (x + 1);
+                if (visited[npos] != stamp && canMove(g, x, y, x + 1, y)) {
+                    visited[npos] = stamp;
+                    q[qj++] = npos;
+                }
             }
-            if (x - 1 >= 0 && !vis[y][x - 1] && canMove(g, x, y, x - 1, y)) {
-                vis[y][x - 1] = true;
-                q[qj++] = y * w + (x - 1);
+            // Left
+            if (x - 1 >= 0) {
+                int npos = y * w + (x - 1);
+                if (visited[npos] != stamp && canMove(g, x, y, x - 1, y)) {
+                    visited[npos] = stamp;
+                    q[qj++] = npos;
+                }
             }
-            if (y + 1 < h && !vis[y + 1][x] && canMove(g, x, y, x, y + 1)) {
-                vis[y + 1][x] = true;
-                q[qj++] = (y + 1) * w + x;
+            // Down
+            if (y + 1 < h) {
+                int npos = (y + 1) * w + x;
+                if (visited[npos] != stamp && canMove(g, x, y, x, y + 1)) {
+                    visited[npos] = stamp;
+                    q[qj++] = npos;
+                }
             }
-            if (y - 1 >= 0 && !vis[y - 1][x] && canMove(g, x, y, x, y - 1)) {
-                vis[y - 1][x] = true;
-                q[qj++] = (y - 1) * w + x;
+            // Up
+            if (y - 1 >= 0) {
+                int npos = (y - 1) * w + x;
+                if (visited[npos] != stamp && canMove(g, x, y, x, y - 1)) {
+                    visited[npos] = stamp;
+                    q[qj++] = npos;
+                }
             }
         }
         return false;
     }
 
-    @SuppressWarnings("unused")
-    private static int countOutgoingMoves(int[][] g, int x, int y) {
-        int w = g[0].length, h = g.length;
-        int out = 0;
-        if (x + 1 < w && canMove(g, x, y, x + 1, y)) out++;
-        if (x - 1 >= 0 && canMove(g, x, y, x - 1, y)) out++;
-        if (y + 1 < h && canMove(g, x, y, x, y + 1)) out++;
-        if (y - 1 >= 0 && canMove(g, x, y, x, y - 1)) out++;
-        return out;
-    }
-
-    private static int directedFloodCount(int[][] g, int sx, int sy, int limit) {
+    private static int directedFloodCount(int[][] g, int sx, int sy, int limit, BfsScratch bfsNoDist) {
         int w = g[0].length, h = g.length;
 
-        boolean[][] vis = new boolean[h][w];
-        int[] q = new int[w * h];
+        int[] q = bfsNoDist.qPos;
+        int[] visited = bfsNoDist.visited;
+        int stamp = bfsNoDist.nextStamp();
+
         int qi = 0, qj = 0;
 
-        q[qj++] = sy * w + sx;
-        vis[sy][sx] = true;
+        int start = sy * w + sx;
+        q[qj++] = start;
+        visited[start] = stamp;
 
         int count = 0;
 
@@ -633,44 +709,65 @@ public final class DoorConstructor {
             int y = pos / w;
             count++;
 
-            if (x + 1 < w && !vis[y][x + 1] && canMove(g, x, y, x + 1, y)) {
-                vis[y][x + 1] = true;
-                q[qj++] = y * w + (x + 1);
+            // Right
+            if (x + 1 < w) {
+                int npos = y * w + (x + 1);
+                if (visited[npos] != stamp && canMove(g, x, y, x + 1, y)) {
+                    visited[npos] = stamp;
+                    q[qj++] = npos;
+                }
             }
-            if (x - 1 >= 0 && !vis[y][x - 1] && canMove(g, x, y, x - 1, y)) {
-                vis[y][x - 1] = true;
-                q[qj++] = y * w + (x - 1);
+            // Left
+            if (x - 1 >= 0) {
+                int npos = y * w + (x - 1);
+                if (visited[npos] != stamp && canMove(g, x, y, x - 1, y)) {
+                    visited[npos] = stamp;
+                    q[qj++] = npos;
+                }
             }
-            if (y + 1 < h && !vis[y + 1][x] && canMove(g, x, y, x, y + 1)) {
-                vis[y + 1][x] = true;
-                q[qj++] = (y + 1) * w + x;
+            // Down
+            if (y + 1 < h) {
+                int npos = (y + 1) * w + x;
+                if (visited[npos] != stamp && canMove(g, x, y, x, y + 1)) {
+                    visited[npos] = stamp;
+                    q[qj++] = npos;
+                }
             }
-            if (y - 1 >= 0 && !vis[y - 1][x] && canMove(g, x, y, x, y - 1)) {
-                vis[y - 1][x] = true;
-                q[qj++] = (y - 1) * w + x;
+            // Up
+            if (y - 1 >= 0) {
+                int npos = (y - 1) * w + x;
+                if (visited[npos] != stamp && canMove(g, x, y, x, y - 1)) {
+                    visited[npos] = stamp;
+                    q[qj++] = npos;
+                }
             }
         }
         return count;
     }
 
-    private static int bypassDistanceWithoutDoorCell(int[][] g,
+    private static int bypassDistanceWithoutDoorCell(
+            int[][] g,
             int ax, int ay, int bx, int by,
             int doorX, int doorY,
-            int maxDist) {
+            int maxDist,
+            BfsScratch bfsDist) {
 
         int h = g.length, w = g[0].length;
         if (!inBounds(ax, ay, w, h) || !inBounds(bx, by, w, h)) return Integer.MAX_VALUE;
         if (!isPassable(g[ay][ax]) || !isPassable(g[by][bx])) return Integer.MAX_VALUE;
 
-        boolean[][] vis = new boolean[h][w];
-        int[] qPos = new int[w * h];
-        int[] qDist = new int[w * h];
+        int[] qPos = bfsDist.qPos;
+        int[] qDist = bfsDist.qDist;
+        int[] visited = bfsDist.visited;
+        int stamp = bfsDist.nextStamp();
+
         int qi = 0, qj = 0;
 
-        qPos[qj] = ay * w + ax;
+        int start = ay * w + ax;
+        qPos[qj] = start;
         qDist[qj] = 0;
         qj++;
-        vis[ay][ax] = true;
+        visited[start] = stamp;
 
         while (qi < qj) {
             int pos = qPos[qi];
@@ -688,9 +785,10 @@ public final class DoorConstructor {
             // Right
             if (x + 1 < w) {
                 int nx = x + 1, ny = y;
-                if (!vis[ny][nx] && !(nx == doorX && ny == doorY) && isPassable(g[ny][nx])) {
-                    vis[ny][nx] = true;
-                    qPos[qj] = ny * w + nx;
+                int npos = ny * w + nx;
+                if (visited[npos] != stamp && !(nx == doorX && ny == doorY) && isPassable(g[ny][nx])) {
+                    visited[npos] = stamp;
+                    qPos[qj] = npos;
                     qDist[qj] = d + 1;
                     qj++;
                 }
@@ -698,9 +796,10 @@ public final class DoorConstructor {
             // Left
             if (x - 1 >= 0) {
                 int nx = x - 1, ny = y;
-                if (!vis[ny][nx] && !(nx == doorX && ny == doorY) && isPassable(g[ny][nx])) {
-                    vis[ny][nx] = true;
-                    qPos[qj] = ny * w + nx;
+                int npos = ny * w + nx;
+                if (visited[npos] != stamp && !(nx == doorX && ny == doorY) && isPassable(g[ny][nx])) {
+                    visited[npos] = stamp;
+                    qPos[qj] = npos;
                     qDist[qj] = d + 1;
                     qj++;
                 }
@@ -708,9 +807,10 @@ public final class DoorConstructor {
             // Down
             if (y + 1 < h) {
                 int nx = x, ny = y + 1;
-                if (!vis[ny][nx] && !(nx == doorX && ny == doorY) && isPassable(g[ny][nx])) {
-                    vis[ny][nx] = true;
-                    qPos[qj] = ny * w + nx;
+                int npos = ny * w + nx;
+                if (visited[npos] != stamp && !(nx == doorX && ny == doorY) && isPassable(g[ny][nx])) {
+                    visited[npos] = stamp;
+                    qPos[qj] = npos;
                     qDist[qj] = d + 1;
                     qj++;
                 }
@@ -718,9 +818,10 @@ public final class DoorConstructor {
             // Up
             if (y - 1 >= 0) {
                 int nx = x, ny = y - 1;
-                if (!vis[ny][nx] && !(nx == doorX && ny == doorY) && isPassable(g[ny][nx])) {
-                    vis[ny][nx] = true;
-                    qPos[qj] = ny * w + nx;
+                int npos = ny * w + nx;
+                if (visited[npos] != stamp && !(nx == doorX && ny == doorY) && isPassable(g[ny][nx])) {
+                    visited[npos] = stamp;
+                    qPos[qj] = npos;
                     qDist[qj] = d + 1;
                     qj++;
                 }

@@ -38,7 +38,6 @@ public enum BasicItemType implements ItemType {
         PORTAL_GUN.setSpawnBlacklist(
                 CHEAT_PATH,
                 HIDDEN_CHEAT_PATH,
-                CHEAT_WALL,
                 ICE);
     }
 
