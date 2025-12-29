@@ -3,6 +3,8 @@ package com.jairo.services.sub_simulator;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.List;
+import java.util.Set;
+
 import com.jairo.utils.KeyBind.Action;
 
 public class KonamiDetector {
@@ -14,6 +16,8 @@ public class KonamiDetector {
             Action.LEFT, Action.RIGHT,
             Action.ZOOM_IN, Action.ZOOM_OUT,
             Action.ACTIVE_KONAMI);
+    
+    private static final Set<Action> BLACKLIST = Set.of(Action.NONE);
 
     private final List<Action> keyCombination;
     private final Deque<Action> buffer;
@@ -35,6 +39,9 @@ public class KonamiDetector {
     /** Devuelve true justo cuando se completa la secuencia */
     public boolean push(Action a) {
         if (a == null)
+            return false;
+    
+        if (BLACKLIST.contains(a))
             return false;
 
         if (!keyCombination.contains(a))

@@ -19,7 +19,8 @@ public class SimulatorLoader {
 
     private static final Logger log = LoggerFactory.getLogger(SimulatorLoader.class);
 
-    private SimulatorLoader() {}
+    private SimulatorLoader() {
+    }
 
     private static final boolean FORCE_REACHABLE_EXIT = true;
     private static final int MAX_TRIES = 50;
@@ -149,14 +150,19 @@ public class SimulatorLoader {
         // ───────────── Colocación items ─────────────
         long itemsStart = System.nanoTime();
 
-        ItemPlacer placer = new ItemPlacer();
-        placer.placeObjects(
-                board.getCells(),
-                player.getX(),
-                player.getY(),
-                board.getExitX(),
-                board.getExitY(),
-                items);
+        ItemPlacer placer;
+        int count;
+
+        do {
+            placer = new ItemPlacer();
+            count = placer.placeObjects(
+                    board.getCells(),
+                    player.getX(),
+                    player.getY(),
+                    board.getExitX(),
+                    board.getExitY(),
+                    items);
+        } while (count < items.size());
 
         long itemsEnd = System.nanoTime();
         logTimeMs("Colocación items", itemsStart, itemsEnd);
@@ -193,22 +199,26 @@ public class SimulatorLoader {
         int height = Board.BOARD_HEIGHT;
 
         for (int x = 0; x < width; x++) {
-            if (exitY == 0 && exitX == x) continue;
+            if (exitY == 0 && exitX == x)
+                continue;
             board.updateTile(x, 0, Cells.WALL, false);
         }
 
         for (int x = 0; x < width; x++) {
-            if (exitY == height - 1 && exitX == x) continue;
+            if (exitY == height - 1 && exitX == x)
+                continue;
             board.updateTile(x, height - 1, Cells.WALL, false);
         }
 
         for (int y = 1; y < height - 1; y++) {
-            if (exitY == y && exitX == 0) continue;
+            if (exitY == y && exitX == 0)
+                continue;
             board.updateTile(0, y, Cells.WALL, false);
         }
 
         for (int y = 1; y < height - 1; y++) {
-            if (exitY == y && exitX == width - 1) continue;
+            if (exitY == y && exitX == width - 1)
+                continue;
             board.updateTile(width - 1, y, Cells.WALL, false);
         }
     }

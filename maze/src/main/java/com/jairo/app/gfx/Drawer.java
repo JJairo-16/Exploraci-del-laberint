@@ -295,6 +295,7 @@ public class Drawer {
 
         renderPosition(model);
         renderCoins(model);
+        darkOverlay(false);
         renderHudOrderedItems(model);
 
         renderInventory();

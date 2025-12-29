@@ -2,7 +2,6 @@ package com.jairo.items;
 
 import com.jairo.app.gfx.Sprite;
 import com.jairo.items.placement.RelaxPlan;
-import com.jairo.utils.map_generator.Cells;
 
 import java.util.List;
 

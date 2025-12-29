@@ -49,7 +49,7 @@ public class ItemPlacer {
 
     /* ===================== API (UNCHANGED) ===================== */
 
-    public void placeObjects(
+    public int placeObjects(
             List<List<Integer>> cells,
             int playerX,
             int playerY,
@@ -109,6 +109,8 @@ public class ItemPlacer {
 
         if (logItemPlacer)
             ItemLogger.summary();
+    
+        return placedItems.size();
     }
 
     public List<PlacedItem> getPlacedItems() {
@@ -393,6 +395,17 @@ public class ItemPlacer {
         int step = plan.step(c);
         int floor = plan.floor(c);
         int cooldown = plan.cooldown(c);
+
+        // Distancias: nunca por debajo de 0
+        if (floor < 0)
+            floor = 0;
+
+        // Step: evitar 0/negativo (no cambia nada si ya era válido)
+        if (step < 1)
+            step = 1;
+
+        if (cooldown < 0)
+            cooldown = 0;
 
         if (!s.canRelax(c, cooldown))
             return false;
