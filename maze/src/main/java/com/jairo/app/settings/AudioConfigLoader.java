@@ -8,7 +8,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 public final class AudioConfigLoader {
-    private AudioConfigLoader() {}
+    private AudioConfigLoader() {
+    }
 
     // Defaults (UI 0..1)
     public static final double DEFAULT_MASTER_UI = 0.90;
@@ -38,8 +39,10 @@ public final class AudioConfigLoader {
      * { "audio": { ... } }
      */
     public static void saveToFile(Path filePath, AudioConfig cfg) {
-        if (filePath == null) throw new IllegalArgumentException("filePath is null");
-        if (cfg == null) cfg = AudioConfig.defaults();
+        if (filePath == null)
+            throw new IllegalArgumentException("filePath is null");
+        if (cfg == null)
+            cfg = AudioConfig.defaults();
 
         try {
             if (filePath.getParent() != null) {
@@ -48,9 +51,9 @@ public final class AudioConfigLoader {
 
             RootConfig root = new RootConfig();
             root.audio = new AudioSection();
-            root.audio.master = clamp01(cfg.masterUi);
-            root.audio.bgm = clamp01(cfg.bgmUi);
-            root.audio.sfx = clamp01(cfg.sfxUi);
+            root.audio.master = quantize01(cfg.masterUi);
+            root.audio.bgm = quantize01(cfg.bgmUi);
+            root.audio.sfx = quantize01(cfg.sfxUi);
             root.audio.muted = cfg.muted;
 
             String out = mapper().writeValueAsString(root);
@@ -60,25 +63,35 @@ public final class AudioConfigLoader {
         }
     }
 
+    private static double quantize01(double v) {
+        v = clamp01(v);
+        return Math.round(v * 100.0) / 100.0;
+    }
+
     /** Convierte RootConfig parcial -> AudioConfig con defaults */
     public static AudioConfig getOrDefault(RootConfig root) {
-        if (root == null || root.audio == null) return AudioConfig.defaults();
+        if (root == null || root.audio == null)
+            return AudioConfig.defaults();
 
         AudioSection a = root.audio;
 
-        double master = clamp01(orDefault(a.master, DEFAULT_MASTER_UI));
-        double bgm    = clamp01(orDefault(a.bgm, DEFAULT_BGM_UI));
-        double sfx    = clamp01(orDefault(a.sfx, DEFAULT_SFX_UI));
+        double master = quantize01(orDefault(a.master, DEFAULT_MASTER_UI));
+        double bgm = quantize01(orDefault(a.bgm, DEFAULT_BGM_UI));
+        double sfx = quantize01(orDefault(a.sfx, DEFAULT_SFX_UI));
         boolean muted = (a.muted != null) ? a.muted : DEFAULT_MUTED;
 
         return new AudioConfig(master, bgm, sfx, muted);
     }
 
-    private static double orDefault(Double v, double def) { return (v != null) ? v : def; }
+    private static double orDefault(Double v, double def) {
+        return (v != null) ? v : def;
+    }
 
     private static double clamp01(double v) {
-        if (v < 0) return 0;
-        if (v > 1) return 1;
+        if (v < 0)
+            return 0;
+        if (v > 1)
+            return 1;
         return v;
     }
 

@@ -13,7 +13,7 @@ import java.util.concurrent.ThreadLocalRandom;
 
 import static com.jairo.utils.map_generator.Cells.*;
 
-public class TeleportPadSystem {
+public class TeleportGunSystem {
 
     private final Board board;
     private final Player player;
@@ -27,12 +27,12 @@ public class TeleportPadSystem {
     private int lastDestX = Integer.MIN_VALUE;
     private int lastDestY = Integer.MIN_VALUE;
 
-    public TeleportPadSystem(Board board, Player player, ItemPlacer placer) {
+    public TeleportGunSystem(Board board, Player player, ItemPlacer placer) {
         this(board, player, placer, 30, 30, 2500);
     }
 
-    public TeleportPadSystem(Board board, Player player, ItemPlacer placer,
-                             int minDistFromCurrentPos, int minDistFromAnyPad, int randomTries) {
+    public TeleportGunSystem(Board board, Player player, ItemPlacer placer,
+            int minDistFromCurrentPos, int minDistFromAnyPad, int randomTries) {
         this.board = board;
         this.player = player;
         this.placer = placer;
@@ -41,7 +41,8 @@ public class TeleportPadSystem {
         this.randomTries = randomTries;
     }
 
-    public record Destination(boolean found, int x, int y) {}
+    public record Destination(boolean found, int x, int y) {
+    }
 
     public Destination findAndPrintDestination() {
         int fromX = player.getX();
@@ -64,8 +65,7 @@ public class TeleportPadSystem {
                                 + " | distJugador=" + distFromPlayer
                                 + " | distPadMasCercano=" + distFromNearestPad
                                 + " | minUsadaJugador=" + dPlayer
-                                + " | minUsadaPad=" + dPad
-                );
+                                + " | minUsadaPad=" + dPad);
 
                 // NUEVO: guardar último destino elegido
                 lastDestX = dest[0];
@@ -75,11 +75,15 @@ public class TeleportPadSystem {
             }
 
             if (reducePlayerNext) {
-                if (dPlayer > 0) dPlayer--;
-                else if (dPad > 0) dPad--;
+                if (dPlayer > 0)
+                    dPlayer--;
+                else if (dPad > 0)
+                    dPad--;
             } else {
-                if (dPad > 0) dPad--;
-                else if (dPlayer > 0) dPlayer--;
+                if (dPad > 0)
+                    dPad--;
+                else if (dPlayer > 0)
+                    dPlayer--;
             }
 
             reducePlayerNext = !reducePlayerNext;
@@ -95,34 +99,49 @@ public class TeleportPadSystem {
             int x = ThreadLocalRandom.current().nextInt(Board.BOARD_WIDTH);
             int y = ThreadLocalRandom.current().nextInt(Board.BOARD_HEIGHT);
 
-            if (x == fromX && y == fromY) continue;
-            if (!isWalkable(x, y)) continue;
-            if (isTeleportPadTile(x, y, pads)) continue;
+            if (x == fromX && y == fromY)
+                continue;
+            if (!isWalkable(x, y))
+                continue;
+            if (isTeleportPadTile(x, y, pads))
+                continue;
 
-            if (manhattan(fromX, fromY, x, y) < minPlayerDist) continue;
-            if (tooCloseToAnyPad(x, y, pads, minPadDist)) continue;
+            if (manhattan(fromX, fromY, x, y) < minPlayerDist)
+                continue;
+            if (tooCloseToAnyPad(x, y, pads, minPadDist))
+                continue;
 
-            // Nota: aquí NO evitamos el último destino porque no sabemos si existen alternativas.
+            // Nota: aquí NO evitamos el último destino porque no sabemos si existen
+            // alternativas.
             // La garantía se aplica en el fallback donde sí conocemos candidates.size().
-            return new int[]{x, y};
+            return new int[] { x, y };
         }
 
         // Fallback: escaneo completo
         List<int[]> candidates = new ArrayList<>();
-        for (int y = 0; y < Board.BOARD_HEIGHT; y++) {
-            for (int x = 0; x < Board.BOARD_WIDTH; x++) {
-                if (x == fromX && y == fromY) continue;
-                if (!isWalkable(x, y)) continue;
-                if (isTeleportPadTile(x, y, pads)) continue;
+        for (int y = 1; y < Board.BOARD_HEIGHT - 1; y++) {
+            for (int x = 1; x < Board.BOARD_WIDTH - 1; x++) {
+                if (x == fromX && y == fromY)
+                    continue;
+                if (!isWalkable(x, y))
+                    continue;
+                if (isTeleportPadTile(x, y, pads))
+                    continue;
 
-                if (manhattan(fromX, fromY, x, y) < minPlayerDist) continue;
-                if (tooCloseToAnyPad(x, y, pads, minPadDist)) continue;
+                if (manhattan(fromX, fromY, x, y) < minPlayerDist)
+                    continue;
+                if (tooCloseToAnyPad(x, y, pads, minPadDist))
+                    continue;
 
-                candidates.add(new int[]{x, y});
+                if (tooCloseToAnyPortalGun(x, y))
+                    continue;
+
+                candidates.add(new int[] { x, y });
             }
         }
 
-        if (candidates.isEmpty()) return null;
+        if (candidates.isEmpty())
+            return null;
 
         // NUEVO: si hay 2+ candidatos, no permitir repetir el último destino
         if (candidates.size() >= 2 && lastDestX != Integer.MIN_VALUE) {
@@ -141,24 +160,28 @@ public class TeleportPadSystem {
 
     private boolean tooCloseToAnyPad(int x, int y, List<int[]> pads, int minPadDist) {
         for (int[] p : pads) {
-            if (manhattan(p[0], p[1], x, y) < minPadDist) return true;
+            if (manhattan(p[0], p[1], x, y) < minPadDist)
+                return true;
         }
         return false;
     }
 
     private boolean isTeleportPadTile(int x, int y, List<int[]> pads) {
         for (int[] p : pads) {
-            if (p[0] == x && p[1] == y) return true;
+            if (p[0] == x && p[1] == y)
+                return true;
         }
         return false;
     }
 
     private int distanceToNearestPad(int x, int y, List<int[]> pads) {
-        if (pads.isEmpty()) return Integer.MAX_VALUE;
+        if (pads.isEmpty())
+            return Integer.MAX_VALUE;
         int best = Integer.MAX_VALUE;
         for (int[] p : pads) {
             int d = manhattan(p[0], p[1], x, y);
-            if (d < best) best = d;
+            if (d < best)
+                best = d;
         }
         return best;
     }
@@ -167,7 +190,7 @@ public class TeleportPadSystem {
         List<int[]> out = new ArrayList<>();
         for (PlacedItem it : placer.getPlacedItems()) {
             if (it.getType() == BasicItemType.PORTAL_GUN) {
-                out.add(new int[]{it.getX(), it.getY()});
+                out.add(new int[] { it.getX(), it.getY() });
             }
         }
         return out;
@@ -175,7 +198,8 @@ public class TeleportPadSystem {
 
     private boolean isWalkable(int x, int y) {
         int tile = board.getTile(x, y);
-        if (Cells.hasCollision(tile)) return false;
+        if (Cells.hasCollision(tile))
+            return false;
 
         switch (tile) {
             case EXIT:
@@ -190,4 +214,34 @@ public class TeleportPadSystem {
     private int manhattan(int x1, int y1, int x2, int y2) {
         return Math.abs(x1 - x2) + Math.abs(y1 - y2);
     }
+
+    private static final int DIST_RATIO = 2;
+
+    private boolean tooCloseToAnyPortalGun(int x, int y) {
+        // Radio “extra” alrededor del destino. Ajusta si quieres que sea más/menos
+        // estricto.
+        // Ejemplo: si minDistFromAnyPad=30 y DIST_RATIO=2 => radio=15.
+        int radius = Math.max(1, minDistFromAnyPad / DIST_RATIO);
+
+        int minX = x - radius;
+        int maxX = x + radius;
+        int minY = y - radius;
+        int maxY = y + radius;
+
+        // Trae solo los ítems en la caja del radio (mucho más rápido que recorrer t0do).
+        List<PlacedItem> nearby = placer.getPlacedItems(minX, minY, maxX, maxY);
+
+        for (PlacedItem it : nearby) {
+            if (it.getType() != BasicItemType.PORTAL_GUN)
+                continue;
+
+            int d = manhattan(x, y, it.getX(), it.getY());
+            if (d <= radius) {
+                return true; // hay un PortalGun dentro del radio
+            }
+        }
+
+        return false;
+    }
+
 }

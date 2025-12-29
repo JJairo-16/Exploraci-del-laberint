@@ -194,32 +194,26 @@ public class SimulatorLoader {
     // ---- resto de tu clase tal cual ----
 
     private static void cleanRediusOfGhostRoom(Board board, int exitX, int exitY) {
+        int w = Board.BOARD_WIDTH;
+        int h = Board.BOARD_HEIGHT;
 
-        int width = Board.BOARD_WIDTH;
-        int height = Board.BOARD_HEIGHT;
+        boolean exitTop = exitY == 0;
+        boolean exitBottom = exitY == h - 1;
+        boolean exitLeft = exitX == 0;
+        boolean exitRight = exitX == w - 1;
 
-        for (int x = 0; x < width; x++) {
-            if (exitY == 0 && exitX == x)
-                continue;
-            board.updateTile(x, 0, Cells.WALL, false);
+        for (int x = 0; x < w; x++) {
+            if (!(exitTop && exitX == x))
+                board.updateTile(x, 0, Cells.WALL, false);
+            if (!(exitBottom && exitX == x))
+                board.updateTile(x, h - 1, Cells.WALL, false);
         }
 
-        for (int x = 0; x < width; x++) {
-            if (exitY == height - 1 && exitX == x)
-                continue;
-            board.updateTile(x, height - 1, Cells.WALL, false);
-        }
-
-        for (int y = 1; y < height - 1; y++) {
-            if (exitY == y && exitX == 0)
-                continue;
-            board.updateTile(0, y, Cells.WALL, false);
-        }
-
-        for (int y = 1; y < height - 1; y++) {
-            if (exitY == y && exitX == width - 1)
-                continue;
-            board.updateTile(width - 1, y, Cells.WALL, false);
+        for (int y = 1; y < h - 1; y++) {
+            if (!(exitLeft && exitY == y))
+                board.updateTile(0, y, Cells.WALL, false);
+            if (!(exitRight && exitY == y))
+                board.updateTile(w - 1, y, Cells.WALL, false);
         }
     }
 

@@ -36,7 +36,7 @@ import com.jairo.services.sub_simulator.KonamiDetector;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
-import com.jairo.services.sub_simulator.TeleportPadSystem;
+import com.jairo.services.sub_simulator.TeleportGunSystem;
 
 public class Simulator {
     private static final Logger log = LoggerFactory.getLogger(Simulator.class);
@@ -44,7 +44,7 @@ public class Simulator {
     private Player player;
     private ItemPlacer placer;
     private final Inventory inventory = new Inventory();
-    private final TeleportPadSystem teleportPadSystem;
+    private final TeleportGunSystem teleportPadSystem;
 
     private Board board;
     private Drawer drawer;
@@ -113,7 +113,7 @@ public class Simulator {
         this.iceSystem = new IceSlideSystem(board, player);
         this.doorSystem = new DoorSystem(board);
         this.cheatWallSystem = new CheatWallActivationSystem(board);
-        this.teleportPadSystem = new TeleportPadSystem(board, player, placer);
+        this.teleportPadSystem = new TeleportGunSystem(board, player, placer);
 
         iceSystem.setSlideSfx(new IceSlideSystem.SlideSfx() {
             @Override
@@ -423,7 +423,7 @@ public class Simulator {
                 break;
 
             case BasicItemType.PORTAL_GUN:
-                TeleportPadSystem.Destination dest = teleportPadSystem.findAndPrintDestination();
+                TeleportGunSystem.Destination dest = teleportPadSystem.findAndPrintDestination();
                 if (!dest.found())
                     return;
 

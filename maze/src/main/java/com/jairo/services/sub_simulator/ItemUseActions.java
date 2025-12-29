@@ -98,7 +98,7 @@ public class ItemUseActions {
             return;
         }
 
-        if (doorSystem.isAnyDoor(cell)) {
+        if (doorSystem.isDoorClosed(cell)) {
             boolean opened = false;
 
             if (doorSystem.isDoorClosedButOpenable(cell)) {
@@ -114,15 +114,6 @@ public class ItemUseActions {
             if (Cells.playMetalSound(cell)) {
                 playDoorHit();
             }
-            return;
-        }
-
-        boolean isBorderWall = nx <= 0 || ny <= 0 ||
-                nx >= Board.BOARD_WIDTH - 1 ||
-                ny >= Board.BOARD_HEIGHT - 1;
-
-        if (isBorderWall) {
-            playDoorHit();
             return;
         }
 

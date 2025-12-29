@@ -54,7 +54,7 @@ public final class SettingsOverlay {
     private boolean open = false;
 
     // --- AppData ---
-    private static final String APP_NAME = "JairoApp"; // <-- cambia esto si quieres
+    private static final String APP_NAME = "labyrinthExploration";
     private static final Path SETTINGS_FILE = getAppDataConfigPath(APP_NAME, "config.json");
 
     // ---- Aplicados ----
@@ -121,6 +121,10 @@ public final class SettingsOverlay {
         bindPercentLabel(this.masterSlider, this.masterPct);
         bindPercentLabel(this.bgmSlider, this.bgmPct);
         bindPercentLabel(this.sfxSlider, this.sfxPct);
+
+        configureSlider(this.masterSlider);
+        configureSlider(this.bgmSlider);
+        configureSlider(this.sfxSlider);
 
         this.drawer = drawer;
 
@@ -280,17 +284,22 @@ public final class SettingsOverlay {
     }
 
     private double normalizeUiSlider(Slider slider, double ui) {
-        double mapped = ConfigHelper.getVolum(ui);
-        if (Math.abs(mapped - ui) > EPS) {
+        double q = quantize01(ui);
+
+        if (Math.abs(q - ui) > EPS) {
             internalChange = true;
             try {
-                slider.setValue(mapped);
+                slider.setValue(q);
             } finally {
                 internalChange = false;
             }
-            return mapped;
         }
-        return ui;
+        return q;
+    }
+
+    private static double quantize01(double v) {
+        v = Math.max(0.0, Math.min(1.0, v));
+        return Math.round(v * 100.0) / 100.0;
     }
 
     private void bindPercentLabel(Slider slider, Label label) {
@@ -298,6 +307,17 @@ public final class SettingsOverlay {
             return;
         label.textProperty().bind(Bindings.format("%.0f%%", slider.valueProperty().multiply(100)));
         label.setMouseTransparent(true);
+    }
+
+    private void configureSlider(Slider s) {
+        if (s == null)
+            return;
+        s.setMin(0.0);
+        s.setMax(1.0);
+        s.setBlockIncrement(0.01);
+        s.setMajorTickUnit(0.10);
+        s.setMinorTickCount(9); // 10 pasos dentro del 0.10
+        s.setSnapToTicks(true);
     }
 
     /** Carga desde AppData si existe; si no existe (o falla), defaults. */
