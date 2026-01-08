@@ -168,6 +168,7 @@ public enum BasicItemType implements ItemType {
             .weightDecay(0.75)
             .floor(Constraint.BETWEEN, 20)
             .scanMode(ScanMode.ANY_TYPE)
+            .precheckPlayerDistance(true)
             .build();
 
     private static final RelaxPlan mapRelaxPlan = RelaxPlan.builder()

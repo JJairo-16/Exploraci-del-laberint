@@ -3,24 +3,16 @@ package com.jairo.app.loop;
 /**
  * Adaptive frame pacing aiming for stable frame times.
  *
- * Usage pattern (typical):
- *   long frameStart = System.nanoTime();
- *   if (pacer.shouldRender(frameStart)) {
- *       // update + render
- *   } else {
- *       // skip render (optional: still update fixed-step / input, depending on your engine)
- *   }
- *   long frameEnd = System.nanoTime();
- *   pacer.onFrameFinished(frameEnd, frameEnd - frameStart);
- *
- * Notes:
- * - This class only decides *when* you should render next; it does not sleep/yield for you.
- * - If your loop busy-waits while shouldRender() == false, you will burn CPU and increase jitter.
+ * Adds dynamic max-fps capping (foreground/background/afk), by allowing
+ * changing the effective max fps at runtime.
  */
 public final class AdaptiveFramePacer {
 
     private final int minFps;
-    private final int maxFps;
+    private final int absoluteMaxFps;
+
+    // Dynamic cap (can be lowered when background/AFK)
+    private int maxFpsCap;
 
     private long targetFrameNs;
 
@@ -101,7 +93,9 @@ public final class AdaptiveFramePacer {
         if (maxLagFramesToResync < 1) throw new IllegalArgumentException("Bad maxLagFramesToResync");
 
         this.minFps = minFps;
-        this.maxFps = maxFps;
+        this.absoluteMaxFps = maxFps;
+        this.maxFpsCap = maxFps;
+
         this.smoothing = smoothing;
         this.downThreshold = downThreshold;
         this.upThreshold = upThreshold;
@@ -113,7 +107,7 @@ public final class AdaptiveFramePacer {
         this.stepUpFps = stepUpFps;
         this.maxLagFramesToResync = maxLagFramesToResync;
 
-        setTargetFps(maxFps); // start high (you can change this to 60 if you prefer)
+        setTargetFps(maxFps); // start high
     }
 
     public int getTargetFps() {
@@ -124,17 +118,39 @@ public final class AdaptiveFramePacer {
         return targetFrameNs;
     }
 
+    public int getMaxFpsCap() {
+        return maxFpsCap;
+    }
+
+    /**
+     * Dynamically changes the effective max fps cap. This is what you use for
+     * foreground/background/AFK.
+     */
+    public void setMaxFpsCap(int cap) {
+        cap = clampInt(cap, minFps, absoluteMaxFps);
+
+        if (cap == this.maxFpsCap) return;
+
+        this.maxFpsCap = cap;
+
+        // If current target exceeds the new cap, clamp immediately.
+        int target = getTargetFps();
+        if (target > cap) {
+            setTargetFps(cap);
+            // resync timeline to avoid long "no render" gaps after a big cap drop
+            nextFrameAllowedNs = 0L;
+        }
+    }
+
     public void setTargetFps(int fps) {
-        fps = clampInt(fps, minFps, maxFps);
+        fps = clampInt(fps, minFps, maxFpsCap);
         long newFrameNs = (long) (1_000_000_000L / (double) fps);
-        // Avoid 0 due to weird inputs (should not happen with clamp, but safe)
         if (newFrameNs <= 0L) newFrameNs = 1L;
         targetFrameNs = newFrameNs;
     }
 
     /** Returns true if a render is allowed at 'now' (System.nanoTime()). */
     public boolean shouldRender(long now) {
-        // If not yet initialized, allow first render immediately
         return nextFrameAllowedNs == 0L || now >= nextFrameAllowedNs;
     }
 
@@ -146,31 +162,24 @@ public final class AdaptiveFramePacer {
     public void onFrameFinished(long now, long workNs) {
         if (workNs < 0L) workNs = 0L;
 
-        // Initialize timeline on first call
         if (nextFrameAllowedNs == 0L) {
             nextFrameAllowedNs = now + targetFrameNs;
         }
 
-        // How late are we relative to when the next frame should have been allowed?
         long latenessNs = Math.max(0L, now - nextFrameAllowedNs);
 
-        // Clamp extreme spikes so one bad frame doesn't whiplash the controller
         if (avgWorkNs > 0.0) {
             double maxAllowed = avgWorkNs * spikeClampMultiplier;
             if (workNs > maxAllowed) workNs = (long) maxAllowed;
         }
 
-        // Effective work accounts for lateness (stability signal)
         double effectiveWork = workNs + latenessWeight * latenessNs;
 
-        // EMA
         if (avgWorkNs == 0.0) avgWorkNs = effectiveWork;
         else avgWorkNs = (1.0 - smoothing) * avgWorkNs + smoothing * effectiveWork;
 
-        // Ratio: how much of the budget we're consuming
         double ratio = avgWorkNs / targetFrameNs;
 
-        // Accumulate evidence (consecutive-ish)
         if (ratio > downThreshold) {
             downScore++;
             upScore = Math.max(0, upScore - 1);
@@ -178,7 +187,6 @@ public final class AdaptiveFramePacer {
             upScore++;
             downScore = Math.max(0, downScore - 1);
         } else {
-            // In dead-zone: decay both slowly
             downScore = Math.max(0, downScore - 1);
             upScore = Math.max(0, upScore - 1);
         }
@@ -186,8 +194,8 @@ public final class AdaptiveFramePacer {
         boolean canChange = (now - lastChangeNs) >= changeCooldownNs;
         if (canChange) {
             int fps = getTargetFps();
+            int cap = maxFpsCap;
 
-            // If we're very late, treat as strong "down" signal (without tiers)
             boolean veryLate = latenessNs > (long) (0.75 * targetFrameNs);
             int downNeeded = veryLate ? Math.max(1, scoreToChange - 1) : scoreToChange;
 
@@ -195,17 +203,15 @@ public final class AdaptiveFramePacer {
                 setTargetFps(fps - stepDownFps);
                 lastChangeNs = now;
                 resetScores();
-            } else if (upScore >= scoreToChange && fps < maxFps) {
+            } else if (upScore >= scoreToChange && fps < cap) {
                 setTargetFps(fps + stepUpFps);
                 lastChangeNs = now;
                 resetScores();
             }
         }
 
-        // Advance stable timeline (prevents drift/jitter bursts)
         nextFrameAllowedNs += targetFrameNs;
 
-        // If we fell too far behind, resync
         long maxLagNs = maxLagFramesToResync * targetFrameNs;
         if (now - nextFrameAllowedNs > maxLagNs) {
             nextFrameAllowedNs = now + targetFrameNs;

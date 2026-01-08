@@ -109,7 +109,7 @@ public class ItemPlacer {
 
         if (logItemPlacer)
             ItemLogger.summary();
-    
+
         return placedItems.size();
     }
 
@@ -306,6 +306,44 @@ public class ItemPlacer {
         }
     }
 
+    /**
+     * ✅ NEW:
+     * If enabled by RelaxPlan, we can "hard-precheck" player distance by filtering candidates to
+     * distFromPlayer >= minPlayer BEFORE calling selector.
+     *
+     * If hard precheck yields 0 candidates:
+     * - if forcePlaceIfPrecheckFails == true  => return original base (so selector can still place something)
+     * - if forcePlaceIfPrecheckFails == false => return empty (hard block)
+     */
+    private int[] precheckByPlayerDistance(
+            int[] base,
+            int[][] distFromPlayer,
+            int minPlayer,
+            boolean forcePlaceIfPrecheckFails,
+            PlacementSelector.IntBag scratch) {
+
+        if (base == null || base.length == 0)
+            return new int[0];
+
+        if (minPlayer <= 0)
+            return base;
+
+        scratch.size = 0;
+
+        for (int pos : base) {
+            int x = map.xOf(pos);
+            int y = map.yOf(pos);
+            int d = distFromPlayer[y][x];
+            if (d >= minPlayer) scratch.add(pos);
+        }
+
+        if (scratch.size == 0) {
+            return forcePlaceIfPrecheckFails ? base : new int[0];
+        }
+
+        return Arrays.copyOf(scratch.data, scratch.size);
+    }
+
     private void placeTypeGuaranteeing(
             int[][] distFromPlayer,
             int[][] distFromExit,
@@ -330,14 +368,27 @@ public class ItemPlacer {
 
         int[] base = baseCandidatesByType.getOrDefault(type, new int[0]);
 
+        // ✅ NEW: flags read from RelaxPlan (you will implement these getters)
+        boolean doPrecheck = (plan != null) && plan.precheckPlayerDistance();
+        boolean forcePlaceIfPrecheckFails = (plan != null) && plan.forcePlaceIfPrecheckFails();
+
+        // scratch for precheck filtering (only allocated when needed)
+        PlacementSelector.IntBag precheckScratch = doPrecheck
+                ? new PlacementSelector.IntBag(Math.max(256, base.length / 8))
+                : null;
+
         int placed = 0;
 
         // Round 0
+        int[] baseForRound0 = doPrecheck
+                ? precheckByPlayerDistance(base, distFromPlayer, s.minPlayer, forcePlaceIfPrecheckFails, precheckScratch)
+                : base;
+
         placed += selector.placeWithConstraints(
                 distFromPlayer, distFromExit,
                 type, amount - placed,
                 s.minPlayer, s.minExit, s.minBetween, s.minBorder,
-                everEligible, 0, weightFn, base,
+                everEligible, 0, weightFn, baseForRound0,
                 logItemPlacer, placedItems);
 
         if (placed >= amount)
@@ -380,11 +431,15 @@ public class ItemPlacer {
 
             int roundIndex = round + 1;
 
+            int[] baseForThisRound = doPrecheck
+                    ? precheckByPlayerDistance(base, distFromPlayer, s.minPlayer, forcePlaceIfPrecheckFails, precheckScratch)
+                    : base;
+
             placed += selector.placeWithConstraints(
                     distFromPlayer, distFromExit,
                     type, amount - placed,
                     s.minPlayer, s.minExit, s.minBetween, s.minBorder,
-                    everEligible, roundIndex, weightFn, base,
+                    everEligible, roundIndex, weightFn, baseForThisRound,
                     logItemPlacer, placedItems);
         }
     }
@@ -396,11 +451,9 @@ public class ItemPlacer {
         int floor = plan.floor(c);
         int cooldown = plan.cooldown(c);
 
-        // Distancias: nunca por debajo de 0
         if (floor < 0)
             floor = 0;
 
-        // Step: evitar 0/negativo (no cambia nada si ya era válido)
         if (step < 1)
             step = 1;
 

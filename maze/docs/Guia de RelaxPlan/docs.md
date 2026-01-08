@@ -24,6 +24,8 @@ Aquesta guia explica com configurar un `RelaxPlan` amb el patró *builder* per c
     - [`maxStallRounds(int)`](#maxstallroundsint)
     - [`weightDecay(double)`](#weightdecaydouble)
     - [`weightFunction(IntToDoubleFunction)`](#weightfunctioninttodoublefunction)
+    - [`precheckPlayerDistance(boolean)`](#precheckplayerdistanceboolean)
+    - [`forcePlaceIfPrecheckFails(boolean)`](#forceplaceifprecheckfailsboolean)
   - [3. Com es construeix un `RelaxPlan` complet](#3-com-es-construeix-un-relaxplan-complet)
   - [4. Valors per defecte (si no configures res)](#4-valors-per-defecte-si-no-configures-res)
   - [5. Regles pràctiques (per no embolicar-te)](#5-regles-pràctiques-per-no-embolicar-te)
@@ -211,12 +213,30 @@ Defineix la formula amb la qual es calcularà el pes.
 
 ---
 
+### `precheckPlayerDistance(boolean)`
+Defineix si s’ha de fer una comprovació prèvia estricta de la distància al jugador abans de col·locar l’objecte.
+
+```java
+.precheckPlayerDistance(true)
+```
+
+---
+
+### `forcePlaceIfPrecheckFails(boolean)`
+Defineix si s’ha de forçar la col·locació de l’objecte quan la comprovació prèvia de distància al jugador no produeix cap candidat vàlid.
+
+```java
+.forcePlaceIfPrecheckFails(true)
+```
+
+---
+
 ## 3. Com es construeix un `RelaxPlan` complet
 
 Flux correcte:
 
 1. `RelaxPlan.builder()`
-2. Configures opcions (`order`, `step`, `floor`, `cooldown`, `mode`, `scanMode`, `distComparisonMode`, `maxStallRounds`, `maxRounds`, `weightDecay`/`weightFunction`)
+2. Configures opcions (`order`, `step`, `floor`, `cooldown`, `mode`, `scanMode`, `distComparisonMode`, `maxStallRounds`, `maxRounds`, `weightDecay`/`weightFunction`, `precheckPlayerDistance`, `forcePlaceIfPrecheckFails`)
 3. `build()`
 
 ```java
@@ -238,6 +258,8 @@ public RelaxPlan getRelaxPlan() {
             .maxStallRounds(2)
             .maxRounds(30)
             .weightDecay(0.5)
+            .precheckPlayerDistance(true)
+            .forcePlaceIfPrecheckFails(true)
             .build();
 }
 ```

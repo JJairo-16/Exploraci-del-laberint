@@ -1,9 +1,7 @@
 package com.jairo.utils.map_generator.map_modifier;
 
 import java.security.SecureRandom;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
 
 import static com.jairo.utils.map_generator.Cells.*;
 
@@ -16,6 +14,44 @@ public final class DoorConstructor {
     private static final int DOOR_OPEN_FROM_EAST  = 7;
 
     private static final int MAX_BYPASS_DIST = 16;
+
+    // -------------------- ✅ Packed position helpers (no int[]{x,y}) --------------------
+
+    private static int pack(int x, int y, int w) { return y * w + x; }
+    private static int unpackX(int p, int w) { return p % w; }
+    private static int unpackY(int p, int w) { return p / w; }
+
+    /**
+     * Minimal int list with O(1) removeSwapLast and no boxing / no int[] allocations.
+     */
+    private static final class IntList {
+        private int[] a;
+        private int size;
+
+        IntList(int initialCapacity) {
+            this.a = new int[Math.max(4, initialCapacity)];
+            this.size = 0;
+        }
+
+        int size() { return size; }
+        boolean isEmpty() { return size == 0; }
+
+        int get(int idx) { return a[idx]; }
+
+        void add(int v) {
+            if (size == a.length) a = Arrays.copyOf(a, a.length * 2);
+            a[size++] = v;
+        }
+
+        /**
+         * Removes element at idx by swapping last into idx.
+         */
+        void removeSwapLast(int idx) {
+            int last = size - 1;
+            if (idx != last) a[idx] = a[last];
+            size = last;
+        }
+    }
 
     // -------------------- ✅ Reusable BFS buffers (no per-BFS allocs) --------------------
 
@@ -70,13 +106,14 @@ public final class DoorConstructor {
         BfsScratch bfsNoDist = new BfsScratch(width, height, false);
         BfsScratch bfsDist   = new BfsScratch(width, height, true);
 
-        List<int[]> candidates = collectDoorCandidates(g, width, height);
+        // ✅ Candidates and placed doors are packed ints (pos = y*w + x)
+        IntList candidates = collectDoorCandidatesPacked(g, width, height);
         if (candidates.isEmpty()) return baseMap;
 
         int target = Math.max(1, (int) Math.round(countWalkable(g, width, height) * density));
         int placed = 0;
 
-        List<int[]> placedDoors = new ArrayList<>();
+        IntList placedDoors = new IntList(Math.min(target, 256));
 
         int attempts = Math.min(candidates.size() * 3, 8000);
 
@@ -85,18 +122,19 @@ public final class DoorConstructor {
 
         for (int i = 0; i < attempts && placed < target && !candidates.isEmpty(); i++) {
             int idx = rnd.nextInt(candidates.size());
-            int[] c = candidates.get(idx);
-            int x = c[0];
-            int y = c[1];
+            int p = candidates.get(idx);
 
-            if (tooClose(x, y, placedDoors, minSpacing)) {
-                removeSwapLast(candidates, idx);
+            int x = unpackX(p, width);
+            int y = unpackY(p, width);
+
+            if (tooClosePacked(p, placedDoors, minSpacing, width)) {
+                candidates.removeSwapLast(idx);
                 continue;
             }
 
             int openSide = pickOpenSideReachable(g, x, y, rnd, reachableFromMain, bfsNoDist, bfsDist);
             if (openSide == -1) {
-                removeSwapLast(candidates, idx);
+                candidates.removeSwapLast(idx);
                 continue;
             }
 
@@ -106,9 +144,9 @@ public final class DoorConstructor {
             // ✅ Incremental reachable update (no full recompute, no allocs)
             updateReachableAfterDoorPlaced(g, reachableFromMain, x, y, openSide, bfsNoDist);
 
-            placedDoors.add(new int[] { x, y });
+            placedDoors.add(p);
             placed++;
-            removeSwapLast(candidates, idx);
+            candidates.removeSwapLast(idx);
         }
 
         return toMapDataString(g, width, height);
@@ -211,12 +249,6 @@ public final class DoorConstructor {
         }
     }
 
-    private static void removeSwapLast(List<int[]> list, int idx) {
-        int last = list.size() - 1;
-        if (idx != last) list.set(idx, list.get(last));
-        list.remove(last);
-    }
-
     // -------------------- Parsing / writing --------------------
 
     private static int[][] parse(String map, int width, int height) {
@@ -272,10 +304,12 @@ public final class DoorConstructor {
         return c;
     }
 
-    // -------------------- Candidate collection --------------------
+    // -------------------- Candidate collection (✅ packed) --------------------
 
-    private static List<int[]> collectDoorCandidates(int[][] g, int width, int height) {
-        List<int[]> out = new ArrayList<>();
+    private static IntList collectDoorCandidatesPacked(int[][] g, int width, int height) {
+        // Rough upper bound, avoids resizes for common cases (optional)
+        IntList out = new IntList(Math.max(16, (width * height) / 16));
+
         for (int y = 1; y < height - 1; y++) {
             for (int x = 1; x < width - 1; x++) {
                 int v = g[y][x];
@@ -289,7 +323,7 @@ public final class DoorConstructor {
                 boolean doorVertical = n && s && !w && !e;
                 boolean doorHorizontal = w && e && !n && !s;
 
-                if (doorVertical || doorHorizontal) out.add(new int[] { x, y });
+                if (doorVertical || doorHorizontal) out.add(pack(x, y, width));
             }
         }
         return out;
@@ -305,11 +339,19 @@ public final class DoorConstructor {
         return false;
     }
 
-    private static boolean tooClose(int x, int y, List<int[]> placedDoors, int minSpacing) {
+    // ✅ packed version of tooClose (same math, no int[] allocations)
+    private static boolean tooClosePacked(int packedPos, IntList placedDoors, int minSpacing, int w) {
+        int x = unpackX(packedPos, w);
+        int y = unpackY(packedPos, w);
+
         int ms2 = minSpacing * minSpacing;
-        for (int[] p : placedDoors) {
-            int dx = p[0] - x;
-            int dy = p[1] - y;
+        for (int i = 0; i < placedDoors.size(); i++) {
+            int p = placedDoors.get(i);
+            int px = unpackX(p, w);
+            int py = unpackY(p, w);
+
+            int dx = px - x;
+            int dy = py - y;
             if (dx * dx + dy * dy <= ms2) return true;
         }
         return false;

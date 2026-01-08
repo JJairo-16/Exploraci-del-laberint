@@ -292,7 +292,7 @@ public final class SoundManager {
             if (fromStart) {
                 try {
                     bgmPlayer.stop();
-                } catch (Exception ignored) {
+                } catch (Exception ignored) { // ? ignored
                 }
                 bgmPlayer.play();
             } else if (bgmPlayer.getStatus() != MediaPlayer.Status.PLAYING) {

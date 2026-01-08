@@ -149,6 +149,8 @@ public enum PowerType implements ItemType {
             .floor(Constraint.PLAYER, 30)
             .cooldown(Constraint.EXIT, 1)
             .floor(Constraint.EXIT, 50)
+            .precheckPlayerDistance(true)
+            .forcePlaceIfPrecheckFails(true)
             .weightDecay(0.75)
             .build();
 }

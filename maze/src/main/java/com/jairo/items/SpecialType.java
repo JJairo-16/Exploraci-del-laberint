@@ -51,8 +51,8 @@ public enum SpecialType implements ItemType {
         BOOTS.setSpawnBlacklist(ICE);
         COINS_POWER.updateCount(0, 0, false);
 
-        CHEATED_BUTTON.updateCount(2, 2, true);
-        BOOTS.updateCount(2, 2, true);
+        CHEATED_BUTTON.updateCount(1, 2, true);
+        BOOTS.updateCount(1, 2, true);
     }
 
     @SuppressWarnings("unused")
@@ -92,9 +92,10 @@ public enum SpecialType implements ItemType {
 
     private static final RelaxPlan defaultRelaxPlan = RelaxPlan.builder()
             .cooldown(Constraint.PLAYER, 1)
-            .floor(Constraint.PLAYER, 30)
+            .floor(Constraint.PLAYER, 45)
             .cooldown(Constraint.BETWEEN, 1)
             .floor(Constraint.BETWEEN, 25)
+            .precheckPlayerDistance(true)
             .weightDecay(0.75)
             .build();
 }

@@ -42,15 +42,18 @@ import com.jairo.items.SpecialType;
  * candidata para evitar conflictos con items ya colocados:
  * <ul>
  * <li><code>NONE</code>: no se realiza ningún escaneo.</li>
- * <li><code>SAME_TYPE_EXACT</code>: evita items amb el mateix tipus exacte.</li>
+ * <li><code>SAME_TYPE_EXACT</code>: evita items amb el mateix tipus
+ * exacte.</li>
  * <li><code>SAME_TYPE_GENERAL</code>: evita items del mateix tipus general
  * (<code>BasicItemType</code>, <code>PowerType</code> o
  * <code>SpecialType</code>).</li>
  * <li><code>ANY_TYPE</code>: evita qualsevol item adjacent, independentment
  * del seu tipus.</li>
  * <li><code>CUSTOM</code>: evita items adjacents únicament si el seu
- * <code>ItemType</code> es troba dins del conjunt definit explícitament mitjançant
- * la configuració del <code>RelaxPlan</code>. Aquest mode requereix proporcionar
+ * <code>ItemType</code> es troba dins del conjunt definit explícitament
+ * mitjançant
+ * la configuració del <code>RelaxPlan</code>. Aquest mode requereix
+ * proporcionar
  * una llista no buida d’<code>ItemType</code>.</li>
  * </ul>
  * </li>
@@ -60,14 +63,16 @@ import com.jairo.items.SpecialType;
  * <ul>
  * <li><code>SAME_TYPE_EXACT</code>: aplica la distància mínima únicament contra
  * items del mateix tipus exacte.</li>
- * <li><code>SAME_TYPE_GENERAL</code>: aplica la distància mínima únicament contra
+ * <li><code>SAME_TYPE_GENERAL</code>: aplica la distància mínima únicament
+ * contra
  * items del mateix tipus general (<code>BasicItemType</code>,
  * <code>PowerType</code> o <code>SpecialType</code>).</li>
  * <li><code>ANY_TYPE</code>: aplica la distància mínima contra qualsevol item,
  * independentment del seu tipus.</li>
  * <li><code>CUSTOM</code>: aplica la distància mínima únicament contra els
  * <code>ItemType</code> definits explícitament a la configuració del
- * <code>RelaxPlan</code>. Aquest mode requereix proporcionar una llista no buida
+ * <code>RelaxPlan</code>. Aquest mode requereix proporcionar una llista no
+ * buida
  * d’<code>ItemType</code>.</li>
  * </ul>
  * </li>
@@ -112,6 +117,8 @@ public final class RelaxPlan {
 
     private final double weightDecay;
     private final IntToDoubleFunction weightFn;
+    private final boolean precheckPlayerDistance;
+    private final boolean forcePlaceIfPrecheckFails;
 
     private RelaxPlan(
             List<Constraint> order,
@@ -126,7 +133,9 @@ public final class RelaxPlan {
             DistComparisonMode distComparisonMode,
             Set<ItemType> customDistTypes,
             double weightDecay,
-            IntToDoubleFunction weightFn) {
+            IntToDoubleFunction weightFn,
+            boolean precheckPlayerDistance,
+            boolean forcePlaceIfPrecheckFails) {
 
         this.order = Collections.unmodifiableList(new ArrayList<>(order));
         this.step = new EnumMap<>(step);
@@ -143,6 +152,8 @@ public final class RelaxPlan {
 
         this.weightDecay = weightDecay;
         this.weightFn = Objects.requireNonNull(weightFn, "weightFn");
+        this.precheckPlayerDistance = precheckPlayerDistance;
+        this.forcePlaceIfPrecheckFails = forcePlaceIfPrecheckFails;
     }
 
     public List<Constraint> order() {
@@ -187,6 +198,14 @@ public final class RelaxPlan {
 
     public IntToDoubleFunction weightFunction() {
         return weightFn;
+    }
+
+    public boolean precheckPlayerDistance() {
+        return precheckPlayerDistance;
+    }
+
+    public boolean forcePlaceIfPrecheckFails() {
+        return forcePlaceIfPrecheckFails;
     }
 
     public boolean conflicts(ItemType self, ItemType neighbor) {
@@ -256,6 +275,9 @@ public final class RelaxPlan {
 
         // NUNCA null. Default “neutral”: pow(decay, round)
         private IntToDoubleFunction weightFn = r -> Math.pow(weightDecay, Math.max(0, r));
+
+        private boolean precheckPlayerDistance = false;
+        private boolean forcePlaceIfPrecheckFails = false;
 
         private Builder() {
             // Default order si no se añade nada
@@ -374,6 +396,16 @@ public final class RelaxPlan {
             return this;
         }
 
+        public Builder precheckPlayerDistance(boolean precheck) {
+            this.precheckPlayerDistance = precheck;
+            return this;
+        }
+
+        public Builder forcePlaceIfPrecheckFails(boolean force) {
+            this.forcePlaceIfPrecheckFails = force;
+            return this;
+        }
+
         public RelaxPlan build() {
             if (order.isEmpty()) {
                 // fallback seguro
@@ -422,7 +454,9 @@ public final class RelaxPlan {
                     distComparisonMode,
                     cdt,
                     weightDecay,
-                    weightFn);
+                    weightFn,
+                    precheckPlayerDistance,
+                    forcePlaceIfPrecheckFails);
         }
 
         private Set<ItemType> getSetOf(Set<ItemType> input) {
