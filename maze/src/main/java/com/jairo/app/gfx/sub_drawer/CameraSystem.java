@@ -94,12 +94,7 @@ public class CameraSystem {
             maxY = boardH - tilesInHeight + cameraPadding;
         }
 
-        cameraX = clamp(cameraX, minX, maxX);
-        cameraY = clamp(cameraY, minY, maxY);
-    }
-
-    private double clamp(double v, double min, double max) {
-        double minimum = Math.min(max, v);
-        return Math.max(min, minimum);
+        cameraX = Math.clamp(cameraX, minX, maxX);
+        cameraY = Math.clamp(cameraY, minY, maxY);
     }
 }

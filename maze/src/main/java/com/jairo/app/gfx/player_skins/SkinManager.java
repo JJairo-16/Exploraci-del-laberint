@@ -110,42 +110,38 @@ public final class SkinManager {
 
     public void tweakHeldItemBaseScale(PowerType power, double delta) {
         HeldItemTuning t = heldItemTuning(power);
-        setHeldItemTuning(power, t.withBaseScale(clamp(t.baseScale() + delta, 0.30, 2.00)));
+        setHeldItemTuning(power, t.withBaseScale(Math.clamp(t.baseScale() + delta, 0.30, 2.00)));
     }
 
     public void tweakHeldItemNoCursorScaleMul(PowerType power, double delta) {
         HeldItemTuning t = heldItemTuning(power);
-        setHeldItemTuning(power, t.withNoCursorScaleMul(clamp(t.noCursorScaleMul() + delta, 0.50, 3.00)));
+        setHeldItemTuning(power, t.withNoCursorScaleMul(Math.clamp(t.noCursorScaleMul() + delta, 0.50, 3.00)));
     }
 
     public void tweakHeldItemCursorOffset(PowerType power, double deltaX, double deltaY) {
         HeldItemTuning t = heldItemTuning(power);
         setHeldItemTuning(power, t.withCursorOffset(
-                clamp(t.cursorOffsetMulX() + deltaX, -5, 5),
-                clamp(t.cursorOffsetMulY() + deltaY, -5, 5)
+                Math.clamp(t.cursorOffsetMulX() + deltaX, -5, 5),
+                Math.clamp(t.cursorOffsetMulY() + deltaY, -5, 5)
         ));
     }
 
     public void tweakHeldItemNoCursorOffset(PowerType power, double deltaX, double deltaY) {
         HeldItemTuning t = heldItemTuning(power);
         setHeldItemTuning(power, t.withNoCursorOffset(
-                clamp(t.noCursorOffsetMulX() + deltaX, -5, 5),
-                clamp(t.noCursorOffsetMulY() + deltaY, -5, 5)
+                Math.clamp(t.noCursorOffsetMulX() + deltaX, -5, 5),
+                Math.clamp(t.noCursorOffsetMulY() + deltaY, -5, 5)
         ));
     }
 
     // --- NUEVO: ROTACIÓN ---
     public void tweakHeldItemRotation(PowerType power, double deltaDeg) {
         HeldItemTuning t = heldItemTuning(power);
-        setHeldItemTuning(power, t.withRotation(clamp(t.rotationDeg() + deltaDeg, -180, 180)));
+        setHeldItemTuning(power, t.withRotation(Math.clamp(t.rotationDeg() + deltaDeg, -180, 180)));
     }
 
     public void tweakHeldItemNoCursorRotation(PowerType power, double deltaDeg) {
         HeldItemTuning t = heldItemTuning(power);
-        setHeldItemTuning(power, t.withNoCursorRotation(clamp(t.noCursorRotationDeg() + deltaDeg, -180, 180)));
-    }
-
-    private double clamp(double v, double min, double max) {
-        return Math.max(min, Math.min(max, v));
+        setHeldItemTuning(power, t.withNoCursorRotation(Math.clamp(t.noCursorRotationDeg() + deltaDeg, -180, 180)));
     }
 }

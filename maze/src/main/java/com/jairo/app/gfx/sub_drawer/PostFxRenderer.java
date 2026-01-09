@@ -142,9 +142,7 @@ public final class PostFxRenderer {
     }
 
     private static double clamp01(double v) {
-        if (v < 0) return 0;
-        if (v > 1) return 1;
-        return v;
+        return Math.clamp(v, 0.0, 1.0);
     }
 
     // (Opcional) si quieres exponer el override:

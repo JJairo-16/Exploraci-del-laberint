@@ -76,18 +76,14 @@ public class Searcher {
         double score01 = priorityFactor * (0.6 + 0.4 * distanceFactor); // prioridad-first
         double raw = score01 * 100.0;
 
-        return clamp(raw, 1.0, 100.0);
+        return Math.clamp(raw, 1.0, 100.0);
     }
 
     private static int manhattan(int ax, int ay, int bx, int by) {
         return Math.abs(ax - bx) + Math.abs(ay - by);
     }
 
-    private static double clamp(double v, double lo, double hi) {
-        return Math.max(lo, Math.min(hi, v));
-    }
-
     private static double clamp01(double v) {
-        return clamp(v, 0.0, 1.0);
+        return Math.clamp(v, 0.0, 1.0);
     }
 }

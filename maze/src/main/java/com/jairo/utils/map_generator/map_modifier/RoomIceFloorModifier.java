@@ -49,10 +49,10 @@ public final class RoomIceFloorModifier {
         // 1) Convertir PATH -> ICE dentro de las rooms seleccionadas
         for (int i = 0; i < target; i++) {
             int[] r = pick.get(i);
-            int x1 = clamp(r[0], 0, w - 1);
-            int y1 = clamp(r[1], 0, h - 1);
-            int x2 = clamp(r[2], 0, w - 1);
-            int y2 = clamp(r[3], 0, h - 1);
+            int x1 = Math.clamp(r[0], 0, w - 1);
+            int y1 = Math.clamp(r[1], 0, h - 1);
+            int x2 = Math.clamp(r[2], 0, w - 1);
+            int y2 = Math.clamp(r[3], 0, h - 1);
 
             for (int y = y1; y <= y2; y++) {
                 int[] row = grid[y];
@@ -250,9 +250,5 @@ public final class RoomIceFloorModifier {
         int[] b = new int[a.length << 1];
         System.arraycopy(a, 0, b, 0, a.length);
         return b;
-    }
-
-    private static int clamp(int v, int lo, int hi) {
-        return Math.max(lo, Math.min(hi, v));
     }
 }

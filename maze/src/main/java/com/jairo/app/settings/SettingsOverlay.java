@@ -298,7 +298,7 @@ public final class SettingsOverlay {
     }
 
     private static double quantize01(double v) {
-        v = Math.max(0.0, Math.min(1.0, v));
+        v = Math.clamp(v, 0.0, 1.0);
         return Math.round(v * 100.0) / 100.0;
     }
 

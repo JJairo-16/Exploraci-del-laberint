@@ -32,9 +32,6 @@
               pickOnBounds="true"
               styleClass="settings-overlay">
 
-        <!-- Fondo oscuro -->
-        <Pane styleClass="settings-dim"/>
-
         <!-- Panel -->
         <VBox fx:id="settingsPanel"
               styleClass="settings-panel"

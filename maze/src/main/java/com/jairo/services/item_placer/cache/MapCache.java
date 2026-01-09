@@ -41,7 +41,7 @@ public final class MapCache {
 
                 int left = x;
                 int right = w - 1 - x;
-                distToBorder[pos] = Math.min(Math.min(left, right), Math.min(top, bottom));
+                distToBorder[pos] = min(left, right, top, bottom);
 
                 if (isPath(v)) {
                     path.add(pos);
@@ -51,6 +51,14 @@ public final class MapCache {
 
         this.pathPositions = Arrays.copyOf(path.data, path.size);
         this.pathCount = path.size;
+    }
+
+    private int min(int...numbers) {
+        int min = numbers[0];
+        for (int i = 1; i < numbers.length - 1; i++) {
+            min = Math.min(min, numbers[i]);
+        }
+        return min;
     }
 
     public int w() {

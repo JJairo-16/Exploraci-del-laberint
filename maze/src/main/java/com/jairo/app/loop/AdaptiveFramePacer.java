@@ -127,7 +127,7 @@ public final class AdaptiveFramePacer {
      * foreground/background/AFK.
      */
     public void setMaxFpsCap(int cap) {
-        cap = clampInt(cap, minFps, absoluteMaxFps);
+        cap = Math.clamp(cap, minFps, absoluteMaxFps);
 
         if (cap == this.maxFpsCap) return;
 
@@ -143,7 +143,7 @@ public final class AdaptiveFramePacer {
     }
 
     public void setTargetFps(int fps) {
-        fps = clampInt(fps, minFps, maxFpsCap);
+        fps = Math.clamp(fps, minFps, maxFpsCap);
         long newFrameNs = (long) (1_000_000_000L / (double) fps);
         if (newFrameNs <= 0L) newFrameNs = 1L;
         targetFrameNs = newFrameNs;
@@ -228,9 +228,5 @@ public final class AdaptiveFramePacer {
     private void resetScores() {
         downScore = 0;
         upScore = 0;
-    }
-
-    private static int clampInt(int v, int lo, int hi) {
-        return Math.max(lo, Math.min(hi, v));
     }
 }

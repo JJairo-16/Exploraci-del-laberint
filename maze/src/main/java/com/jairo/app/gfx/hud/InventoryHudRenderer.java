@@ -140,7 +140,7 @@ public class InventoryHudRenderer {
         final double iconGrow = 10;
 
         // calcular columnas/filas
-        int cols = Math.max(1, Math.min(MAX_ITEMS_PER_ROW, visible.size()));
+        int cols = Math.clamp(visible.size(), 1, MAX_ITEMS_PER_ROW);
 
         // Ancho de UNA fila (máximo cols)
         double rowW = cols * slotSize + (cols - 1) * gap;

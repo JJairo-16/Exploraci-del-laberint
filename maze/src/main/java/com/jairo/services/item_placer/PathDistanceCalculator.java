@@ -117,8 +117,8 @@ public final class PathDistanceCalculator {
             visEpoch = 1;
         }
 
-        int cx = clamp(sx, 0, w - 1);
-        int cy = clamp(sy, 0, h - 1);
+        int cx = Math.clamp(sx, 0, w - 1);
+        int cy = Math.clamp(sy, 0, h - 1);
 
         int head = 0, tail = 0;
         int start = pack(cx, cy);
@@ -164,12 +164,6 @@ public final class PathDistanceCalculator {
         q2 = new int[w * h];
 
         visEpoch = 1;
-    }
-
-    private static int clamp(int v, int lo, int hi) {
-        if (v < lo) return lo;
-        if (v > hi) return hi;
-        return v;
     }
 
     private static int pack(int x, int y) {

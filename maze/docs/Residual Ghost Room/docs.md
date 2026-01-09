@@ -3,8 +3,7 @@
 ---
 
 ## Què és?
-*
-Residual Ghost Room* és un **Bug colateral**
+*Residual Ghost Room* és un **Bug colateral**
 que ha sigut **completament solucionat**.
 
 Primera i única evidència:  

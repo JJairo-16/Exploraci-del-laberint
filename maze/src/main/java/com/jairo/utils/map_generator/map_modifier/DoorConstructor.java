@@ -61,6 +61,7 @@ public final class DoorConstructor {
      * - visited[] uses "stamps" (visited[pos] == stamp means visited), so clearing is O(1)
      * - qDist is optional (only when a BFS needs distances)
      */
+    @SuppressWarnings("unused")
     private static final class BfsScratch {
         final int w, h, n;
         final int[] qPos;

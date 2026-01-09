@@ -127,7 +127,7 @@ public final class BoardDiscovery {
             amp *= 0.5;
         }
 
-        return Math.max(0.0, Math.min(1.0, sum));
+        return Math.clamp(sum, 0.0, 1.0);
     }
 
     private static double valueNoise(double x, double y) {
@@ -166,13 +166,28 @@ public final class BoardDiscovery {
         return a + (b - a) * t;
     }
 
+    // * Hex numbers
+    // Golden ratio constant (used to decorrelate inputs)
+    private static final long GOLDEN_RATIO_64 = 0x9E3779B97F4A7C15L;
+
+    // MurmurHash3 mixing constants
+    private static final long MURMUR_C1 = 0xC2B2AE3D27D4EB4FL;
+    private static final long MURMUR_FMIX1 = 0xFF51AFD7ED558CCDL;
+    private static final long MURMUR_FMIX2 = 0xC4CEB9FE1A85EC53L;
+
+    // Hash output masking (24-bit fraction)
+    private static final long HASH_MASK_24 = 0xFFFFFFL;
+    private static final long HASH_RANGE_24 = 0x1000000L;
+
     private static double hash01(int x, int y) {
-        long h = x * 0x9E3779B97F4A7C15L ^ y * 0xC2B2AE3D27D4EB4FL;
+        long h = x * GOLDEN_RATIO_64 ^ y * MURMUR_C1;
+
         h ^= (h >>> 33);
-        h *= 0xFF51AFD7ED558CCDL;
+        h *= MURMUR_FMIX1;
         h ^= (h >>> 33);
-        h *= 0xC4CEB9FE1A85EC53L;
+        h *= MURMUR_FMIX2;
         h ^= (h >>> 33);
-        return ((h & 0xFFFFFFL) / (double) 0x1000000L);
+
+        return (h & HASH_MASK_24) / (double) HASH_RANGE_24;
     }
 }

@@ -9,6 +9,7 @@ public enum Skin {
     LAIA_V(getRoot("laia-v.png"), true),
     JORDI(getRoot("jordi.png"), true),
     ISABEL(getRoot("isabel.png"), true),
+    MARTI(getRoot("marti.png"), true),
     DEV(getRoot("dev.png"));
 
     private static final String BASE_ROOT = "/com/jairo/app/img/game/playerSkins/";

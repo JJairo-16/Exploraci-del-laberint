@@ -526,8 +526,8 @@ public class Drawer {
         // - [0..1]
         // - [0..100]
         if (radar <= 1.0)
-            return Math.max(0.0, Math.min(1.0, radar));
-        return Math.max(0.0, Math.min(1.0, radar / 100.0));
+            return Math.clamp(radar, 0.0, 1.0);
+        return Math.clamp(radar / 100.0, 0.0, 1.0);
     }
 
     public void darkOverlay(boolean load) {

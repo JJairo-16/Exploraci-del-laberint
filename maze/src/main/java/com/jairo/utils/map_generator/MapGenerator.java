@@ -287,7 +287,7 @@ public final class MapGenerator {
             int ax2 = Math.min(BOARD_WIDTH - 1, x2 + ROOM_PADDING);
             int ay2 = Math.min(BOARD_HEIGHT - 1, y2 + ROOM_PADDING);
 
-            // Colisión exacta con BitSet por fila (sin recorrer todo el rectángulo en x)
+            // Colisión exacta con BitSet por fila (sin recorrer t0do el rectángulo en x)
             boolean collision = false;
             for (int y = ay1; y <= ay2; y++) {
                 int hit = blockedRows[y].nextSetBit(ax1);
@@ -358,8 +358,8 @@ public final class MapGenerator {
             x = nx; y = ny;
         }
 
-        int tx = clamp(r.cx(), 1, BOARD_WIDTH - 2);
-        int ty = clamp(r.cy(), 1, BOARD_HEIGHT - 2);
+        int tx = Math.clamp(r.cx(), 1, BOARD_WIDTH - 2);
+        int ty = Math.clamp(r.cy(), 1, BOARD_HEIGHT - 2);
         int[] target = findNearestWalkableManhattan(g, tx, ty);
         if (target != null) {
             int cx = tx, cy = ty;
@@ -408,10 +408,6 @@ public final class MapGenerator {
         if ((max & 1) == 0) max--;
         int count = ((max - min) / 2) + 1;
         return min + 2 * rnd.nextInt(count);
-    }
-
-    private static int clamp(int v, int lo, int hi) {
-        return Math.max(lo, Math.min(hi, v));
     }
 
     private static int[] carveSingleExit(int[] g, SecureRandom rnd) {

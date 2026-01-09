@@ -70,7 +70,6 @@ public enum SpecialType implements ItemType {
         this.spawnBlacklist = Arrays.stream(cellTypes).boxed().toList();
     }
 
-    @SuppressWarnings("unused")
     private void updateCount(int min, int max, boolean removeRemaining) {
         this.minCount = min;
         this.maxCount = max;

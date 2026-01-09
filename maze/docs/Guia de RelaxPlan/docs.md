@@ -287,6 +287,7 @@ Aleshores el comportament per defecte és:
 - `maxRounds`: 64
 - `weightDecay`: 0.9
 - `weightFunction`: r -> $\text{weightDecay}^{\max(0, r)}$
+  > (`r` = nº de la ronda)
 
 ---
 

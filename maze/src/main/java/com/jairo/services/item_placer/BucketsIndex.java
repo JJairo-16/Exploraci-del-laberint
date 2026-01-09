@@ -63,6 +63,7 @@ public final class BucketsIndex {
      * - prune buckets that cannot possibly contain a conflicting item (safe via minManhattanToBucket)
      * - fewer method calls inside hot loops
      */
+    @SuppressWarnings("rawtypes")
     public boolean respectsMinDistBetween(int x, int y, int minDistBetween, ItemType placingType, RelaxPlan plan) {
         if (minDistBetween <= 0) return true;
 
@@ -96,7 +97,7 @@ public final class BucketsIndex {
                 if (minManhattanToBucket(x, y, bx, by, bs) >= minDistBetween) continue;
 
                 @SuppressWarnings("unchecked")
-                final ArrayList<PlacedItem> list = (ArrayList<PlacedItem>) localBuckets[rowBase + bx];
+                final ArrayList<PlacedItem> list = localBuckets[rowBase + bx];
                 if (list == null) continue;
 
                 // index loop avoids Iterator overhead

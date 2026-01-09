@@ -69,7 +69,7 @@ public class CoinSpeedSystem {
     }
 
     private static double clamp01(double v) {
-        return Math.max(0.0, Math.min(1.0, v));
+        return Math.clamp(v, 0.0, 1.0);
     }
 
     public static int getMinPercentage() {

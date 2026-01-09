@@ -15,11 +15,10 @@ import java.util.*;
  */
 public class Inventory {
     private static final List<String> order = List.of(
-        PowerType.values()
-    )
-    .stream()
-    .map(PowerType::getId)
-    .toList();
+            PowerType.values())
+            .stream()
+            .map(PowerType::getId)
+            .toList();
 
     public Inventory() {
         setFixedPowerOrderIds(order);
@@ -273,14 +272,17 @@ public class Inventory {
             for (String id : ids) {
                 if (id == null)
                     continue;
-                if (orderIndexById.containsKey(id))
-                    continue; // evita duplicados
+
+                // si ya estaba, no lo añadimos ni incrementamos i
+                if (orderIndexById.putIfAbsent(id, i) != null) {
+                    continue;
+                }
+
                 fixedPowerOrderIds.add(id);
-                orderIndexById.put(id, i++);
+                i++;
             }
         }
 
-        // Reordena los powers actuales a ese orden
         reorderPowersToFixedOrder();
     }
 
