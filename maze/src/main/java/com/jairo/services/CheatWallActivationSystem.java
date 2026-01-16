@@ -82,7 +82,7 @@ public final class CheatWallActivationSystem {
         // Primera vez que entramos en zona: buscamos wall adyacente
         if (activeX == -1) {
             int[] pos = findAdjacentCheatWallOrStates(cells, playerX, playerY);
-            if (pos == null) return;
+            if (pos.length == 0) return;
 
             activeX = pos[0];
             activeY = pos[1];
@@ -196,7 +196,7 @@ public final class CheatWallActivationSystem {
             int t = cells.get(y).get(x + 1);
             if (isCheatWallOrState(t)) return new int[] { x + 1, y };
         }
-        return null;
+        return new int[0];
     }
 
     private static boolean isCheatWallOrState(int t) {

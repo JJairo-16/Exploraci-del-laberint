@@ -12,6 +12,7 @@ public final class KeyBind {
     }
 
     private static final Map<KeyCode, Action> KEY_BINDS = new EnumMap<>(KeyCode.class);
+    private static final double NO_COOLDOWN = 0.0075;
 
     static {
         KEY_BINDS.put(KeyCode.A, Action.LEFT);
@@ -58,8 +59,8 @@ public final class KeyBind {
         DOWN(true, true, 1.0),
         USE(),
         SPRINT(),
-        ZOOM_IN(),
-        ZOOM_OUT(),
+        ZOOM_IN(true, false, NO_COOLDOWN),
+        ZOOM_OUT(true, false, NO_COOLDOWN),
         NEXT_SKIN(true, false, 1.5),
         PREVIOUS_SKIN(true, false, 1.5),
         PREVIOUS_ITEM(),

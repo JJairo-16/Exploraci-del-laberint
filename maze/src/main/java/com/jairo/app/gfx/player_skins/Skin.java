@@ -5,6 +5,7 @@ public enum Skin {
     BLAI(getRoot("blai.png"), true),
     CRISTIAN(getRoot("cristian.png"), true),
     RUBEN(getRoot("ruben.png"), true),
+    JESSICA(getRoot("jessica.jpg"), true),
     LAIA_C(getRoot("laia-c.png"), true),
     LAIA_V(getRoot("laia-v.png"), true),
     JORDI(getRoot("jordi.png"), true),

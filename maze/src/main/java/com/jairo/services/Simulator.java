@@ -1,4 +1,3 @@
-// File: src/main/java/com/jairo/services/Simulator.java
 package com.jairo.services;
 
 import com.jairo.models.Board;
@@ -229,13 +228,11 @@ public class Simulator {
             case ZOOM_IN:
                 if (drawer != null)
                     drawer.zoomIn();
-                log.info("Zoom in");
                 break;
 
             case ZOOM_OUT:
                 if (drawer != null)
                     drawer.zoomOut();
-                log.info("Zoom out");
                 break;
 
             case NEXT_SKIN:

@@ -54,9 +54,8 @@ public final class Dimensions {
             int boardHeight,
             Canvas... canvases) {
 
-        ChangeListener<Number> listener =
-                (obs, oldV, newV) -> recalcAndResize(
-                        leftPane, boardWidth, boardHeight, canvases);
+        ChangeListener<Number> listener = (obs, oldV, newV) -> recalcAndResize(
+                leftPane, boardWidth, boardHeight, canvases);
 
         leftPane.widthProperty().addListener(listener);
         leftPane.heightProperty().addListener(listener);
@@ -90,10 +89,14 @@ public final class Dimensions {
         double tileY = paneH / boardHeight;
 
         double tile = Math.min(tileX, tileY);
-        if (tile <= 0) return;
+        if (tile <= 0)
+            return;
 
         double newWidth = paneW - (paneW % tile);
         double newHeight = paneH - (paneH % tile);
+
+        newWidth = quantize04(newWidth);
+        newHeight = quantize04(newHeight);
 
         for (Canvas c : canvases) {
             c.setWidth(newWidth);
@@ -108,6 +111,10 @@ public final class Dimensions {
     }
 
     public double getTileSize() {
-        return tileSize;
+        return quantize04(tileSize);
+    }
+
+    private double quantize04(double v) {
+        return Math.round(v * 10000.0) / 10000.0;
     }
 }

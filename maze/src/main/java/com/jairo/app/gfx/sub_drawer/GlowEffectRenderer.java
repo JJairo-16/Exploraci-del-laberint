@@ -19,7 +19,7 @@ public final class GlowEffectRenderer {
 
     /**
      * DropShadow reutilizable.
-     * En JavaFX todo el render se hace en el FX thread,
+     * En JavaFX t0do el render se hace en el FX thread,
      * así que NO es necesario ThreadLocal.
      */
     private static final DropShadow SHARED_DROP_SHADOW = new DropShadow();

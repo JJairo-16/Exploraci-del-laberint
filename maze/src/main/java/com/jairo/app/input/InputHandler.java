@@ -21,7 +21,9 @@ public final class InputHandler {
 
     private static List<Action> blackListOfDebug = List.of(
         Action.NONE,
-        Action.USE
+        Action.USE,
+        Action.ZOOM_IN,
+        Action.ZOOM_OUT
     );
 
     private final Simulator simulator;

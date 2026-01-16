@@ -56,7 +56,7 @@ public class TeleportGunSystem {
 
         while (dPlayer >= 0 && dPad >= 0) {
             int[] dest = pickDestination(fromX, fromY, pads, dPlayer, dPad);
-            if (dest != null) {
+            if (dest.length > 0) {
                 int distFromPlayer = manhattan(fromX, fromY, dest[0], dest[1]);
                 int distFromNearestPad = distanceToNearestPad(dest[0], dest[1], pads);
 
@@ -141,7 +141,7 @@ public class TeleportGunSystem {
         }
 
         if (candidates.isEmpty())
-            return null;
+            return new int[0];
 
         // NUEVO: si hay 2+ candidatos, no permitir repetir el último destino
         if (candidates.size() >= 2 && lastDestX != Integer.MIN_VALUE) {

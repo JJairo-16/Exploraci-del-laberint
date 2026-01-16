@@ -19,7 +19,7 @@ public final class ItemAuraRenderer {
     private static final int ALPHA_LEVELS = 64;
 
     // Cache arrays of colors per RGB (each array indexed by alpha level)
-    private final Map<Integer, Color[]> colorCache = new HashMap<>(128);
+    private final Map<Integer, Color[]> colorCache = HashMap.newHashMap(128);
 
     // Shared DropShadow instance (JavaFX thread only)
     private static final DropShadow SHARED_DROP_SHADOW = new DropShadow();
@@ -42,8 +42,7 @@ public final class ItemAuraRenderer {
             double pulseSpeed,
             double radiusScale,
             double spread,
-            Effect oldEffect
-    ) {
+            Effect oldEffect) {
         final double pulse = 0.5 + 0.5 * Math.sin(t * pulseSpeed + phase);
         final double alpha = clamp01(baseAlpha + pulse * pulseAlpha);
 
@@ -64,14 +63,15 @@ public final class ItemAuraRenderer {
     private Color getCachedColor(int r, int g, int b, int alphaIdx) {
         final int rgbKey = (r << 16) | (g << 8) | b;
 
-        Color[] arr = colorCache.get(rgbKey);
-        if (arr == null) {
-            arr = new Color[ALPHA_LEVELS];
-            colorCache.put(rgbKey, arr);
-        }
+        // Obtiene o crea el array de colores para este RGB
+        Color[] arr = colorCache.computeIfAbsent(
+                rgbKey,
+                k -> new Color[ALPHA_LEVELS]);
 
         Color c = arr[alphaIdx];
-        if (c != null) return c;
+        if (c != null) {
+            return c;
+        }
 
         final double a = alphaIdx / (double) (ALPHA_LEVELS - 1);
         c = Color.rgb(r, g, b, a);
@@ -81,8 +81,10 @@ public final class ItemAuraRenderer {
 
     private static int quantizeAlpha(double a) {
         final int idx = (int) Math.round(a * (ALPHA_LEVELS - 1));
-        if (idx < 0) return 0;
-        if (idx >= ALPHA_LEVELS) return ALPHA_LEVELS - 1;
+        if (idx < 0)
+            return 0;
+        if (idx >= ALPHA_LEVELS)
+            return ALPHA_LEVELS - 1;
         return idx;
     }
 

@@ -89,6 +89,7 @@ public class Drawer {
 
     // Layout centralizado (reglas dentro del layout)
     private final HudLayout hudLayout = new HudLayout();
+    private final Image coinImage;
 
     // ---------- Cámara / Zoom / RenderLoop ----------
     private final CameraSystem cameraSystem = new CameraSystem();
@@ -126,8 +127,10 @@ public class Drawer {
         this.board = simulator.getBoardRef();
 
         this.zoomSystem = new ZoomSystem(tileSize);
+        lastZoom = zoomSystem.getZoom();
 
         images = ImageStore.getInstance();
+        coinImage = images.get(Sprite.COIN);
 
         mapGC = map.getGraphicsContext2D();
         entitiesGC = entities.getGraphicsContext2D();
@@ -171,15 +174,25 @@ public class Drawer {
     }
 
     // ---------- API de zoom ----------
+    private double lastZoom;
+
     public void zoomIn() {
         Simulator.Position p = simulator.getPlayerPosition();
         zoomSystem.zoomIn(p.x(), p.y(), cameraSystem);
+        double zoom = zoomSystem.getZoom();
+        if (lastZoom == zoom)
+            return;
+        lastZoom = zoom;
         update();
     }
 
     public void zoomOut() {
         Simulator.Position p = simulator.getPlayerPosition();
         zoomSystem.zoomOut(p.x(), p.y(), cameraSystem);
+        double zoom = zoomSystem.getZoom();
+        if (lastZoom == zoom)
+            return;
+        lastZoom = zoom;
         update();
     }
 
@@ -337,7 +350,6 @@ public class Drawer {
 
         int coins = simulator.getInventory().getCount(BasicItemType.COIN);
 
-        Image coinImg = images.get(Sprite.COIN);
         double t = renderLoop.getLastNow() / 1_000_000_000.0;
 
         Qualities q = BasicItemType.COIN.getQuality();
@@ -345,7 +357,7 @@ public class Drawer {
 
         GlowEffectRenderer.applyRgb(
                 hudGC,
-                coinImg,
+                coinImage,
                 r.x,
                 r.y,
                 r.w,
@@ -354,7 +366,7 @@ public class Drawer {
                 q.red, q.green, q.blue,
                 HUD_GLOW);
 
-        hudGC.drawImage(coinImg, r.x, r.y, r.w, r.h);
+        hudGC.drawImage(coinImage, r.x, r.y, r.w, r.h);
         hudGC.fillText("x" + coins, model.coinTextX,
                 model.coinTextBaselineY);
     }

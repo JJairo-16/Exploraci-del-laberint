@@ -91,7 +91,7 @@ public final class PathDistanceCalculator {
         }
 
         int[] start = findNearestPathCell(cells, exitX, exitY);
-        if (start == null) {
+        if (start.length == 0) {
             // devolver dist[][] ya reseteado a -1
             for (int y = 0; y < h; y++) Arrays.fill(dist[y], -1);
             return dist;
@@ -148,7 +148,7 @@ public final class PathDistanceCalculator {
             }
         }
 
-        return null;
+        return new int[0];
     }
 
     private void ensureCapacity(int w, int h) {

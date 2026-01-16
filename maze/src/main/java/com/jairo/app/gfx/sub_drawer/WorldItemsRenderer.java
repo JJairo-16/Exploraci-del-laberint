@@ -33,7 +33,7 @@ public class WorldItemsRenderer {
     private static final double BORDER_SPREAD = 0.75;
 
     // Cache phase by (x,y,typeKey)
-    private final Map<Long, Double> phaseCache = new HashMap<>(2048);
+    private final Map<Long, Double> phaseCache = HashMap.newHashMap(2048);
 
     private final ItemPlacer placer;
     private final Board board;

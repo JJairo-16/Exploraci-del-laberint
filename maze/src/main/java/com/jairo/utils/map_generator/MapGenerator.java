@@ -136,8 +136,7 @@ public final class MapGenerator {
         }
     }
 
-    private static final ThreadLocal<WorkBuffers> BUFFERS =
-            ThreadLocal.withInitial(WorkBuffers::new);
+    private static final ThreadLocal<WorkBuffers> BUFFERS = ThreadLocal.withInitial(WorkBuffers::new);
 
     private static int idx(int x, int y) {
         return y * BOARD_WIDTH + x;
@@ -361,7 +360,7 @@ public final class MapGenerator {
         int tx = Math.clamp(r.cx(), 1, BOARD_WIDTH - 2);
         int ty = Math.clamp(r.cy(), 1, BOARD_HEIGHT - 2);
         int[] target = findNearestWalkableManhattan(g, tx, ty);
-        if (target != null) {
+        if (target.length > 0) {
             int cx = tx, cy = ty;
             while (cx != target[0]) { g[idx(cx, cy)] = PATH; cx += (target[0] > cx) ? 1 : -1; }
             while (cy != target[1]) { g[idx(cx, cy)] = PATH; cy += (target[1] > cy) ? 1 : -1; }
@@ -382,7 +381,7 @@ public final class MapGenerator {
                 }
             }
         }
-        return null;
+        return new int[0];
     }
 
     private static int[] pickDoor(Room r, SecureRandom rnd) {
@@ -487,9 +486,10 @@ public final class MapGenerator {
             for (int i = 0; i < 4; i++) {
                 int nx = x + dx[i], ny = y + dy[i];
                 if (!inBounds(nx, ny)) continue;
+
                 int ip = idx(nx, ny);
-                if (b.bfsMark[ip] == stamp) continue;
-                if (!isWalkable(g[ip])) continue;
+                if (b.bfsMark[ip] == stamp || !isWalkable(g[ip])) continue;
+                
                 b.bfsMark[ip] = stamp;
                 visitedCount++;
                 q.add(packCell(nx, ny));

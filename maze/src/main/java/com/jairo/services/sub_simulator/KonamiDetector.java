@@ -14,7 +14,7 @@ public class KonamiDetector {
             Action.DOWN, Action.DOWN,
             Action.LEFT, Action.RIGHT,
             Action.LEFT, Action.RIGHT,
-            Action.ZOOM_IN, Action.ZOOM_OUT,
+            Action.NEXT_ITEM, Action.PREVIOUS_ITEM,
             Action.ACTIVE_KONAMI);
     
     private static final Set<Action> BLACKLIST = Set.of(Action.NONE);

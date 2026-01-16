@@ -85,7 +85,7 @@ public final class PostFxRenderer {
         int everyN = resolveEveryNFrames();
 
         if (everyN == 0) {
-            if (renderedOnce && !sizeChanged && !dimChanged) return;
+            if (renderedOnce) return;
             doRender(postFxGC, width, height, dimAlpha);
             renderedOnce = true;
             return;
@@ -120,8 +120,7 @@ public final class PostFxRenderer {
     }
 
     private static int clampEveryN(int n) {
-        if (n < 0) return 0;
-        return n;
+        return Math.max(n, 0);
     }
 
     private static void doRender(GraphicsContext postFxGC, double width, double height, double dimAlpha) {

@@ -35,7 +35,7 @@ En aplicar la mítica combinació, amb algunes modificacions, es desbloquejarà 
 2. Avall, avall  
 3. Dreta, esquerra  
 4. Dreta, esquerra  
-5. Zoom in, Zoom out  
+5. Següent objecte, objecte anterior  
 6. Espai
 
 ---
